@@ -267,6 +267,29 @@ Vincoli trasversali:
 - [ ] Caricamento **data-driven degli asset** (sprite/audio) coerente con il caricamento da Tiled già
   in uso per il posizionamento spaziale delle entità.
 
+### TR13 — Generazione di numeri casuali (tecniche avanzate)
+
+> Estende il TR10 (RNG deterministico e seedabile). Mentre TR10 garantisce **riproducibilità**,
+> questo requisito riguarda la **qualità percepita** e la **forma statistica** dei numeri generati.
+> Le tecniche vanno applicate **dove servirà**, non ovunque: ogni sistema che estrae numeri casuali
+> sceglie la tecnica adatta al proprio scopo.
+
+- [ ] **Casualità filtrata (illusione di vera casualità)** — per evitare sequenze che *sembrano*
+  poco casuali (ripetizioni ravvicinate, cluster), mantenere una **coda per ogni applicazione** (es.
+  loot di un nemico, esiti di un colpo, spawn): ogni estrazione viene **confrontata con i numeri
+  precedenti** relativi a *quella* applicazione e riestratta/corretta se troppo simile o ripetuta.
+  La lunghezza della coda e i criteri di rifiuto sono **data-driven** (coerente con TR3) e per-uso.
+- [ ] **Noise gaussiano** — generazione di valori distribuiti secondo una **normale** (es.
+  Box–Muller su base uniforme), con media e deviazione standard parametrizzabili, per grandezze che
+  devono addensarsi attorno a un valore centrale (variazione di danno, dispersione, jitter).
+- [ ] **Perlin noise** (o simplex) — rumore **coerente e continuo** per la generazione procedurale
+  (terreno, biomi, densità di risorse, variazioni ambientali), seedabile in modo coerente con TR10.
+- [ ] Le tecniche sono esposte come **servizi/utility dedicati** iniettati via GameContext (TR5) e
+  costruiti sopra l'RNG seedabile del TR10: nessun accesso a `Math.random()` sparso. La logica è
+  **pura** (nessun import da Excalibur, TR1) e **testabile** in isolamento (TR11), verificandone le
+  proprietà statistiche (assenza di ripetizioni per la coda filtrata, media/varianza per il
+  gaussiano, continuità per il Perlin).
+
 ### Struttura delle cartelle (indicativa)
 
 ```
@@ -293,7 +316,7 @@ src/
 |---|---|
 | Alta | TR1 (separazione), TR2 (componenti), TR3 (dati esterni), TR4 (eventi/riferimenti), TR5 (DI), TR6 (Utility-AI) |
 | Media/Alta | TR9 (persistenza), TR11 (test) |
-| Media | TR7 (combattimento), TR8 (input), TR10 (RNG), TR12 (config/i18n/asset) |
+| Media | TR7 (combattimento), TR8 (input), TR10 (RNG), TR12 (config/i18n/asset), TR13 (RNG avanzato) |
 
 ### Requisiti correlati (documenti separati)
 
