@@ -337,9 +337,23 @@ Priorità relativa dei requisiti mappa (rispetto ai TR sopra):
 
 ## Da aggiungere ai requisiti
 
+Cercare di spezzare tutto in servizi indipendenti, testabili e riutilizzabili, anche se un po' più astratti.
+
+### Sui Componenti
+Possiamo ragionare per Compèonenti anche per indicare al mondo che degli oggetti possono essere considerati nelle loro interazini. Ad esempio tutto ciò che può diventare un bersaglio (giocatore, PNG, telecamera, serratura, barile di benzina, ...) basta che abbia il componente e può essere preso in considerazione.
+
 ### Random Service
 Già descritto in TR13
+
+### Blackboards service
+Un servizio per condividere la conoscenza tra entità (ed effettuare certi calcoli una sola volta):
+- una specifica dell'actor, non condivisa con nessuno
+- una globale
+- una per fazione o gruppo di caratteri (il gruppo attaccante ad esempio: se vedo che tutti gli altri sono morti perdo coraggio e scappo)
 
 ### UtilityAi Service
 Servizio per gestire UtilityAI.
 Ricordarsi di consentire diverse curve o soglie in modo da permettere diverse personalità a diversi personaggi
+Indicare che possiamo valutare di mettere più "reasoner" tra loro indipendenti, se le opzioni si moltiplicano. Al limite un Behaviour tree potrebbe avere, ad un certo livello, una UtilityAI che analizza la situazine di fino.
+
+Potrebbe essere fuori dallo scope della AI, ma alcuni elemento dello scenario potrebbeo "pubblicizzare" il loro scopo e il loro uso, in modo che l'IA degli altri actor possono prenderne atto e usarli nelle scelte. Ad esempio una sorgente d'acqua dolce indica che riduce la sete, quindi gli actor che hanno sete nei dintorni possono usarla. Oppure un coniglio pubblica di essere cibo per carnivori, che se non sono troppo deboli possono cacciarlo. Una sedia dice che si si può sedere.
