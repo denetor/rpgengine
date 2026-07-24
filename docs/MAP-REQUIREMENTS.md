@@ -7,8 +7,11 @@
 
 Linguaggio dei requisiti: **DEVE** = obbligatorio, **DOVREBBE** = raccomandato, **PUÒ** = opzionale.
 
-> Questo documento è un allegato di [`REQUIREMENTS.md`](./REQUIREMENTS.md) e ne estende la sezione
-> *Mappa* / *Technical requirements* con i dettagli di struttura mappa e rendering del terreno.
+> Questo documento possiede i requisiti `MAP-1…MAP-9` e specifica il **come si disegna** il mondo.
+> Il **contratto di servizio** della mappa — API, dipendenze, stato serializzabile, requisiti da
+> `MAP-10` in avanti — sta in [`services/map.md`](./services/map.md); i principi architetturali
+> trasversali stanno in [`REQUIREMENTS.md`](./REQUIREMENTS.md); le feature di gioco che questo
+> documento serve (GP-7, GP-8, GP-9, GP-52) stanno in [`GAMEPLAY.md`](./GAMEPLAY.md).
 
 ---
 
