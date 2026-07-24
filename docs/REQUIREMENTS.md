@@ -335,3 +335,11 @@ Priorità relativa dei requisiti mappa (rispetto ai TR sopra):
 > testabile (TR1/TR11); i parametri (TS, z-band, `INDEX_TO_TILE`) vivono in `config.ts` (TR12); il
 > caricamento delle mappe è data-driven da file/Tiled (TR3, TR12).
 
+## Da aggiungere ai requisiti
+
+### Random Service
+Già descritto in TR13
+
+### UtilityAi Service
+Servizio per gestire UtilityAI.
+Ricordarsi di consentire diverse curve o soglie in modo da permettere diverse personalità a diversi personaggi
