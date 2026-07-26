@@ -121,12 +121,22 @@ esiti.
 tecniche vanno applicate **dove servono**, non ovunque. Il danno critico di un boss e il colore di
 un fiore non hanno gli stessi requisiti.
 
+**RND-15** — La granularità del canale **DEVE** essere una **scelta del programmatore del gioco**,
+non imposta dal servizio: è chi usa `filtered(channel, …)` a decidere quando una determinata entità
+merita una sequenza filtrata propria e quando può condividerne una. Passando un `channel` più
+specifico (`'lockpick:door:42'`, `'hits:enemyA'`) si ottiene una coda anti-ripetizione dedicata a
+quell'entità; passando un `channel` più generico (`'lockpick'`) le entità condividono la stessa
+coda. Il servizio **NON DEVE** desumere la granularità dal tipo di entità né imporre un canale
+per-istanza di default: si limita a mantenere una coda distinta per ogni `channel` distinto (RND-9)
+e a serializzarla (RND-13). La scelta della chiave — e quindi del confine tra le sequenze — resta
+responsabilità del chiamante.
+
 ### Struttura
 
-**RND-15** — Gaussiana, rumore coerente e filtro **DEVONO** essere costruiti **sopra** lo stream
+**RND-16** — Gaussiana, rumore coerente e filtro **DEVONO** essere costruiti **sopra** lo stream
 uniforme di base, non su sorgenti indipendenti: garantisce che RND-1 valga per tutti.
 
-**RND-16** — La logica **DEVE** essere pura e priva di allocazioni negli hot path: `noise2`
+**RND-17** — La logica **DEVE** essere pura e priva di allocazioni negli hot path: `noise2`
 **DEVE** poter essere chiamato milioni di volte durante la generazione di una mappa (ARC-13.3).
 
 ## Criteri di test
