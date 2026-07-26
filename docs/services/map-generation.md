@@ -47,7 +47,10 @@ interface MapGenerator {
 interno tra due generazioni, nessuna dipendenza dall'ordine delle chiamate.
 
 **GEN-2** — La stessa coppia (ricetta, seed) **DEVE** produrre una mappa **identica bit per bit**,
-oggi e dopo un aggiornamento del browser (RND-4).
+oggi e dopo un aggiornamento del browser (RND-4). È una promessa che si mantiene solo se il
+generatore evita le funzioni trascendenti di `Math` (`log`, `cos`, `sin`, `exp`, `pow`), che
+ECMAScript non specifica esattamente: vedi
+[`adr/0001`](../adr/0001-riproducibilita-bit-per-bit.md).
 
 **GEN-3** — Una mappa generata **DEVE** poter essere ricostruita da seed invece che salvata per
 intero: nel salvataggio finiscono seed, ricetta e differenze (MAP-18).
@@ -72,9 +75,14 @@ numero limitato di volte e poi **fallire in modo esplicito**, mai restituire una
 stanza del tesoro, accampamento, sorgente d'acqua) come **dati posizionali**. Popolarli di nemici,
 oggetti e quest è compito dell'orchestrazione, non del generatore.
 
-**GEN-9** — La generazione **DEVE** essere **decomponibile in porzioni** riproducibili
+**GEN-9** — La generazione **DOVREBBE** essere **decomponibile in porzioni** riproducibili
 indipendentemente, derivando uno stream per porzione (RND-5): serve per generare a chunk senza che
 il risultato dipenda dall'ordine di visita del giocatore.
+
+**Non è nei piani attuali**, ed è coerente con l'API qui sopra, che genera una mappa intera per
+chiamata. Di conseguenza `RND` non realizza `derive()` (RND-5 è **DOVREBBE**). Il seeding per hash
+di RND-19 rende l'aggiunta additiva: quando la generazione a chunk servirà davvero, realizzarla non
+romperà né salvataggi né mappe già generate.
 
 **GEN-10** — Il generatore **DEVE** produrre solo `TerrainId` validi rispetto alla tabella dei
 terreni; una ricetta che ne cita uno inesistente **DEVE** fallire in validazione (ARC-7.5).
@@ -93,7 +101,8 @@ eseguibile a fasi interrompibili o fuori dal thread principale, restando determi
 - Stesso seed → mappa identica, su 100 ricette diverse.
 - Connettività verificata su 1000 seed casuali per ogni ricetta: nessuna mappa con punti isolati.
 - Una ricetta impossibile fallisce con errore diagnostico entro il numero di tentativi previsto.
-- La generazione per chunk in ordine diverso produce lo stesso mondo.
+- *(quando GEN-9 sarà realizzato)* La generazione per chunk in ordine diverso produce lo stesso
+  mondo.
 - Il generatore produce una mappa valida con un insieme di terreni inventato (ARC-3.4).
 
 ## Collegamenti

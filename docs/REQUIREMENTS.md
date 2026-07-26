@@ -32,10 +32,13 @@ Da questo discendono tre conseguenze che valgono come vincoli di progetto:
 
 | Documento | Contenuto |
 |---|---|
+| [`../CONTEXT.md`](../CONTEXT.md) | **Il linguaggio del progetto**: il glossario unico dei termini di dominio, con i sinonimi da evitare. Un termine si definisce lì, e solo lì |
 | `REQUIREMENTS.md` *(questo file)* | Visione, principi architetturali `ARC-*`, catalogo dei servizi, regole di confine, priorità |
 | [`GAMEPLAY.md`](./GAMEPLAY.md) | Cosa deve fare **il gioco**: feature viste dal giocatore, con rimando ai servizi che le realizzano |
 | [`MAP-REQUIREMENTS.md`](./MAP-REQUIREMENTS.md) | Struttura mappa a livelli e rendering del terreno (Dual Grid System). Possiede i requisiti `MAP-1…MAP-9` |
 | [`services/*.md`](./services/) | Una scheda per servizio: contratto, API, requisiti numerati, criteri di test |
+| [`adr/*.md`](./adr/) | **Perché** una decisione difficile da invertire è stata presa così, e quali alternative sono state scartate |
+| [`specs/*.md`](./specs/) | Come si realizza un servizio: problema, storie utente, decisioni tecniche e di collaudo, cosa resta fuori |
 
 ### Convenzioni
 
@@ -45,27 +48,18 @@ Da questo discendono tre conseguenze che valgono come vincoli di progetto:
   Requisiti → Criteri di test → Collegamenti.
 - Le firme TypeScript nelle schede sono **indicative**: fissano la forma e le responsabilità del
   contratto, non l'implementazione.
+- Un **ADR** si scrive solo quando la decisione è difficile da invertire, sorprende chi legge il
+  codice, ed è il risultato di un compromesso vero. Le schede dicono *cosa*; gli ADR dicono *perché
+  non nell'altro modo*.
+
+| ADR | Decisione |
+|---|---|
+| [`0001`](./adr/0001-riproducibilita-bit-per-bit.md) | Riproducibilità bit-per-bit tra motori JavaScript: `xoshiro128**`, niente funzioni trascendenti, gaussiana per somma di uniformi |
+| [`0002`](./adr/0002-riaggiustamento-dei-pesi.md) | Casualità filtrata per riaggiustamento dei pesi, non per riestrazione |
 
 ---
 
-## 3. Glossario
-
-- **Servizio** — unità di funzionalità con una superficie pubblica unica, uno stato proprio e
-  nessuna dipendenza dagli altri servizi. È l'unità di isolamento, di test e di riuso.
-- **Motore (`engine/`)** — l'insieme dei servizi generici, riusabili in un altro gioco 2D.
-- **Gioco (`game/`)** — contenuti, bilanciamento e orchestrazione specifici di questo progetto.
-- **Orchestrazione** — lo strato che collega i servizi tra loro reagendo agli eventi di dominio e
-  invocando le API dei servizi. Codifica le regole di *questo* gioco.
-- **Evento di dominio** — notifica immutabile e serializzabile di un fatto già avvenuto
-  (`entity-died`, `item-picked`). Non è un comando e non ha valore di ritorno.
-- **Porta** — interfaccia minima dichiarata da un consumatore per esprimere ciò di cui ha bisogno.
-- **Stato statico** — definizioni caricate da file di contenuto, immutabili a runtime.
-- **Stato dinamico** — stato che cambia durante la partita; è l'unico che viene serializzato.
-- **Headless** — eseguibile e testabile senza motore grafico, canvas o asset.
-
----
-
-## 4. Principi architetturali
+## 3. Principi architetturali
 
 ### ARC-1 — Separazione presentazione / dominio
 
@@ -299,10 +293,10 @@ disciplina.
 
 ---
 
-## 5. Catalogo dei servizi
+## 4. Catalogo dei servizi
 
 **Natura:** G = generico (riusabile) · D = di dominio (assume il modello RPG di questo progetto).
-**Prio:** priorità di adozione (vedi §8).
+**Prio:** priorità di adozione (vedi §7).
 
 ### Core — infrastruttura
 
@@ -361,7 +355,7 @@ disciplina.
 
 ---
 
-## 6. Struttura delle cartelle
+## 5. Struttura delle cartelle
 
 ```
 src/
@@ -398,7 +392,7 @@ engine/core/random/
 
 ---
 
-## 7. Grafo delle dipendenze
+## 6. Grafo delle dipendenze
 
 Le frecce sono dipendenze di **import**. Si noti l'assenza di frecce tra servizi (ARC-4.1): il
 collegamento avviene per eventi risaliti all'orchestrazione.
@@ -436,7 +430,7 @@ Nessuno dei servizi coinvolti sa dell'esistenza degli altri.
 
 ---
 
-## 8. Priorità di adozione
+## 7. Priorità di adozione
 
 | Prio | Contenuto | Obiettivo |
 |---|---|---|
@@ -451,7 +445,7 @@ vincoli strutturali: aggiungerli dopo significa riscrivere, come documentato in
 
 ---
 
-## 9. Tracciabilità rispetto alla versione 0.1
+## 8. Tracciabilità rispetto alla versione 0.1
 
 I requisiti tecnici `TR1…TR13` della versione precedente sono stati assorbiti così:
 

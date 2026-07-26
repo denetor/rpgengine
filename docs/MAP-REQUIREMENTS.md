@@ -12,6 +12,10 @@ Linguaggio dei requisiti: **DEVE** = obbligatorio, **DOVREBBE** = raccomandato, 
 > `MAP-10` in avanti — sta in [`services/map.md`](./services/map.md); i principi architetturali
 > trasversali stanno in [`REQUIREMENTS.md`](./REQUIREMENTS.md); le feature di gioco che questo
 > documento serve (GP-7, GP-8, GP-9, GP-52) stanno in [`GAMEPLAY.md`](./GAMEPLAY.md).
+>
+> I termini usati qui — griglia dati, griglia di disegno, Dual Grid System, priorità di terreno,
+> base, z-band, overhead, impronta — sono definiti in [`../CONTEXT.md`](../CONTEXT.md), il glossario
+> unico del progetto.
 
 ---
 
@@ -21,20 +25,7 @@ Definire (a) l'organizzazione della mappa di gioco in livelli e (b) il modo in c
 
 ---
 
-## 2. Definizioni
-
-- **Griglia dati (data grid):** griglia logica a interi in cui ogni cella contiene un singolo identificativo di terreno. È la griglia usata da gameplay e collisioni.
-- **Griglia di disegno (display grid):** griglia di rendering **sfasata di mezzo tile** rispetto alla griglia dati; ogni suo riquadro ha per angoli 4 celle dati.
-- **Dual Grid System (DGS):** tecnica di autotiling in cui ogni tile di disegno è scelto in base ai suoi 4 angoli (celle dati), per un totale di **16 casi** (2⁴). Equivale al metodo *marching squares* / per angoli.
-- **Priorità di terreno:** ordine totale fra i terreni; il terreno di priorità maggiore viene disegnato sopra quello di priorità minore.
-- **Base / ancora:** punto di uno sprite usato come riferimento per l'ordinamento; corrisponde ai "piedi" dell'oggetto (bordo inferiore dell'impronta).
-- **z-band:** intervallo di valori `z` riservato a una categoria di elementi, tale da non sovrapporsi ad altre bande.
-- **Overhead:** livello disegnato sopra tutte le entità, indipendentemente dalla posizione (es. chiome, archi).
-- **Impronta di collisione:** area bloccante di un oggetto, in generale più piccola del suo sprite e indipendente dall'ordine di disegno.
-
----
-
-## 3. Parametri di progetto
+## 2. Parametri di progetto
 
 | Parametro | Simbolo | Valore di default | Note |
 |---|---|---|---|
@@ -46,7 +37,7 @@ Definire (a) l'organizzazione della mappa di gioco in livelli e (b) il modo in c
 
 ---
 
-## 4. Requisiti
+## 3. Requisiti
 
 ### MAP-1 — Struttura a livelli della mappa
 
@@ -117,7 +108,7 @@ La collisione **DEVE** essere un dato separato dal rendering, definito dall'impr
 
 ---
 
-## 5. Criteri di accettazione
+## 4. Criteri di accettazione
 
 - [ ] La mappa è renderizzata secondo l'ordine di livelli di MAP-1.
 - [ ] Il terreno usa 3 passate DGS impilate per priorità; le transizioni fra prato, incolto e acqua sono corrette, inclusi gli angoli interni e gli incroci a tre.

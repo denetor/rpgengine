@@ -20,7 +20,7 @@ teorie riguardo al funzionamento del gioco.
 | Dipende da | uno stream `RND` |
 | NON dipende da | `excalibur`, `INV`, `ENT`, altri servizi |
 | Consumato da | orchestrazione (alla morte di un'entità, all'apertura di un contenitore) |
-| Stato dinamico | code della casualità filtrata per canale, contatori di pietà |
+| Stato dinamico | contatori di pietà · lo stato dei canali filtrati appartiene a `RND` (RND-9) |
 | Stato statico | loot table |
 | Dati esterni | `content/loot/*.json` |
 | Eventi emessi | nessuno: restituisce un risultato |
@@ -69,14 +69,21 @@ servizio **NON DEVE** valutarle da sé: riceve un contesto già risolto o un val
 
 **LOOT-5** — Il servizio **DEVE** supportare la **casualità filtrata** per canale (RND-9): il
 bottino dello stesso tipo di nemico non **DEVE** ripetere lo stesso oggetto molte volte di seguito,
-anche quando la probabilità lo consentirebbe.
+anche quando la probabilità lo consentirebbe. Il servizio si limita a passare il `channel` a
+`RND.filtered()`: non tiene memoria propria e non reimplementa il filtro.
 
 **LOOT-6** — Il servizio **DOVREBBE** supportare un meccanismo di **pietà**: la probabilità di un
 oggetto raro cresce a ogni estrazione senza successo e si azzera all'ottenimento. Riduce la
 frustrazione della coda lunga senza alterare la media dichiarata.
 
-**LOOT-7** — Lo stato dei filtri e dei contatori di pietà **DEVE** essere serializzato (RND-13):
-salvare e ricaricare **NON DEVE** poter essere usato per manipolare gli esiti.
+**LOOT-7** — Lo stato dei **contatori di pietà** **DEVE** essere serializzato: salvare e ricaricare
+**NON DEVE** poter essere usato per manipolare gli esiti. Lo stato del **filtro** non è di questo
+servizio: le memorie di canale appartengono a `RND`, che le mantiene (RND-9) e le serializza
+(RND-13). LOOT passa un `channel` e nient'altro.
+
+La divisione non è arbitraria. La **pietà** è una regola di gioco — «dopo N tentativi a vuoto il
+raro è garantito» — e vive dove vivono le regole del bottino. Il **filtro** è una tecnica di
+casualità, e vive nell'unica sorgente di casualità del gioco.
 
 **LOOT-8** — Un'estrazione **DEVE** essere riproducibile dato lo stream `RND` e il contesto.
 
@@ -98,7 +105,9 @@ rendono la probabilità reale poco intuitiva, ed è così che nascono i drop mai
 
 - Su 10⁶ estrazioni, le frequenze coincidono con i pesi dichiarati entro tolleranza.
 - Le tabelle annidate producono le probabilità composte attese.
-- Il filtro impedisce ripetizioni oltre la soglia senza spostare la distribuzione a lungo termine.
+- Il filtro riduce le ripetizioni consecutive rispetto all'estrazione pesata non filtrata. La
+  distribuzione risultante **non** coincide con i pesi nominali — il filtro la sposta per
+  costruzione (RND-9); si asserisce la monotonia e un vettore d'oro, come in `random.md`.
 - Il contatore di pietà garantisce l'oggetto entro il massimo dichiarato.
 - Una tabella ricorsiva è rifiutata in validazione.
 - Stesso seed e stesso contesto → stesso bottino.
