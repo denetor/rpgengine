@@ -8,7 +8,10 @@
     "start": "vite --host",
     "build": "tsc && vite build",
     "serve": "vite preview",
-    "test": "npm run build && npx playwright test",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "npm run typecheck && npx vitest run",
+    "test:integration": "npm run build && npx playwright test",
     "test:integration-update": "npx playwright test --update-snapshots"
   },
   "repository": {},
@@ -29,6 +32,7 @@
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.2",
     "typescript": "5.9.3",
-    "vite": "6.4.3"
+    "vite": "6.4.3",
+    "vitest": "4.1.10"
   }
 }

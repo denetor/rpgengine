@@ -15,5 +15,5 @@
     "noUnusedParameters": false,
     "noImplicitReturns": true
   },
-  "include": ["./src"]
+  "include": ["./src", "./tests-headless", "./vitest.config.ts", "./vitest.fixtures.config.ts"]
 }
