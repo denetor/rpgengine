@@ -1,45 +1,44 @@
-# INV — Inventario ed equipaggiamento
+# INV — Inventory and equipment
 
-**Area:** Regole · **Natura:** generico · **Priorità:** 2 · **Stato:** proposto
-**Prefisso requisiti:** `INV-*`
+**Area:** Game rules · **Nature:** generic · **Priority:** 2 · **Status:** proposed
+**Requirement prefix:** `INV-*`
 
-## Scopo
+## Purpose
 
-Gestire i contenitori di oggetti — zaino del giocatore, borsa di un PNG, forziere, banco di un
-mercante, mucchio di bottino a terra — con peso, impilamento, slot di equipaggiamento e vincoli di
-trasferimento.
+Manage the item containers — the player's backpack, an NPC's bag, a chest, a merchant's counter, a
+pile of loot on the ground — with weight, stacking, equipment slots and transfer constraints.
 
-Un solo servizio per tutti i contenitori: uno scambio con un mercante e il saccheggio di un cadavere
-sono lo stesso trasferimento con regole diverse.
+A single service for all containers: trading with a merchant and looting a corpse are the same
+transfer with different rules.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | — |
-| NON dipende da | `excalibur`, `STAT`, `QST`, `ECO`, altri servizi |
-| Consumato da | orchestrazione |
-| Stato dinamico | contenuto dei contenitori, oggetti equipaggiati, stato degli oggetti (usura, cariche) |
-| Stato statico | definizioni degli oggetti, slot, regole di impilamento |
-| Dati esterni | `content/items/*.json`, `content/items/slots.json` |
-| Eventi emessi | `item-added`, `item-removed`, `item-moved`, `item-equipped`, `item-unequipped`, `container-full`, `item-consumed` |
+| Depends on | — |
+| Does NOT depend on | `excalibur`, `STAT`, `QST`, `ECO`, other services |
+| Consumed by | orchestration |
+| Dynamic state | container contents, equipped items, item state (wear, charges) |
+| Static state | item definitions, slots, stacking rules |
+| External data | `content/items/*.json`, `content/items/slots.json` |
+| Events emitted | `item-added`, `item-removed`, `item-moved`, `item-equipped`, `item-unequipped`, `container-full`, `item-consumed` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface ItemDefinition {
   id: ItemId;
   weight: number;
-  maxStack: number;                       // 1 = non impilabile
-  slots: readonly SlotId[];               // dove può essere equipaggiato
-  requirements: readonly Requirement[];   // valutati da STAT (STAT-11)
+  maxStack: number;                       // 1 = not stackable
+  slots: readonly SlotId[];               // where it can be equipped
+  requirements: readonly Requirement[];   // evaluated by STAT (STAT-11)
   modifiers: readonly StatModifier[];
   tags: readonly ItemTag[];               // 'weapon' | 'consumable' | 'key' | 'quest' | …
   unique: boolean;
 }
 
 interface ItemInstance {
-  instanceId: InstanceId;                 // stabile: serve a quest e tracciamento
+  instanceId: InstanceId;                 // stable: needed by quests and tracking
   def: ItemId;
   quantity: number;
   durability?: number;
@@ -63,85 +62,83 @@ interface InventoryService {
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Modello
+### Model
 
-**INV-1** — **DEVE** esistere un solo modello di contenitore per zaino, forziere, cadavere, banco del
-mercante e mucchio a terra: differiscono per **capacità e regole**, non per tipo.
+**INV-1** — There **MUST** be a single container model for backpack, chest, corpse, merchant's
+counter and pile on the ground: they differ in **capacity and rules**, not in type.
 
-**INV-2** — Gli oggetti **DEVONO** distinguere **definizione** (statica, condivisa, per `ItemId`) e
-**istanza** (dinamica, con `InstanceId` stabile, quantità, usura, cariche) (ARC-10.3).
+**INV-2** — Items **MUST** distinguish **definition** (static, shared, keyed by `ItemId`) from
+**instance** (dynamic, with a stable `InstanceId`, quantity, wear, charges) (ARC-10.3).
 
-**INV-3** — Gli oggetti identici e privi di stato individuale **DEVONO** impilarsi fino a un massimo
-dichiarato; quelli con stato proprio (usura diversa, incantesimi) **NON DEVONO** impilarsi (GP-24).
+**INV-3** — Identical items with no individual state **MUST** stack up to a declared maximum; those
+with state of their own (different wear, enchantments) **MUST NOT** stack (GP-24).
 
-**INV-4** — Ogni contenitore **DEVE** poter avere un limite di **peso**, di **numero di slot**, o
-entrambi. Il superamento **DEVE** essere segnalato con un esito esplicito, mai con una perdita
-silenziosa di oggetti.
+**INV-4** — Every container **MUST** be able to have a **weight** limit, a **slot count** limit, or
+both. Exceeding it **MUST** be reported with an explicit outcome, never with a silent loss of items.
 
-**INV-5** — Il **sovraccarico** (GP-21) **DEVE** essere calcolato qui come stato osservabile
-(percentuale di carico, soglie superate); le sue **conseguenze** sulle statistiche sono modificatori
-applicati da `STAT` (STAT-7), non regole di questo servizio.
+**INV-5** — **Encumbrance** (GP-21) **MUST** be computed here as observable state (load percentage,
+thresholds crossed); its **consequences** on attributes are modifiers applied by `STAT` (STAT-7),
+not rules of this service.
 
-### Quest item
+### Quest items
 
-**INV-6** — Un oggetto **DEVE** poter essere marcato come **quest item**: peso 0, non droppabile,
-non vendibile, non distruggibile finché il flag è attivo (GP-20).
+**INV-6** — An item **MUST** be markable as a **quest item**: weight 0, not droppable, not sellable,
+not destructible while the flag is set (GP-20).
 
-**INV-7** — Il servizio **NON DEVE** conoscere le quest: applica il flag, non decide quando
-attivarlo o rimuoverlo. È l'orchestrazione, reagendo agli eventi di `QST`, a marcare e smarcare
+**INV-7** — The service **MUST NOT** know about quests: it applies the flag, it does not decide when
+to set or clear it. It is the orchestration, reacting to `QST`'s events, that marks and unmarks
 (ARC-4.1).
 
-### Equipaggiamento
+### Equipment
 
-**INV-8** — **DEVONO** esistere **slot di equipaggiamento** definiti nei dati (arma, arma secondaria,
-elmo, corpo, accessori), con regole di occupazione: un'arma a due mani occupa due slot (GP-22).
+**INV-8** — There **MUST** be **equipment slots** defined in data (weapon, secondary weapon, helmet,
+body, accessories), with occupancy rules: a two-handed weapon occupies two slots (GP-22).
 
-**INV-9** — I **requisiti** per equipaggiare **DEVONO** essere verificati tramite una porta
-(`RequirementChecker`) implementata su `STAT`, non importando `STAT` (ARC-4.1, STAT-11).
+**INV-9** — The **requirements** for equipping **MUST** be checked through a port
+(`RequirementChecker`) implemented on top of `STAT`, not by importing `STAT` (ARC-4.1, STAT-11).
 
-**INV-10** — Equipaggiare **DEVE** produrre gli eventi che consentono a `STAT` di applicare i
-modificatori: il servizio inventario **NON DEVE** modificare statistiche.
+**INV-10** — Equipping **MUST** produce the events that allow `STAT` to apply the modifiers: the
+inventory service **MUST NOT** modify attributes.
 
-**INV-11** — Un oggetto equipaggiato **DEVE** restare nell'inventario ed essere marcato, non
-spostato in un contenitore separato: evita la classe di bug in cui un oggetto esiste due volte o
-sparisce togliendolo.
+**INV-11** — An equipped item **MUST** stay in the inventory and be flagged, not moved into a
+separate container: this avoids the class of bugs where an item exists twice or disappears when
+unequipped.
 
-### Consumo e trasferimento
+### Consumption and transfer
 
-**INV-12** — I consumabili **DEVONO** essere supportati con cariche ed effetti dichiarati nei dati;
-il consumo emette l'evento, mentre l'**effetto** è applicato dall'orchestrazione tramite `CBT` o
-`STAT` (GP-23).
+**INV-12** — Consumables **MUST** be supported with charges and effects declared in data; consuming
+emits the event, while the **effect** is applied by the orchestration through `CBT` or `STAT`
+(GP-23).
 
-**INV-13** — Il trasferimento tra contenitori **DEVE** essere **atomico**: o l'oggetto è tolto da uno
-e messo nell'altro, o nulla cambia. Nessuno stato in cui l'oggetto esiste in entrambi o in nessuno.
+**INV-13** — Transfer between containers **MUST** be **atomic**: either the item is removed from one
+and put in the other, or nothing changes. No state in which the item exists in both or in neither.
 
-**INV-14** — Le regole di trasferimento (furto, saccheggio, commercio, dono) **DEVONO** essere
-parametri della chiamata, non contenitori diversi: chi trasferisce dichiara il contesto, il servizio
-applica i vincoli.
+**INV-14** — The transfer rules (theft, looting, trade, gift) **MUST** be parameters of the call, not
+different containers: whoever transfers declares the context, the service applies the constraints.
 
-**INV-15** — Gli oggetti **unici DEVONO** essere garantiti tali: il servizio **NON DEVE** permettere
-la duplicazione di un `InstanceId`. Il round-trip di serializzazione **DEVE** verificarlo.
+**INV-15** — **Unique** items **MUST** be guaranteed to be so: the service **MUST NOT** allow an
+`InstanceId` to be duplicated. The serialization round trip **MUST** verify it.
 
-**INV-16** — L'ordinamento del contenuto restituito **DEVE** essere deterministico (ARC-9.4).
+**INV-16** — The ordering of the returned contents **MUST** be deterministic (ARC-9.4).
 
-**INV-17** — Il servizio **DEVE** funzionare con un catalogo di oggetti inventato: non conosce le
-spade, conosce oggetti con peso, tag e slot (ARC-3.4).
+**INV-17** — The service **MUST** work with a made-up item catalogue: it does not know about swords,
+it knows about items with weight, tags and slots (ARC-3.4).
 
-**INV-18** — Il crafting e la riparazione (GP-26), se realizzati, **DEVONO** essere un servizio o un
-modulo distinto che **usa** l'inventario tramite l'orchestrazione, non regole interne a questo.
+**INV-18** — Crafting and repair (GP-26), if implemented, **MUST** be a distinct service or module
+that **uses** the inventory through the orchestration, not rules internal to this one.
 
-## Criteri di test
+## Test criteria
 
-- Un trasferimento interrotto a metà lascia lo stato invariato.
-- L'impilamento rispetta il massimo e non fonde oggetti con stato individuale diverso.
-- Il peso totale è coerente dopo 10³ operazioni casuali di aggiunta, rimozione e trasferimento.
-- Un quest item non può essere venduto né lasciato cadere; smarcato, sì.
-- Nessuna operazione può duplicare un `InstanceId`.
-- Round-trip di serializzazione su un inventario complesso, equipaggiamento incluso.
+- A transfer interrupted halfway leaves the state unchanged.
+- Stacking respects the maximum and does not merge items with different individual state.
+- The total weight is consistent after 10³ random add, remove and transfer operations.
+- A quest item cannot be sold or dropped; once unmarked, it can.
+- No operation can duplicate an `InstanceId`.
+- Serialization round trip on a complex inventory, equipment included.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-20, GP-21, GP-22, GP-23, GP-24, GP-26
 - [`stats.md`](./stats.md) · [`loot.md`](./loot.md) · [`economy.md`](./economy.md) ·

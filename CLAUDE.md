@@ -2,27 +2,28 @@
 
 ### Executing commands
 
-Questa applicazione gira all'interno di un container Docker. Tutti i comandi devono essere lanciati 
-dall'interno del container chiamato `rpgengine_app_1`.
+This application runs inside a Docker container. All commands must be run from inside the container
+named `rpgengine_app_1`.
 
 ## Writing code
 
 ### Write code and comments in english language.
 
 ### Avoid code golf
-Quando scrivi il codice usa algoritmi e strutture chiari e semplici da leggere. Non condensare più istruzioni in una sola
-e, se disponibili strutture più semplici, usa quelle.
+When writing code, use algorithms and structures that are clear and easy to read. Do not condense
+several statements into one and, if simpler structures are available, use those.
 
 ### Use pure functions when possible
-Se possibile, senza complicare il codice, usa funzioni pure: sono più facili da testare in modo isolato e rendono il
-codice più prevedibile.
+Where possible, and without complicating the code, use pure functions: they are easier to test in
+isolation and make the code more predictable.
 
-## Linguaggio
+## Language
 
-### Sii breve
-Non perdere tempo in saluti e convenevoli, comunica in modo rapido e conciso senza giri di parole.
+### Be brief
+Do not waste time on greetings and pleasantries, communicate quickly and concisely without
+beating around the bush.
 
-### Sii critico
-Non dare per scontato che le mie proposte o le mie idee siano corrette. Se propongo un punto di vista o un modo di
-risolvere i problemi valuta, come prima cosa, se è un modo sensato o se ci sono alternative più robuste e coerenti.
-
+### Be critical
+Do not assume that my proposals or ideas are correct. If I put forward a point of view or a way of
+solving a problem, first assess whether it is a sensible approach or whether there are more robust
+and coherent alternatives.

@@ -1,50 +1,50 @@
-# AI — Utility-AI
+# AI — Utility AI
 
-**Area:** Agenti · **Natura:** generico · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `AI-*`
+**Area:** Agents · **Nature:** generic · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `AI-*`
 
-## Scopo
+## Purpose
 
-Decidere **cosa un agente vuole fare**, dato uno snapshot del suo stato e del mondo. Ogni azione
-possibile riceve un punteggio di utilità; viene scelta una tra quelle a punteggio più alto.
+Decide **what an agent wants to do**, given a snapshot of its own state and of the world. Every
+possible action receives a utility score; one is chosen among those with the highest scores.
 
-Il servizio è **logica pura**: non muove nessuno, non attacca nessuno, non conosce Excalibur. Riceve
-dati, restituisce un'**intenzione**. Eseguirla spetta all'orchestrazione. Questa separazione è ciò
-che rende l'intera IA testabile in un runner Node: si costruisce un contesto a mano, si chiede la
-decisione, si verifica.
+The service is **pure logic**: it moves nobody, attacks nobody, knows nothing about Excalibur. It
+receives data and returns an **intent**. Executing it is up to the orchestration. This separation is
+what makes the whole AI testable in a Node runner: you build a context by hand, ask for the
+decision, and check it.
 
-## Modello concettuale
+## Conceptual model
 
-Quattro mattoni, mantenuti separati anche nel codice:
+Four building blocks, kept separate in the code too:
 
-| Mattone | Cos'è | Dove si tara |
+| Block | What it is | Where it is tuned |
 |---|---|---|
-| **Input / bisogni** | stato di agente e mondo come valori normalizzati `0..1` (salute, fame, distanza dal bersaglio, alleati vivi) | estrattori |
-| **Consideration** | curva di risposta che trasforma un input in un contributo di utilità `0..1` | **dati**: è la superficie di tuning |
-| **Azione** | un intento con la sua lista di consideration; il punteggio è la loro combinazione | dati: pesi, bucket |
-| **Selector** | confronta i punteggi e sceglie | dati: soglia, inerzia, casualità |
+| **Inputs / needs** | agent and world state as values normalized to `0..1` (health, hunger, distance to target, living allies) | extractors |
+| **Consideration** | response curve that turns an input into a utility contribution `0..1` | **data**: it is the tuning surface |
+| **Action** | an intent with its list of considerations; the score is their combination | data: weights, buckets |
+| **Selector** | compares the scores and chooses | data: threshold, inertia, randomness |
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | uno stream `RND` (per la scelta pesata) |
-| NON dipende da | `excalibur`, `ENT`, `BB`, `MAP`, `PATH`, altri servizi |
-| Consumato da | orchestrazione, che costruisce il contesto ed esegue l'intento |
-| Stato dinamico | ultima decisione e sua scadenza per agente (per l'inerzia) |
-| Stato statico | definizioni di azioni, consideration, curve, profili di personalità |
-| Dati esterni | `content/ai/actions.json`, `curves.json`, `personalities.json` |
-| Eventi emessi | nessuno: restituisce un'intenzione |
-| Ordine di grandezza | ~100 agenti attivi, rivalutati a intervalli discreti, entro ~2 ms/frame |
+| Depends on | an `RND` stream (for the weighted choice) |
+| Does NOT depend on | `excalibur`, `ENT`, `BB`, `MAP`, `PATH`, other services |
+| Consumed by | orchestration, which builds the context and executes the intent |
+| Dynamic state | last decision and its expiry per agent (for inertia) |
+| Static state | definitions of actions, considerations, curves, personality profiles |
+| External data | `content/ai/actions.json`, `curves.json`, `personalities.json` |
+| Events emitted | none: it returns an intent |
+| Order of magnitude | ~100 active agents, re-evaluated at discrete intervals, within ~2 ms/frame |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
-/** Snapshot read-only: dati, mai riferimenti runtime (ARC-1.3). */
+/** Read-only snapshot: data, never runtime references (ARC-1.3). */
 interface DecisionContext {
-  readonly self: AgentSnapshot;              // valori normalizzati e stato
-  readonly beliefs: BlackboardView;          // da BB, in sola lettura
-  readonly candidates: readonly TargetSnapshot[];   // bersagli e affordance già filtrati
+  readonly self: AgentSnapshot;              // normalized values and state
+  readonly beliefs: BlackboardView;          // from BB, read-only
+  readonly candidates: readonly TargetSnapshot[];   // targets and affordances already filtered
   readonly now: GameTimeMs;
 }
 
@@ -58,120 +58,118 @@ interface Intent {
 interface Reasoner {
   readonly id: ReasonerId;
   decide(ctx: DecisionContext, profile: PersonalityId): Intent | undefined;
-  /** Come `decide`, ma restituisce tutti i punteggi e i contributi: per il debug. */
+  /** Like `decide`, but returns all the scores and contributions: for debugging. */
   explain(ctx: DecisionContext, profile: PersonalityId): DecisionTrace;
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Purezza e struttura
+### Purity and structure
 
-**AI-1** — Il ragionatore **DEVE** essere **puro**: nessun `import` da Excalibur, nessun accesso al
-mondo, nessun effetto collaterale. Stesso contesto e stesso seed → stessa decisione.
+**AI-1** — The reasoner **MUST** be **pure**: no `import` from Excalibur, no access to the world, no
+side effects. Same context and same seed → same decision.
 
-**AI-2** — Il ragionatore **DEVE** restituire un'**intenzione**, non eseguire l'azione. L'esecuzione
-(muovere, attaccare, parlare, sedersi) è dell'orchestrazione, che conosce i servizi coinvolti
+**AI-2** — The reasoner **MUST** return an **intent**, not execute the action. Execution (moving,
+attacking, talking, sitting down) belongs to the orchestration, which knows the services involved
 (ARC-4.1).
 
-**AI-3** — Il contesto **DEVE** essere uno **snapshot in sola lettura** di dati: nessun `Actor`,
-nessun riferimento a componenti mutabili, nessuna funzione che interroga il mondo durante la
-valutazione.
+**AI-3** — The context **MUST** be a **read-only snapshot** of data: no `Actor`, no reference to
+mutable components, no function that queries the world during evaluation.
 
-**AI-4** — I quattro mattoni (input, consideration, azione, selector) **DEVONO** essere moduli
-distinti e testabili separatamente.
+**AI-4** — The four building blocks (inputs, considerations, actions, selector) **MUST** be distinct
+modules, separately testable.
 
-### Punteggio
+### Scoring
 
-**AI-5** — Tutti gli input **DEVONO** essere normalizzati in `0..1`, con la normalizzazione
-dichiarata nei dati (intervallo di riferimento, saturazione).
+**AI-5** — All inputs **MUST** be normalized to `0..1`, with the normalization declared in data
+(reference range, saturation).
 
-**AI-6** — Le **curve di risposta DEVONO** essere data-driven e parametriche: lineare, polinomiale,
-logistica, a gradino, esponenziale, con parametri tarabili senza ricompilare (ARC-7.1).
+**AI-6** — **Response curves MUST** be data-driven and parametric: linear, polynomial, logistic,
+step, exponential, with parameters tunable without recompiling (ARC-7.1).
 
-**AI-7** — Il punteggio di un'azione **DEVE** essere la combinazione delle sue consideration, con
-proprietà di **veto**: una consideration a 0 azzera l'azione. Consente di esprimere "non posso
-attaccare se non ho un bersaglio" senza codice condizionale.
+**AI-7** — An action's score **MUST** be the combination of its considerations, with a **veto**
+property: a consideration at 0 zeroes the action. This makes it possible to express "I cannot attack
+if I have no target" without conditional code.
 
-**AI-8** — Il prodotto di molte consideration penalizza le azioni complesse; il servizio **DEVE**
-applicare una **compensazione** (es. media geometrica o correzione per il numero di fattori), perché
-le azioni non siano confrontate ingiustamente.
+**AI-8** — The product of many considerations penalizes complex actions; the service **MUST** apply a
+**compensation** (e.g. geometric mean or a correction for the number of factors), so that actions
+are not compared unfairly.
 
-**AI-9** — Ogni azione **DEVE** poter avere un **peso** e un limite superiore di utilità, per
-stabilire gerarchie tra categorie (sopravvivere batte curiosare).
+**AI-9** — Every action **MUST** be able to have a **weight** and an upper utility bound, in order to
+establish hierarchies between categories (surviving beats sightseeing).
 
-### Selezione
+### Selection
 
-**AI-10** — Il selector **DEVE** supportare la **scelta casuale pesata tra le migliori**: non sempre
-l'azione con il punteggio massimo, ma un'estrazione tra quelle entro una soglia dal massimo. Un PNG
-perfettamente ottimale è un PNG prevedibile.
+**AI-10** — The selector **MUST** support a **weighted random choice among the best**: not always the
+action with the top score, but a draw among those within a threshold of the maximum. A perfectly
+optimal NPC is a predictable NPC.
 
-**AI-11** — **DEVE** esistere un'**inerzia**: l'azione in corso riceve un bonus finché non è
-conclusa o non decade, per evitare che l'agente oscilli tra due obiettivi quasi pari. L'entità
-dell'inerzia è configurabile per azione.
+**AI-11** — There **MUST** be an **inertia**: the action in progress receives a bonus until it is
+finished or decays, to prevent the agent oscillating between two nearly equal goals. The magnitude
+of the inertia is configurable per action.
 
-**AI-12** — Il servizio **DEVE** supportare il **bucketing** delle azioni: le azioni sono raccolte
-in gruppi (sopravvivenza, combattimento, bisogni, ozio) valutati per priorità, e i gruppi a priorità
-inferiore **NON DEVONO** essere valutati se uno superiore ha già prodotto un punteggio sopra soglia.
-È insieme un fatto di comportamento e di prestazioni.
+**AI-12** — The service **MUST** support action **bucketing**: actions are gathered into groups
+(survival, combat, needs, idling) evaluated by priority, and lower-priority groups **MUST NOT** be
+evaluated if a higher one has already produced a score above threshold. It is a matter of behaviour
+and of performance at once.
 
-**AI-13** — La casualità **DEVE** provenire da uno stream `RND` iniettato, mai da `Math.random()`
+**AI-13** — Randomness **MUST** come from an injected `RND` stream, never from `Math.random()`
 (ARC-9.2).
 
-### Personalità e composizione
+### Personality and composition
 
-**AI-14** — **DEVONO** esistere **profili di personalità**: insiemi di curve, soglie e pesi che, a
-parità di azioni disponibili, producono comportamenti diversi — un codardo, un fanatico, un
-mercenario, un animale timido. La personalità è un **dato** applicato al ragionatore, non un
-ragionatore diverso (GP-30).
+**AI-14** — There **MUST** be **personality profiles**: sets of curves, thresholds and weights that,
+for the same available actions, produce different behaviours — a coward, a fanatic, a mercenary, a
+timid animal. Personality is **data** applied to the reasoner, not a different reasoner (GP-30).
 
-**AI-15** — Il servizio **DEVE** supportare **più ragionatori indipendenti**, ciascuno con il
-proprio insieme di azioni (es. *combattimento*, *bisogni*, *sociale*). Quando le opzioni si
-moltiplicano, più ragionatori piccoli sono più tarabili di uno grande.
+**AI-15** — The service **MUST** support **several independent reasoners**, each with its own set of
+actions (e.g. *combat*, *needs*, *social*). When the options multiply, several small reasoners are
+easier to tune than one big one.
 
-**AI-16** — Il servizio **DEVE** poter essere usato **come nodo dentro una struttura di livello
-superiore** (behaviour tree o macchina a stati): un albero decide il contesto generale, e a un certo
-livello delega a un ragionatore di utilità la valutazione fine della situazione. L'API **DEVE**
-consentire di invocare un ragionatore su un sottoinsieme di azioni.
+**AI-16** — The service **MUST** be usable **as a node inside a higher-level structure** (behaviour
+tree or state machine): a tree decides the general context, and at some level delegates the
+fine-grained assessment of the situation to a utility reasoner. The API **MUST** allow a reasoner to
+be invoked on a subset of actions.
 
-**AI-17** — Le azioni **DEVONO** poter dichiarare **precondizioni dure**, valutate prima del
-punteggio, per escludere subito ciò che è impossibile.
+**AI-17** — Actions **MUST** be able to declare **hard preconditions**, evaluated before scoring, in
+order to immediately rule out what is impossible.
 
-### Prestazioni e diagnostica
+### Performance and diagnostics
 
-**AI-18** — La valutazione **DEVE** essere **throttlata**: solo gli agenti entro un raggio di
-attivazione, a intervalli discreti, con il carico distribuito tra i frame perché non si rivalutino
-tutti nello stesso tick (ARC-13.2).
+**AI-18** — Evaluation **MUST** be **throttled**: only agents within an activation radius, at
+discrete intervals, with the load spread across frames so that they do not all re-evaluate on the
+same tick (ARC-13.2).
 
-**AI-19** — L'insieme dei candidati **DEVE** essere fornito già filtrato dall'indice spaziale: il
-ragionatore **NON DEVE** scandire il mondo (ARC-13.1).
+**AI-19** — The set of candidates **MUST** be supplied already filtered by the spatial index: the
+reasoner **MUST NOT** scan the world (ARC-13.1).
 
-**AI-20** — La valutazione **NON DEVE** allocare né produrre log negli hot path (ARC-13.3).
+**AI-20** — Evaluation **MUST NOT** allocate nor produce logs on the hot paths (ARC-13.3).
 
-**AI-21** — `explain()` **DEVE** restituire i punteggi di tutte le azioni e i contributi di ogni
-consideration. Senza questo strumento un'IA a utilità è impossibile da tarare, e la messa a punto
-diventa tentativi al buio.
+**AI-21** — `explain()` **MUST** return the scores of all the actions and the contributions of every
+consideration. Without this tool a utility AI is impossible to tune, and adjusting it becomes
+guesswork in the dark.
 
-**AI-22** — L'ordine di valutazione delle azioni **NON DEVE** influenzare l'esito, a parità di
-punteggio: i pareggi si risolvono con una regola deterministica dichiarata.
+**AI-22** — The order in which actions are evaluated **MUST NOT** influence the outcome for equal
+scores: ties are broken by a declared deterministic rule.
 
-## Criteri di test
+## Test criteria
 
-- Dato un contesto costruito a mano, la decisione è quella attesa; cambiando un solo input, cambia
-  come previsto.
-- La proprietà di veto azzera l'azione con una consideration a 0.
-- Due profili di personalità diversi, sullo stesso contesto, producono decisioni diverse in modo
-  coerente con i loro parametri.
-- L'inerzia impedisce l'oscillazione tra due azioni con punteggi entro l'1%.
-- Con lo stesso seed, la scelta pesata tra le migliori è riproducibile.
-- Il bucketing evita la valutazione dei gruppi inferiori quando previsto (verificabile contando le
-  valutazioni).
-- `explain()` produce una traccia leggibile che giustifica la decisione.
-- Il ragionatore funziona con azioni e input inventati, estranei a questo gioco (ARC-3.4).
+- Given a hand-built context, the decision is the expected one; changing a single input changes it
+  as predicted.
+- The veto property zeroes the action with a consideration at 0.
+- Two different personality profiles, on the same context, produce different decisions consistently
+  with their parameters.
+- Inertia prevents oscillation between two actions with scores within 1%.
+- With the same seed, the weighted choice among the best is reproducible.
+- Bucketing avoids evaluating the lower groups when expected (verifiable by counting the
+  evaluations).
+- `explain()` produces a readable trace that justifies the decision.
+- The reasoner works with made-up actions and inputs, foreign to this game (ARC-3.4).
 
-## Collegamenti
+## Links
 
-- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-1 (purezza), ARC-13 (throttling)
+- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-1 (purity), ARC-13 (throttling)
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-29, GP-30, GP-31, GP-32
 - [`blackboard.md`](./blackboard.md) · [`affordance.md`](./affordance.md) ·
   [`pathfinding.md`](./pathfinding.md) · [`spatial-index.md`](./spatial-index.md)

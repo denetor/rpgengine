@@ -1,34 +1,34 @@
-# CRM — Crimine e notorietà
+# CRM — Crime and notoriety
 
-**Area:** Regole · **Natura:** di dominio · **Priorità:** 4 · **Stato:** proposto
-**Prefisso requisiti:** `CRM-*`
+**Area:** Game rules · **Nature:** domain · **Priority:** 4 · **Status:** proposed
+**Requirement prefix:** `CRM-*`
 
-## Scopo
+## Purpose
 
-Stabilire quando un'azione del giocatore è un crimine, chi se ne accorge, e quali conseguenze ne
-derivano in termini di taglia e notorietà presso le fazioni.
+Establish when a player action is a crime, who notices it, and what consequences follow in terms of
+bounty and notoriety with the factions.
 
-Il principio che regge tutto il servizio: **un crimine esiste solo se qualcuno lo vede.** Rubare in
-una stanza vuota non è un reato; rubare davanti a una guardia lo è. Questo rende il sistema una
-questione di *percezione* prima che di regole.
+The principle that holds the whole service up: **a crime exists only if someone sees it.** Stealing
+in an empty room is not an offence; stealing in front of a guard is. That makes the system a matter
+of *perception* before it is a matter of rules.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | una **porta di percezione** (implementata su `SPX`/`AFF`) |
-| NON dipende da | `excalibur`, `FAC`, `ENT`, altri servizi |
-| Consumato da | orchestrazione |
-| Stato dinamico | taglie per fazione, crimini noti, testimoni, stato di ricerca |
-| Stato statico | catalogo dei reati, gravità, prescrizione, regole di giurisdizione |
-| Dati esterni | `content/crime/offenses.json`, `jurisdictions.json` |
-| Eventi emessi | `crime-witnessed`, `bounty-changed`, `crime-reported`, `bounty-cleared`, `arrest-demanded` |
+| Depends on | a **perception port** (implemented on top of `SPX`/`AFF`) |
+| Does NOT depend on | `excalibur`, `FAC`, `ENT`, other services |
+| Consumed by | orchestration |
+| Dynamic state | bounties per faction, known crimes, witnesses, search state |
+| Static state | catalogue of offences, severity, statute of limitations, jurisdiction rules |
+| External data | `content/crime/offenses.json`, `jurisdictions.json` |
+| Events emitted | `crime-witnessed`, `bounty-changed`, `crime-reported`, `bounty-cleared`, `arrest-demanded` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface CrimeReport {
-  readonly offense: OffenseId;              // furto, aggressione, omicidio, scasso, sconfinamento
+  readonly offense: OffenseId;              // theft, assault, murder, burglary, trespassing
   readonly perpetrator: EntityId;
   readonly victim?: EntityId;
   readonly at: Cell;
@@ -37,7 +37,7 @@ interface CrimeReport {
 }
 
 interface CrimeService {
-  /** L'orchestrazione dichiara il fatto; il servizio stabilisce se e da chi è percepito. */
+  /** The orchestration declares the fact; the service decides whether and by whom it is perceived. */
   report(crime: CrimeReport, witnesses: readonly WitnessSnapshot[], now: GameTimeMs)
     : CommandResult<CrimeOutcome>;
 
@@ -46,69 +46,68 @@ interface CrimeService {
   payBounty(faction: FactionId, who: EntityId, amount: number): CommandResult<void>;
   serveSentence(faction: FactionId, who: EntityId): CommandResult<void>;
 
-  /** Prescrizione e oblio: i crimini invecchiano. */
+  /** Statute of limitations and forgetting: crimes age. */
   tick(now: GameTimeMs): CommandResult<void>;
 }
 ```
 
-## Requisiti
+## Requirements
 
-**CRM-1** — Un'azione **DEVE** produrre conseguenze solo se **osservata** da un testimone in grado di
-percepirla: distanza, campo visivo, ostruzione, illuminazione, rumore (GP-47). La valutazione passa
-da una porta di percezione, non da `SPX` importato (ARC-4.1).
+**CRM-1** — An action **MUST** produce consequences only if **observed** by a witness able to
+perceive it: distance, field of view, occlusion, lighting, noise (GP-47). The evaluation goes
+through a perception port, not through an imported `SPX` (ARC-4.1).
 
-**CRM-2** — Il catalogo dei reati, la loro gravità e la giurisdizione competente **DEVONO** essere
-dati (ARC-7.1). Cosa sia un reato dipende dal luogo: cacciare è lecito nei boschi, non nella riserva
-del barone.
+**CRM-2** — The catalogue of offences, their severity and the competent jurisdiction **MUST** be
+data (ARC-7.1). What counts as an offence depends on the place: hunting is lawful in the woods, not
+in the baron's reserve.
 
-**CRM-3** — Un testimone **DEVE** dover **segnalare** il crimine perché produca una taglia: la
-segnalazione richiede tempo, un tragitto verso un'autorità, e può essere impedita (fuga o
-eliminazione del testimone). L'assenza di questo passaggio rende il sistema una punizione istantanea
-e poco credibile.
+**CRM-3** — A witness **MUST** have to **report** the crime for it to produce a bounty: reporting
+takes time, a journey towards an authority, and can be prevented (the witness flees or is
+eliminated). Without this step the system becomes an instant and unconvincing punishment.
 
-**CRM-4** — La taglia **DEVE** essere **per fazione e per giurisdizione**: essere ricercati in una
-città **NON DEVE** implicare esserlo ovunque (GP-48).
+**CRM-4** — The bounty **MUST** be **per faction and per jurisdiction**: being wanted in one city
+**MUST NOT** imply being wanted everywhere (GP-48).
 
-**CRM-5** — La notorietà **DEVE** avere conseguenze osservabili tramite eventi: guardie ostili,
-prezzi peggiori, opzioni di dialogo precluse, arresto. Le conseguenze sono **applicate
-dall'orchestrazione**, non da questo servizio (ARC-4.1).
+**CRM-5** — Notoriety **MUST** have consequences observable through events: hostile guards, worse
+prices, foreclosed dialogue options, arrest. The consequences are **applied by the orchestration**,
+not by this service (ARC-4.1).
 
-**CRM-6** — Il servizio **DEVE** distinguere **crimine noto** (una taglia esiste) da **crimine
-sospetto** (un testimone ha visto ma non ha segnalato): sono stati diversi con conseguenze diverse.
+**CRM-6** — The service **MUST** distinguish a **known crime** (a bounty exists) from a **suspected
+crime** (a witness saw but has not reported): they are different states with different consequences.
 
-**CRM-7** — La conoscenza del crimine **DEVE** propagarsi tramite la blackboard di gruppo (BB-1,
-BB-11), con ritardo: le guardie della città lo apprendono in tempi plausibili, non istantaneamente.
-Il collegamento è dell'orchestrazione.
+**CRM-7** — Knowledge of the crime **MUST** propagate through the group blackboard (BB-1, BB-11),
+with a delay: the city's guards learn about it in plausible times, not instantly. The wiring belongs
+to the orchestration.
 
-**CRM-8** — I crimini **DEVONO** avere **prescrizione**: gravità e taglia decadono nel tempo secondo
-regole dichiarate, tramite `TIME`.
+**CRM-8** — Crimes **MUST** have a **statute of limitations**: severity and bounty decay over time
+according to declared rules, through `TIME`.
 
-**CRM-9** — **DEVONO** esistere modi di estinguere la taglia: pagamento, pena detentiva, intercessione
-di una fazione, corruzione. Ognuno con conseguenze proprie (denaro, tempo, reputazione).
+**CRM-9** — There **MUST** be ways of clearing the bounty: payment, a prison sentence, a faction's
+intercession, bribery. Each with its own consequences (money, time, reputation).
 
-**CRM-10** — Gli oggetti sottratti **DEVONO** poter essere marcati come **rubati**, con conseguenze
-sulla vendita (ECO-7). La marcatura decade o si rimuove secondo regola.
+**CRM-10** — Stolen items **MUST** be markable as **stolen**, with consequences on selling (ECO-7).
+The mark decays or is removed according to a rule.
 
-**CRM-11** — Il servizio **DEVE** essere applicabile anche ai PNG, non solo al giocatore: un PNG che
-uccide un altro PNG davanti a una guardia **DEVE** essere trattato con le stesse regole. È il test
-che dimostra che il sistema è generale e non un caso particolare cucito addosso al giocatore.
+**CRM-11** — The service **MUST** be applicable to NPCs too, not just to the player: an NPC who
+kills another NPC in front of a guard **MUST** be treated by the same rules. It is the test that
+proves the system is general and not a special case sewn onto the player.
 
-**CRM-12** — Il servizio **NON DEVE** decidere l'esito degli scontri né muovere guardie: emette
-eventi e richieste (`arrest-demanded`), che l'IA e l'orchestrazione traducono in comportamento.
+**CRM-12** — The service **MUST NOT** decide the outcome of fights nor move guards: it emits events
+and requests (`arrest-demanded`), which the AI and the orchestration translate into behaviour.
 
-**CRM-13** — Lo stato **DEVE** essere serializzabile: taglie, crimini noti e testimoni in cammino.
+**CRM-13** — The state **MUST** be serializable: bounties, known crimes and witnesses in transit.
 
-## Criteri di test
+## Test criteria
 
-- Un crimine senza testimoni non produce taglia; con testimone e segnalazione riuscita, sì.
-- Eliminare l'unico testimone prima della segnalazione impedisce la taglia — ed è a sua volta un
-  crimine se osservato.
-- La taglia resta circoscritta alla giurisdizione competente.
-- La prescrizione riduce la taglia come dichiarato.
-- Le stesse regole applicate a un PNG producono lo stesso trattamento (CRM-11).
-- Round-trip di serializzazione con crimini e testimoni pendenti.
+- A crime with no witnesses produces no bounty; with a witness and a successful report, it does.
+- Eliminating the only witness before the report prevents the bounty — and is itself a crime if
+  observed.
+- The bounty stays confined to the competent jurisdiction.
+- The statute of limitations reduces the bounty as declared.
+- The same rules applied to an NPC produce the same treatment (CRM-11).
+- Serialization round trip with crimes and pending witnesses.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-47, GP-48
 - [`faction.md`](./faction.md) · [`affordance.md`](./affordance.md) ·

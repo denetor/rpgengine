@@ -1,35 +1,35 @@
-# GEN — Generazione procedurale di mappe
+# GEN — Procedural map generation
 
-**Area:** Mondo · **Natura:** generico · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `GEN-*`
+**Area:** World · **Nature:** generic · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `GEN-*`
 
-## Scopo
+## Purpose
 
-Produrre **griglie dati** di mappa a partire da un seed e da una ricetta: aree completamente
-casuali, oppure composte connettendo settori presi da un pool di pezzi disegnati a mano. L'output è
-lo stesso formato di una mappa Tiled, così che a valle nessuno distingua le due origini.
+Produce map **data grids** from a seed and a recipe: areas that are completely random, or composed
+by connecting sectors taken from a pool of hand-drawn pieces. The output is the same format as a
+Tiled map, so that downstream nobody can tell the two origins apart.
 
-Non genera *pixel* e non genera *contenuto narrativo*: produce terreno, connessioni e **punti
-d'interesse** che l'orchestrazione popolerà.
+It does not generate *pixels* and does not generate *narrative content*: it produces terrain,
+connections and **points of interest** that the orchestration will populate.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | `RND` (iniettato come stream, non come servizio intero) |
-| NON dipende da | `excalibur`, `MAP`, altri servizi |
-| Consumato da | orchestrazione, che passa il risultato a `MAP` |
-| Stato dinamico | nessuno: è una funzione da (seed, ricetta) a mappa |
-| Stato statico | ricette di generazione, pool di settori |
-| Dati esterni | `content/generation/*.json` — ricette, pool di stanze, vincoli, tabelle di bioma |
-| Eventi emessi | nessuno |
-| Ordine di grandezza | una mappa 256×256 in meno di 100 ms |
+| Depends on | `RND` (injected as a stream, not as a whole service) |
+| Does NOT depend on | `excalibur`, `MAP`, other services |
+| Consumed by | orchestration, which passes the result to `MAP` |
+| Dynamic state | none: it is a function from (seed, recipe) to map |
+| Static state | generation recipes, sector pools |
+| External data | `content/generation/*.json` — recipes, room pools, constraints, biome tables |
+| Events emitted | none |
+| Order of magnitude | a 256×256 map in under 100 ms |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface GeneratedMap {
-  terrain: Uint16Array;              // stesso formato di una mappa caricata
+  terrain: Uint16Array;              // same format as a loaded map
   width: number; height: number;
   entrances: readonly Cell[];
   pointsOfInterest: readonly { kind: PoiKind; cell: Cell; tags: string[] }[];
@@ -41,71 +41,69 @@ interface MapGenerator {
 }
 ```
 
-## Requisiti
+## Requirements
 
-**GEN-1** — Il generatore **DEVE** essere una **funzione pura** di (ricetta, seed): nessuno stato
-interno tra due generazioni, nessuna dipendenza dall'ordine delle chiamate.
+**GEN-1** — The generator **MUST** be a **pure function** of (recipe, seed): no internal state
+between two generations, no dependency on call order.
 
-**GEN-2** — La stessa coppia (ricetta, seed) **DEVE** produrre una mappa **identica bit per bit**,
-oggi e dopo un aggiornamento del browser (RND-4). È una promessa che si mantiene solo se il
-generatore evita le funzioni trascendenti di `Math` (`log`, `cos`, `sin`, `exp`, `pow`), che
-ECMAScript non specifica esattamente: vedi
-[`adr/0001`](../adr/0001-riproducibilita-bit-per-bit.md).
+**GEN-2** — The same (recipe, seed) pair **MUST** produce a **bit-for-bit identical** map, today and
+after a browser update (RND-4). It is a promise that only holds if the generator avoids the
+transcendental `Math` functions (`log`, `cos`, `sin`, `exp`, `pow`), which ECMAScript does not
+specify exactly: see [`adr/0001`](../adr/0001-bit-for-bit-reproducibility.md).
 
-**GEN-3** — Una mappa generata **DEVE** poter essere ricostruita da seed invece che salvata per
-intero: nel salvataggio finiscono seed, ricetta e differenze (MAP-18).
+**GEN-3** — A generated map **MUST** be rebuildable from its seed rather than saved in full: the
+save file holds the seed, the recipe and the differences (MAP-18).
 
-**GEN-4** — **DEVONO** essere supportate almeno due famiglie di ricette:
-- **generazione libera**, in cui il terreno nasce da rumore e regole (GP-8);
-- **composizione da pool**, in cui settori disegnati a mano vengono scelti, orientati e connessi
+**GEN-4** — At least two families of recipes **MUST** be supported:
+- **free generation**, in which terrain arises from noise and rules (GP-8);
+- **composition from a pool**, in which hand-drawn sectors are chosen, oriented and connected
   (GP-9).
 
-**GEN-5** — Le ricette **DEVONO** essere **dati validati** (ARC-7): parametri di rumore, soglie di
-bioma, dimensioni, densità, numero di stanze, regole di connessione. Cambiare la generazione **NON
-DEVE** richiedere di ricompilare.
+**GEN-5** — Recipes **MUST** be **validated data** (ARC-7): noise parameters, biome thresholds,
+sizes, densities, room counts, connection rules. Changing the generation **MUST NOT** require
+recompiling.
 
-**GEN-6** — La generazione **DEVE** garantire la **connettività**: ogni punto d'interesse e ogni
-uscita **DEVONO** essere raggiungibili da ogni ingresso. La verifica è parte del generatore, non un
-controllo esterno opzionale.
+**GEN-6** — Generation **MUST** guarantee **connectivity**: every point of interest and every exit
+**MUST** be reachable from every entrance. The check is part of the generator, not an optional
+external control.
 
-**GEN-7** — Se una ricetta non riesce a soddisfare i vincoli, il generatore **DEVE** riprovare un
-numero limitato di volte e poi **fallire in modo esplicito**, mai restituire una mappa rotta.
+**GEN-7** — If a recipe cannot satisfy the constraints, the generator **MUST** retry a limited
+number of times and then **fail explicitly**, never return a broken map.
 
-**GEN-8** — Il generatore **DEVE** produrre **punti d'interesse tipizzati** (ingresso, uscita,
-stanza del tesoro, accampamento, sorgente d'acqua) come **dati posizionali**. Popolarli di nemici,
-oggetti e quest è compito dell'orchestrazione, non del generatore.
+**GEN-8** — The generator **MUST** produce **typed points of interest** (entrance, exit, treasure
+room, camp, water source) as **positional data**. Populating them with enemies, items and quests is
+the orchestration's job, not the generator's.
 
-**GEN-9** — La generazione **DOVREBBE** essere **decomponibile in porzioni** riproducibili
-indipendentemente, derivando uno stream per porzione (RND-5): serve per generare a chunk senza che
-il risultato dipenda dall'ordine di visita del giocatore.
+**GEN-9** — Generation **SHOULD** be **decomposable into portions** that are reproducible
+independently, by deriving one stream per portion (RND-5): this is needed to generate by chunks
+without the result depending on the player's visiting order.
 
-**Non è nei piani attuali**, ed è coerente con l'API qui sopra, che genera una mappa intera per
-chiamata. Di conseguenza `RND` non realizza `derive()` (RND-5 è **DOVREBBE**). Il seeding per hash
-di RND-19 rende l'aggiunta additiva: quando la generazione a chunk servirà davvero, realizzarla non
-romperà né salvataggi né mappe già generate.
+**It is not currently planned**, and this is consistent with the API above, which generates a whole
+map per call. Consequently `RND` does not implement `derive()` (RND-5 is a **SHOULD**). The
+hash-based seeding of RND-19 makes the addition additive: when chunked generation is actually
+needed, implementing it will break neither saves nor already generated maps.
 
-**GEN-10** — Il generatore **DEVE** produrre solo `TerrainId` validi rispetto alla tabella dei
-terreni; una ricetta che ne cita uno inesistente **DEVE** fallire in validazione (ARC-7.5).
+**GEN-10** — The generator **MUST** produce only `TerrainId`s valid with respect to the terrain
+table; a recipe that names a non-existent one **MUST** fail validation (ARC-7.5).
 
-**GEN-11** — Il generatore **NON DEVE** conoscere `MAP`: restituisce dati, che l'orchestrazione
-consegna al servizio mappa (ARC-4.1).
+**GEN-11** — The generator **MUST NOT** know `MAP`: it returns data, which the orchestration hands
+to the map service (ARC-4.1).
 
-**GEN-12** — Il generatore **DOVREBBE** esporre una modalità diagnostica che restituisce le fasi
-intermedie (mappa di rumore, biomi, stanze, corridoi), per poter osservare e tarare il processo.
+**GEN-12** — The generator **SHOULD** expose a diagnostic mode that returns the intermediate stages
+(noise map, biomes, rooms, corridors), so that the process can be observed and tuned.
 
-**GEN-13** — La generazione **NON DEVE** bloccare il gioco: per mappe grandi **DEVE** essere
-eseguibile a fasi interrompibili o fuori dal thread principale, restando deterministica.
+**GEN-13** — Generation **MUST NOT** freeze the game: for large maps it **MUST** be runnable in
+interruptible stages or off the main thread, while staying deterministic.
 
-## Criteri di test
+## Test criteria
 
-- Stesso seed → mappa identica, su 100 ricette diverse.
-- Connettività verificata su 1000 seed casuali per ogni ricetta: nessuna mappa con punti isolati.
-- Una ricetta impossibile fallisce con errore diagnostico entro il numero di tentativi previsto.
-- *(quando GEN-9 sarà realizzato)* La generazione per chunk in ordine diverso produce lo stesso
-  mondo.
-- Il generatore produce una mappa valida con un insieme di terreni inventato (ARC-3.4).
+- Same seed → identical map, across 100 different recipes.
+- Connectivity verified on 1000 random seeds per recipe: no map with isolated points.
+- An impossible recipe fails with a diagnostic error within the expected number of attempts.
+- *(once GEN-9 is implemented)* Chunked generation in a different order produces the same world.
+- The generator produces a valid map with a made-up terrain set (ARC-3.4).
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-8, GP-9, GP-10
 - [`map.md`](./map.md) · [`random.md`](./random.md) · [`pathfinding.md`](./pathfinding.md)

@@ -1,111 +1,111 @@
-# Schede dei servizi
+# Service sheets
 
-Una scheda per servizio. Ogni scheda è autosufficiente: definisce il **contratto** del servizio, la
-sua **API pubblica**, i **requisiti numerati** con prefisso proprio e i **criteri di test**.
+One sheet per service. Every sheet is self-contained: it defines the service's **contract**, its
+**public API**, its **numbered requirements** with their own prefix, and its **test criteria**.
 
-I principi che valgono per tutti (`ARC-*`), il catalogo completo e le priorità stanno nell'hub:
-[`../REQUIREMENTS.md`](../REQUIREMENTS.md). Le feature viste dal giocatore stanno in
+The principles that hold for all of them (`ARC-*`), the complete catalogue and the priorities live
+in the hub: [`../REQUIREMENTS.md`](../REQUIREMENTS.md). The features seen by the player live in
 [`../GAMEPLAY.md`](../GAMEPLAY.md).
 
-## Regole che valgono per ogni scheda
+## Rules that hold for every sheet
 
-- **Natura** — *generico* (riusabile in un altro gioco) o *di dominio* (assume il modello di questo
-  progetto). Vedi ARC-3.
-- **Nessun servizio importa un altro servizio.** Le dipendenze elencate sono porte astratte o
-  infrastruttura. Il collegamento tra servizi vive in `game/orchestration/` (ARC-4).
-- **Nessun servizio importa `excalibur`**, tranne i quattro di presentazione (ARC-1.2).
-- **I comandi restituiscono gli eventi prodotti**, non li pubblicano (ARC-4.2).
-- Gli **ID dei requisiti sono stabili** e non vengono riusati.
+- **Nature** — *generic* (reusable in another game) or *domain* (assumes this project's model). See
+  ARC-3.
+- **No service imports another service.** The dependencies listed are abstract ports or
+  infrastructure. The wiring between services lives in `game/orchestration/` (ARC-4).
+- **No service imports `excalibur`**, except the four presentation ones (ARC-1.2).
+- **Commands return the events they produce**, they do not publish them (ARC-4.2).
+- **Requirement IDs are stable** and are not reused.
 
-## Indice
+## Index
 
-### Core — infrastruttura
+### Core — infrastructure
 
-| ID | Scheda | Cosa fa |
+| ID | Sheet | What it does |
 |---|---|---|
-| `BUS` | [event-bus.md](./event-bus.md) | Trasporto degli eventi di dominio, consegna deterministica |
-| `CTX` | [game-context.md](./game-context.md) | Composizione del grafo dei servizi, iniezione, ciclo di vita |
-| `CFG` | [config.md](./config.md) | Parametri di bilanciamento e impostazioni utente |
-| `TIME` | [time.md](./time.md) | Tempo di gioco, scheduler, orario del mondo |
-| `RND` | [random.md](./random.md) | RNG seedabile, gaussiano, Perlin, casualità filtrata |
-| `SAVE` | [persistence.md](./persistence.md) | Salvataggio, slot, versionamento, migrazioni |
-| `INP` | [input.md](./input.md) | Azioni astratte, contesti, rebinding, buffering |
-| `I18N` | [localization.md](./localization.md) | Testi per chiave, lingue, plurali |
-| `AST` | [assets.md](./assets.md) | Manifesto degli asset, bundle, caricamento |
+| `BUS` | [event-bus.md](./event-bus.md) | Domain event transport, deterministic delivery |
+| `CTX` | [game-context.md](./game-context.md) | Service graph composition, injection, lifecycle |
+| `CFG` | [config.md](./config.md) | Balancing parameters and user settings |
+| `TIME` | [time.md](./time.md) | Game time, scheduler, world clock |
+| `RND` | [random.md](./random.md) | Seedable RNG, Gaussian, Perlin, filtered randomness |
+| `SAVE` | [persistence.md](./persistence.md) | Saving, slots, versioning, migrations |
+| `INP` | [input.md](./input.md) | Abstract actions, contexts, rebinding, buffering |
+| `I18N` | [localization.md](./localization.md) | Texts by key, languages, plurals |
+| `AST` | [assets.md](./assets.md) | Asset manifest, bundles, loading |
 
-### Mondo
+### World
 
-| ID | Scheda | Cosa fa |
+| ID | Sheet | What it does |
 |---|---|---|
-| `MAP` | [map.md](./map.md) | Griglia dati, calpestabilità, aree — vedi anche [MAP-REQUIREMENTS](../MAP-REQUIREMENTS.md) |
-| `GEN` | [map-generation.md](./map-generation.md) | Generazione procedurale da seed e ricette |
-| `SPX` | [spatial-index.md](./spatial-index.md) | Query di prossimità e visibilità |
-| `ENT` | [entity-registry.md](./entity-registry.md) | Identità, componenti, capacità |
+| `MAP` | [map.md](./map.md) | Data grid, walkability, areas — see also [MAP-REQUIREMENTS](../MAP-REQUIREMENTS.md) |
+| `GEN` | [map-generation.md](./map-generation.md) | Procedural generation from seed and recipes |
+| `SPX` | [spatial-index.md](./spatial-index.md) | Proximity and visibility queries |
+| `ENT` | [entity-registry.md](./entity-registry.md) | Identity, components, capabilities |
 
-### Agenti
+### Agents
 
-| ID | Scheda | Cosa fa |
+| ID | Sheet | What it does |
 |---|---|---|
-| `BB` | [blackboard.md](./blackboard.md) | Conoscenza per agente, gruppo e globale; memoizzazione |
-| `AI` | [utility-ai.md](./utility-ai.md) | Decisione a utilità, personalità, ragionatori multipli |
-| `AFF` | [affordance.md](./affordance.md) | Gli oggetti pubblicizzano il proprio uso; percezione |
-| `PATH` | [pathfinding.md](./pathfinding.md) | Percorsi, raggiungibilità, fuga |
+| `BB` | [blackboard.md](./blackboard.md) | Per-agent, per-group and global knowledge; memoization |
+| `AI` | [utility-ai.md](./utility-ai.md) | Utility-based decision, personality, multiple reasoners |
+| `AFF` | [affordance.md](./affordance.md) | Objects advertise their own use; perception |
+| `PATH` | [pathfinding.md](./pathfinding.md) | Paths, reachability, flight |
 
-### Regole di gioco
+### Game rules
 
-| ID | Scheda | Cosa fa |
+| ID | Sheet | What it does |
 |---|---|---|
-| `STAT` | [stats.md](./stats.md) | Caratteristiche, abilità, perk, derivati, modificatori |
-| `CBT` | [combat.md](./combat.md) | Formula unica del danno, status effect, morte |
-| `INV` | [inventory.md](./inventory.md) | Contenitori, peso, impilamento, equipaggiamento |
-| `LOOT` | [loot.md](./loot.md) | Loot table pesate, filtro anti-ripetizione, pietà |
-| `QST` | [quest.md](./quest.md) | Interprete di quest a fasi e rami |
-| `DLG` | [dialog.md](./dialog.md) | Interprete di grafi di dialogo condizionati |
-| `FAC` | [faction.md](./faction.md) | Fazioni, ranghi, reputazione, relazioni |
-| `ECO` | [economy.md](./economy.md) | Prezzi, liquidità dei mercanti, rifornimento |
-| `CRM` | [crime.md](./crime.md) | Crimini osservati, testimoni, taglie |
+| `STAT` | [stats.md](./stats.md) | Attributes, skills, perks, derived values, modifiers |
+| `CBT` | [combat.md](./combat.md) | Single damage formula, status effects, death |
+| `INV` | [inventory.md](./inventory.md) | Containers, weight, stacking, equipment |
+| `LOOT` | [loot.md](./loot.md) | Weighted loot tables, anti-repetition filter, pity |
+| `QST` | [quest.md](./quest.md) | Interpreter for staged and branching quests |
+| `DLG` | [dialog.md](./dialog.md) | Interpreter for conditional dialogue graphs |
+| `FAC` | [faction.md](./faction.md) | Factions, ranks, reputation, relations |
+| `ECO` | [economy.md](./economy.md) | Prices, merchant liquidity, restocking |
+| `CRM` | [crime.md](./crime.md) | Observed crimes, witnesses, bounties |
 
-### Presentazione
+### Presentation
 
-| ID | Scheda | Cosa fa |
+| ID | Sheet | What it does |
 |---|---|---|
-| `REN` | [rendering.md](./rendering.md) | Confine con Excalibur, `EntityId → Actor`, disegno |
-| `HUD` | [hud.md](./hud.md) | HUD, diario, inventario, menu, interazione contestuale |
-| `AUD` | [audio.md](./audio.md) | Musica per situazione, effetti da eventi, mixaggio |
-| `CAM` | [camera.md](./camera.md) | Inseguimento, confini, zoom, scuotimento |
+| `REN` | [rendering.md](./rendering.md) | Boundary with Excalibur, `EntityId → Actor`, drawing |
+| `HUD` | [hud.md](./hud.md) | HUD, journal, inventory, menus, contextual interaction |
+| `AUD` | [audio.md](./audio.md) | Music by situation, effects from events, mixing |
+| `CAM` | [camera.md](./camera.md) | Following, bounds, zoom, shake |
 
-## Template per una nuova scheda
+## Template for a new sheet
 
 ```markdown
-# XXX — Nome
+# XXX — Name
 
-**Area:** … · **Natura:** generico | di dominio · **Priorità:** 1-4 · **Stato:** proposto
-**Prefisso requisiti:** `XXX-*`
+**Area:** … · **Nature:** generic | domain · **Priority:** 1-4 · **Status:** proposed
+**Requirement prefix:** `XXX-*`
 
-## Scopo
-Cosa fa e, soprattutto, quale problema esiste per prevenire.
+## Purpose
+What it does and, above all, which problem it exists to prevent.
 
-## Contratto
-| Voce | Valore |
+## Contract
+| Item | Value |
 |---|---|
-| Dipende da | … (porte astratte, mai altri servizi) |
-| NON dipende da | `excalibur`, … |
-| Consumato da | … |
-| Stato dinamico | … (cosa finisce nel salvataggio) |
-| Stato statico | … (cosa viene dai file di contenuto) |
-| Dati esterni | … |
-| Eventi emessi | … |
-| Ordine di grandezza | … |
+| Depends on | … (abstract ports, never other services) |
+| Does NOT depend on | `excalibur`, … |
+| Consumed by | … |
+| Dynamic state | … (what ends up in the save file) |
+| Static state | … (what comes from the content files) |
+| External data | … |
+| Events emitted | … |
+| Order of magnitude | … |
 
-## API pubblica (indicativa)
-Firme TypeScript: fissano forma e responsabilità, non l'implementazione.
+## Public API (indicative)
+TypeScript signatures: they fix shape and responsibility, not the implementation.
 
-## Requisiti
-**XXX-1** — … DEVE/DOVREBBE/PUÒ …
+## Requirements
+**XXX-1** — … MUST/SHOULD/MAY …
 
-## Criteri di test
-Cosa deve dimostrare la suite del servizio, incluso il test di riusabilità (ARC-3.4).
+## Test criteria
+What the service's suite must demonstrate, including the reusability proof (ARC-3.4).
 
-## Collegamenti
-Requisiti di gioco serviti, principi rilevanti, servizi correlati.
+## Links
+Game requirements served, relevant principles, related services.
 ```

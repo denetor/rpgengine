@@ -1,100 +1,101 @@
 # BUS — EventBus
 
-**Area:** Core · **Natura:** generico · **Priorità:** 1 · **Stato:** proposto
-**Prefisso requisiti:** `BUS-*`
+**Area:** Core · **Nature:** generic · **Priority:** 1 · **Status:** proposed
+**Requirement prefix:** `BUS-*`
 
-## Scopo
+## Purpose
 
-Trasportare gli **eventi di dominio** — notifiche immutabili di fatti già avvenuti — da chi li
-produce a chi vi reagisce, senza che i due si conoscano. È l'unico canale di comunicazione
-*indiretta* del sistema: le chiamate dirette esistono, ma solo dall'orchestrazione verso i servizi.
+Carry the **domain events** — immutable notifications of facts that have already happened — from
+whoever produces them to whoever reacts to them, without the two knowing each other. It is the
+system's only channel of *indirect* communication: direct calls exist, but only from the
+orchestration towards the services.
 
-Il bus **non** è un canale di comando e **non** è un canale di query: non trasporta richieste, non
-restituisce valori, non attende risposte.
+The bus is **not** a command channel and is **not** a query channel: it does not carry requests, does
+not return values, does not wait for answers.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | — |
-| NON dipende da | `excalibur`, DOM, qualunque altro servizio |
-| Consumato da | `game/orchestration`, `presentation` |
-| Stato dinamico | nessuno (il bus non conserva stato tra i tick, salvo la coda in corso) |
-| Stato statico | nessuno |
-| Dati esterni | nessuno |
-| Eventi emessi | nessuno (è l'infrastruttura) |
-| Ordine di grandezza | ~10³ eventi/secondo senza degrado percettibile |
+| Depends on | — |
+| Does NOT depend on | `excalibur`, DOM, any other service |
+| Consumed by | `game/orchestration`, `presentation` |
+| Dynamic state | none (the bus keeps no state between ticks, apart from the queue in flight) |
+| Static state | none |
+| External data | none |
+| Events emitted | none (it is the infrastructure) |
+| Order of magnitude | ~10³ events/second with no perceptible degradation |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 type DomainEvent = { readonly type: string; readonly [k: string]: unknown };
 
 interface EventBus<E extends DomainEvent> {
-  /** Sottoscrive un tipo di evento. Restituisce la funzione di disiscrizione. */
+  /** Subscribes to an event type. Returns the unsubscribe function. */
   on<T extends E['type']>(type: T, handler: (e: Extract<E, { type: T }>) => void): () => void;
-  /** Sottoscrive ogni evento: per logging, replay e strumenti di debug. */
+  /** Subscribes to every event: for logging, replay and debugging tools. */
   onAny(handler: (e: E) => void): () => void;
-  /** Accoda un evento per la consegna. Non esegue gli handler immediatamente. */
+  /** Queues an event for delivery. Does not run the handlers immediately. */
   publish(event: E): void;
   publishAll(events: readonly E[]): void;
-  /** Consegna tutti gli eventi in coda, inclusi quelli generati durante la consegna. */
+  /** Delivers all queued events, including those generated during delivery. */
   flush(): void;
 }
 ```
 
-## Requisiti
+## Requirements
 
-**BUS-1** — Gli eventi **DEVONO** formare una **union discriminata** su `type`, chiusa e nota a
-compilazione. Sottoscrivere un tipo inesistente **DEVE** essere un errore di compilazione.
+**BUS-1** — Events **MUST** form a **discriminated union** on `type`, closed and known at compile
+time. Subscribing to a non-existent type **MUST** be a compile error.
 
-**BUS-2** — Ogni evento **DEVE** essere serializzabile in JSON: niente funzioni, riferimenti runtime,
-`Map`, `Set`, `Date` o classi nel payload. Le entità sono referenziate per `EntityId` (ARC-5.2).
+**BUS-2** — Every event **MUST** be JSON-serializable: no functions, runtime references, `Map`,
+`Set`, `Date` or classes in the payload. Entities are referenced by `EntityId` (ARC-5.2).
 
-**BUS-3** — Gli eventi **DEVONO** essere **immutabili** e descrivere un fatto **già avvenuto**, al
-passato (`entity-died`, non `kill-entity`). Un evento **NON DEVE** mai essere usato per chiedere
-un'azione.
+**BUS-3** — Events **MUST** be **immutable** and describe a fact that has **already happened**, in
+the past tense (`entity-died`, not `kill-entity`). An event **MUST** never be used to request an
+action.
 
-**BUS-4** — La consegna **DEVE** essere **differita e ordinata**: `publish()` accoda, `flush()`
-consegna in ordine FIFO. Non è ammessa la consegna sincrona dentro `publish()`, che renderebbe
-l'ordine dipendente dalla profondità di ricorsione.
+**BUS-4** — Delivery **MUST** be **deferred and ordered**: `publish()` queues, `flush()` delivers in
+FIFO order. Synchronous delivery inside `publish()` is not allowed, since it would make the order
+depend on recursion depth.
 
-**BUS-5** — Gli eventi pubblicati **durante** un `flush()` **DEVONO** essere accodati e consegnati
-nello stesso `flush()`, dopo quelli già in coda, fino a svuotamento.
+**BUS-5** — Events published **during** a `flush()` **MUST** be queued and delivered within the same
+`flush()`, after those already queued, until the queue is empty.
 
-**BUS-6** — A parità di evento, gli handler **DEVONO** essere invocati nell'ordine di
-sottoscrizione. Questo, con BUS-4 e BUS-5, rende la consegna **deterministica** (ARC-9).
+**BUS-6** — For a given event, handlers **MUST** be invoked in subscription order. This, together
+with BUS-4 and BUS-5, makes delivery **deterministic** (ARC-9).
 
-**BUS-7** — **DEVE** esistere un limite configurabile di iterazioni di `flush()` (default: 32); al
-superamento il bus **DEVE** fallire in modo diagnostico, riportando i tipi di evento coinvolti nel
-ciclo, invece di bloccare il gioco.
+**BUS-7** — There **MUST** be a configurable limit on `flush()` iterations (default: 32); when it is
+exceeded the bus **MUST** fail diagnostically, reporting the event types involved in the cycle,
+instead of freezing the game.
 
-**BUS-8** — Un'eccezione lanciata da un handler **NON DEVE** impedire l'esecuzione degli altri
-handler: **DEVE** essere catturata, riportata e, in sviluppo, ripropagata a fine `flush()`.
+**BUS-8** — An exception thrown by a handler **MUST NOT** prevent the other handlers from running:
+it **MUST** be caught, reported and, in development, rethrown at the end of `flush()`.
 
-**BUS-9** — Il bus **NON DEVE** conoscere né importare alcun tipo di dominio: è parametrico sul tipo
-unione degli eventi, fornito da chi lo istanzia.
+**BUS-9** — The bus **MUST NOT** know or import any domain type: it is parametric on the event union
+type, supplied by whoever instantiates it.
 
-**BUS-10** — `onAny` **DEVE** consentire di registrare l'intero flusso di eventi in un journal, per
-diagnostica e per la riproduzione di una sessione (vedi `SAVE`, `RND`).
+**BUS-10** — `onAny` **MUST** make it possible to record the entire event stream into a journal, for
+diagnostics and for replaying a session (see `SAVE`, `RND`).
 
-**BUS-11** — In modalità sviluppo il bus **DOVREBBE** poter registrare, per ogni evento, chi lo ha
-pubblicato, così da rendere leggibile la catena causale.
+**BUS-11** — In development mode the bus **SHOULD** be able to record, for each event, who published
+it, so as to make the causal chain readable.
 
-**BUS-12** — Nessun servizio **DEVE** sottoscrivere il bus (ARC-4.3). La regola **DEVE** essere
-imposta da lint: `EventBus` non compare tra i parametri del costruttore dei servizi.
+**BUS-12** — No service **MUST** subscribe to the bus (ARC-4.3). The rule **MUST** be enforced by
+lint: `EventBus` does not appear among the services' constructor parameters.
 
-## Criteri di test
+## Test criteria
 
-- FIFO rispettato con pubblicazioni annidate a più livelli.
-- Ordine di invocazione stabile a parità di sottoscrizioni.
-- Il ciclo di eventi produce un errore diagnostico entro il limite, non un blocco.
-- Un handler che lancia non interrompe gli altri.
-- Una sequenza `publish` → `flush` registrata con `onAny` è riproducibile identica.
-- Il bus funziona con una union di eventi inventata, estranea a questo gioco (ARC-3.4).
+- FIFO respected with nested publications at several levels.
+- Stable invocation order for a given set of subscriptions.
+- An event cycle produces a diagnostic error within the limit, not a freeze.
+- A handler that throws does not interrupt the others.
+- A `publish` → `flush` sequence recorded with `onAny` replays identically.
+- The bus works with a made-up event union, foreign to this game (ARC-3.4).
 
-## Collegamenti
+## Links
 
-- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-4 (servizi muti), ARC-5 (eventi e riferimenti)
-- [`game-context.md`](./game-context.md) — chi possiede l'istanza del bus
-- [`persistence.md`](./persistence.md) — journal degli eventi e riproducibilità
+- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-4 (mute services), ARC-5 (events and references)
+- [`game-context.md`](./game-context.md) — who owns the bus instance
+- [`persistence.md`](./persistence.md) — event journal and reproducibility

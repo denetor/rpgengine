@@ -1,274 +1,267 @@
-# Requisiti di gioco
+# Game requirements
 
-**Documento fratello di** [`REQUIREMENTS.md`](./REQUIREMENTS.md)
-**Stato:** proposto
+**Sibling document of** [`REQUIREMENTS.md`](./REQUIREMENTS.md)
+**Status:** proposed
 
-Questo documento descrive **cosa deve fare il gioco dal punto di vista del giocatore**. Non descrive
-come è costruito: ogni requisito rimanda ai servizi che lo realizzano, le cui schede stanno in
-[`services/`](./services/).
+This document describes **what the game must do from the player's point of view**. It does not
+describe how it is built: every requirement points to the services that implement it, whose sheets
+live in [`services/`](./services/).
 
-Linguaggio dei requisiti: **DEVE** = obbligatorio, **DOVREBBE** = raccomandato, **PUÒ** = opzionale.
-Gli ID `GP-n` sono stabili e non vengono riusati; un requisito nuovo prende il numero libero
-successivo, indipendentemente dalla sezione.
+Requirement language: **MUST** = mandatory, **SHOULD** = recommended, **MAY** = optional. The `GP-n`
+IDs are stable and are not reused; a new requirement takes the next free number, regardless of
+section.
 
-**Marcatura:** *(fondamentale)* = necessario perché il gioco sia giocabile end-to-end ·
-*(profondità)* = aggiunge spessore da action-RPG · *(qualità)* = rifinitura.
-
----
-
-## 1. Personaggio giocante
-
-**GP-1** *(fondamentale)* — Il personaggio **NON DEVE** avere una struttura a livelli: la
-progressione **DEVE** avvenire su **caratteristiche singole** indipendenti. → `STAT`
-
-**GP-2** *(fondamentale)* — Le caratteristiche **DEVONO** migliorare tramite **formazione presso
-maestri**, non tramite punti esperienza distribuiti a piacere. → `STAT` `DLG`
-
-**GP-3** *(profondità)* — Il gioco **DEVE** prevedere **perk**, sbloccati dal tempo trascorso o dal
-raggiungimento di soglie su una o più caratteristiche. → `STAT`
-
-**GP-4** *(profondità)* — Devono esistere **abilità** distinte dalle caratteristiche di base (es.
-scasso, alchimia, persuasione, mercanteggiare), che migliorano **con l'uso** e/o con la formazione.
-→ `STAT`
-
-**GP-5** *(profondità)* — Oggetti equipaggiabili e opzioni di dialogo **POSSONO** avere requisiti
-minimi su caratteristiche o abilità. → `STAT` `INV` `DLG`
-
-**GP-6** *(fondamentale)* — Punti vita, energia ed eventuale mana **DEVONO** essere **derivati**
-dalle caratteristiche secondo formule dichiarate, non valori indipendenti. → `STAT`
+**Marking:** *(essential)* = needed for the game to be playable end to end · *(depth)* = adds
+action-RPG substance · *(polish)* = refinement.
 
 ---
 
-## 2. Mappa e mondo
+## 1. Player character
 
-**GP-7** *(fondamentale)* — Il gioco **DEVE** contenere aree con **mappa disegnata a mano** con
-Tiled. → `MAP`
+**GP-1** *(essential)* — The character **MUST NOT** have a level structure: progression **MUST**
+happen on independent **individual attributes**. → `STAT`
 
-**GP-8** *(profondità)* — Il gioco **DEVE** contenere aree con **mappa generata casualmente**.
-→ `GEN`
+**GP-2** *(essential)* — Attributes **MUST** improve through **training with masters**, not through
+experience points spent at will. → `STAT` `DLG`
 
-**GP-9** *(profondità)* — Il gioco **DEVE** contenere aree generate casualmente per **composizione
-di stanze/settori** presi da un pool e connessi tra loro. → `GEN`
+**GP-3** *(depth)* — The game **MUST** provide **perks**, unlocked by elapsed time or by reaching
+thresholds on one or more attributes. → `STAT`
 
-**GP-10** *(profondità)* — Oggetti e nemici **DEVONO** respawnare dopo un tempo dipendente dal tipo
-di area: **breve** nelle aree casuali, **infinito** (nessun respawn) nelle aree fisse. → `TIME`
-`ENT` orchestrazione
+**GP-4** *(depth)* — There must be **skills** distinct from the base attributes (e.g. lockpicking,
+alchemy, persuasion, bargaining), which improve **with use** and/or with training. → `STAT`
 
-**GP-11** *(profondità)* — Il mondo **DEVE** contenere oggetti interattivi: porte, leve, forzieri
-chiusi (apribili con scasso o chiave), trappole. → `ENT` `INV` `STAT`
+**GP-5** *(depth)* — Equippable items and dialogue options **MAY** have minimum requirements on
+attributes or skills. → `STAT` `INV` `DLG`
 
-**GP-12** *(profondità)* — Il gioco **DEVE** avere un **ciclo giorno/notte**, con un orario di gioco
-che influenza PNG, illuminazione e spawn. → `TIME`
-
-**GP-13** *(profondità)* — I PNG **DOVREBBERO** avere **routine giornaliere** (casa, lavoro,
-taverna) legate all'orario. → `TIME` `AI` `PATH`
-
-> La struttura interna della mappa (livelli, Dual Grid System, ordinamento per Y, overhead,
-> collisione) è specificata in [`MAP-REQUIREMENTS.md`](./MAP-REQUIREMENTS.md).
+**GP-6** *(essential)* — Hit points, energy and any mana **MUST** be **derived** from the attributes
+according to declared formulas, not independent values. → `STAT`
 
 ---
 
-## 3. Combattimento
+## 2. Map and world
 
-**GP-14** *(fondamentale)* — Il combattimento **DEVE** avere **tipi di danno** (taglio,
-perforazione, contundente, fuoco, veleno…) con resistenze e vulnerabilità per entità. → `CBT`
+**GP-7** *(essential)* — The game **MUST** contain areas with a **hand-drawn map** made with Tiled.
+→ `MAP`
 
-**GP-15** *(profondità)* — **DEVONO** esistere status effect a tempo: avvelenamento, sanguinamento,
-stordimento, rallentamento, buff e debuff. → `CBT` `TIME`
+**GP-8** *(depth)* — The game **MUST** contain areas with a **randomly generated map**. → `GEN`
 
-**GP-16** *(profondità)* — I colpi **DEVONO** produrre knockback e reazione al colpo (hitstun),
-parametrizzati dall'arma. → `CBT`
+**GP-9** *(depth)* — The game **MUST** contain areas generated randomly by **composing
+rooms/sectors** taken from a pool and connected together. → `GEN`
 
-**GP-17** *(profondità)* — Il giocatore **DOVREBBE** disporre di blocco/parata e/o schivata con
-finestra di invulnerabilità temporale. → `CBT` `INP`
+**GP-10** *(depth)* — Items and enemies **MUST** respawn after a time depending on the area type:
+**short** in random areas, **infinite** (no respawn) in fixed areas. → `TIME` `ENT` orchestration
 
-**GP-18** *(profondità)* — Il giocatore **DEVE** poter usare attacchi a distanza e magia, non solo i
-nemici. → `CBT`
+**GP-11** *(depth)* — The world **MUST** contain interactive objects: doors, levers, locked chests
+(openable by lockpicking or with a key), traps. → `ENT` `INV` `STAT`
 
-**GP-19** *(fondamentale)* — La formula del danno **DEVE** essere unica, formalizzata e
-deterministica dato un seed. → `CBT` `RND`
+**GP-12** *(depth)* — The game **MUST** have a **day/night cycle**, with a game clock that influences
+NPCs, lighting and spawning. → `TIME`
 
----
+**GP-13** *(depth)* — NPCs **SHOULD** have **daily routines** (home, work, tavern) tied to the time of
+day. → `TIME` `AI` `PATH`
 
-## 4. Inventario, oggetti, bottino
-
-**GP-20** *(fondamentale)* — Gli oggetti **POSSONO** avere lo stato di **quest item**: peso 0 e non
-droppabili né vendibili finché la quest di riferimento non è chiusa. → `INV` `QST`
-
-**GP-21** *(profondità)* — **DEVE** esistere un peso trasportabile massimo, con effetti di
-sovraccarico. → `INV` `STAT`
-
-**GP-22** *(fondamentale)* — **DEVONO** esistere slot di equipaggiamento (arma, armatura, accessori)
-i cui contenuti modificano le caratteristiche. → `INV` `STAT`
-
-**GP-23** *(profondità)* — **DEVONO** esistere consumabili (pozioni, cibo) con effetti immediati o a
-tempo. → `INV` `CBT`
-
-**GP-24** *(qualità)* — Gli oggetti identici **DEVONO** impilarsi; **POSSONO** esistere oggetti
-unici o leggendari non impilabili. → `INV`
-
-**GP-25** *(profondità)* — Nemici, casse e forzieri **DEVONO** rilasciare bottino secondo **loot
-table pesate**. → `LOOT` `RND`
-
-**GP-26** *(profondità)* — Il gioco **PUÒ** prevedere crafting e riparazione. → `INV`
+> The internal structure of the map (layers, Dual Grid System, Y-ordering, overhead, collision) is
+> specified in [`MAP-REQUIREMENTS.md`](./MAP-REQUIREMENTS.md).
 
 ---
 
-## 5. PNG e intelligenza artificiale
+## 3. Combat
 
-**GP-27** *(fondamentale)* — Alcuni PNG **POSSONO** avere lo stato di **quest NPC**, che ne impedisce
-l'uccisione. → `ENT` `QST` `CBT`
+**GP-14** *(essential)* — Combat **MUST** have **damage types** (slashing, piercing, blunt, fire,
+poison…) with per-entity resistances and vulnerabilities. → `CBT`
 
-**GP-28** *(profondità)* — I mercanti **DEVONO** avere denaro e assortimento **finiti**, che si
-rigenerano dopo un timeout. → `ECO` `INV` `TIME`
+**GP-15** *(depth)* — There **MUST** be timed status effects: poisoning, bleeding, stun, slow, buffs
+and debuffs. → `CBT` `TIME`
 
-**GP-29** *(fondamentale)* — I PNG **DEVONO** reagire alle condizioni del mondo e al comportamento
-del giocatore: se ferito, un PNG può fuggire o contrattaccare a seconda di indole, salute e
-alleati presenti. → `AI` `BB`
+**GP-16** *(depth)* — Hits **MUST** produce knockback and a hit reaction (hitstun), parameterized by
+the weapon. → `CBT`
 
-**GP-30** *(profondità)* — I PNG **DOVREBBERO** avere **personalità diverse** a parità di logica
-decisionale (un codardo, un fanatico, un mercenario), ottenute variando curve e soglie, non
-scrivendo IA diverse. → `AI`
+**GP-17** *(depth)* — The player **SHOULD** have blocking/parrying and/or dodging with a temporal
+invulnerability window. → `CBT` `INP`
 
-**GP-31** *(profondità)* — Le decisioni dei PNG **DOVREBBERO** tenere conto della **conoscenza
-condivisa di gruppo**: se i compagni di squadra sono morti, il coraggio cala e la fuga diventa
-probabile. → `BB` `AI`
+**GP-18** *(depth)* — The player **MUST** be able to use ranged attacks and magic, not just the
+enemies. → `CBT`
 
-**GP-32** *(profondità)* — Gli elementi dello scenario **DOVREBBERO** poter **pubblicizzare il
-proprio uso** perché i PNG li considerino nelle scelte: una fonte d'acqua dolce riduce la sete, un
-coniglio è cibo per un carnivoro abbastanza forte, una sedia consente di sedersi. → `AFF` `AI`
+**GP-19** *(essential)* — The damage formula **MUST** be single, formalized and deterministic given a
+seed. → `CBT` `RND`
 
 ---
 
-## 6. Quest
+## 4. Inventory, items, loot
 
-**GP-33** *(fondamentale)* — Il gioco **DEVE** offrire quest predeterminate, con obiettivi,
-condizioni di avanzamento e ricompense definite come dati. → `QST`
+**GP-20** *(essential)* — Items **MAY** have the **quest item** status: weight 0 and neither
+droppable nor sellable until the relevant quest is closed. → `INV` `QST`
 
-**GP-34** *(fondamentale)* — Lo stato di ogni quest **DEVE** essere osservabile da dialoghi, PNG e
-mondo (una quest attiva può cambiare ciò che si può dire o fare). → `QST` `DLG`
+**GP-21** *(depth)* — There **MUST** be a maximum carryable weight, with encumbrance effects.
+→ `INV` `STAT`
 
-**GP-35** *(profondità)* — Il **fallimento** di una quest **DEVE** essere un esito previsto, con
-rami alternativi o chiusura definitiva. → `QST`
+**GP-22** *(essential)* — There **MUST** be equipment slots (weapon, armour, accessories) whose
+contents modify the attributes. → `INV` `STAT`
 
----
+**GP-23** *(depth)* — There **MUST** be consumables (potions, food) with immediate or timed effects.
+→ `INV` `CBT`
 
-## 7. Dialoghi
+**GP-24** *(polish)* — Identical items **MUST** stack; unique or legendary non-stackable items
+**MAY** exist. → `INV`
 
-**GP-36** *(fondamentale)* — Le opzioni di dialogo **DEVONO** variare in base ai **dialoghi
-precedenti** già intercorsi con quel PNG. → `DLG`
+**GP-25** *(depth)* — Enemies, crates and chests **MUST** release loot according to **weighted loot
+tables**. → `LOOT` `RND`
 
-**GP-37** *(fondamentale)* — Le opzioni di dialogo **DEVONO** variare in base allo **stato delle
-quest**. → `DLG` `QST`
-
-**GP-38** *(fondamentale)* — Le opzioni di dialogo **DEVONO** variare in base alla **reputazione**
-tra giocatore e interlocutore (personale e di fazione). → `DLG` `FAC`
-
-**GP-39** *(profondità)* — Le opzioni di dialogo **POSSONO** essere condizionate da caratteristiche,
-abilità e oggetti posseduti. → `DLG` `STAT` `INV`
+**GP-26** *(depth)* — The game **MAY** provide crafting and repair. → `INV`
 
 ---
 
-## 8. Fazioni e reputazione
+## 5. NPCs and artificial intelligence
 
-**GP-40** *(profondità)* — **DEVONO** esistere fazioni di natura diversa: cittadini di una località,
-corporazioni, gruppi criminali, ordini religiosi. → `FAC`
+**GP-27** *(essential)* — Some NPCs **MAY** have the **quest NPC** status, which prevents them being
+killed. → `ENT` `QST` `CBT`
 
-**GP-41** *(profondità)* — Ogni fazione **DEVE** avere **N livelli** di appartenenza, che
-sbloccano vantaggi e opzioni di dialogo. → `FAC` `DLG`
+**GP-28** *(depth)* — Merchants **MUST** have **finite** money and stock, which regenerate after a
+timeout. → `ECO` `INV` `TIME`
 
-**GP-42** *(profondità)* — **DEVE** esistere una reputazione del giocatore verso ciascuna fazione.
-→ `FAC`
+**GP-29** *(essential)* — NPCs **MUST** react to world conditions and to the player's behaviour: if
+wounded, an NPC may flee or counterattack depending on temperament, health and allies present.
+→ `AI` `BB`
 
-**GP-43** *(profondità)* — **DEVE** esistere un modificatore di reputazione **individuale** tra
-giocatore e singolo PNG, che si somma a quello di fazione. → `FAC`
+**GP-30** *(depth)* — NPCs **SHOULD** have **different personalities** with the same decision logic
+(a coward, a fanatic, a mercenary), obtained by varying curves and thresholds, not by writing
+different AIs. → `AI`
 
-**GP-44** *(profondità)* — Le relazioni **tra fazioni** (alleanza, ostilità) **DOVREBBERO**
-propagare parzialmente le variazioni di reputazione. → `FAC`
+**GP-31** *(depth)* — NPC decisions **SHOULD** take **shared group knowledge** into account: if the
+squad mates are dead, courage drops and fleeing becomes likely. → `BB` `AI`
 
----
-
-## 9. Economia
-
-**GP-45** *(profondità)* — I prezzi di acquisto e vendita **DEVONO** essere modulati da reputazione,
-fazione e abilità di mercanteggiare. → `ECO` `FAC` `STAT`
-
-**GP-46** *(profondità)* — Il denaro **DEVE** essere una risorsa finita anche per i mercanti: non
-possono acquistare oltre la propria liquidità. → `ECO`
+**GP-32** *(depth)* — Scenery elements **SHOULD** be able to **advertise their own use** so that NPCs
+consider them in their choices: a fresh water source reduces thirst, a rabbit is food for a
+carnivore strong enough, a chair allows sitting down. → `AFF` `AI`
 
 ---
 
-## 10. Crimine e notorietà
+## 6. Quests
 
-**GP-47** *(profondità)* — Le azioni illegali (furto, aggressione, omicidio) **DEVONO** avere
-effetto solo se **osservate** da un PNG in grado di percepirle. → `CRM` `AFF` `SPX`
+**GP-33** *(essential)* — The game **MUST** offer predetermined quests, with objectives, progress
+conditions and rewards defined as data. → `QST`
 
-**GP-48** *(profondità)* — **DEVE** esistere una taglia/notorietà per fazione, con conseguenze:
-guardie ostili, prezzi peggiori, dialoghi preclusi. → `CRM` `FAC` `ECO`
+**GP-34** *(essential)* — The state of every quest **MUST** be observable by dialogues, NPCs and the
+world (an active quest can change what can be said or done). → `QST` `DLG`
+
+**GP-35** *(depth)* — **Failing** a quest **MUST** be a foreseen outcome, with alternative branches or
+definitive closure. → `QST`
 
 ---
 
-## 11. Interfaccia e feedback
+## 7. Dialogues
 
-**GP-49** *(fondamentale)* — **DEVE** esistere un HUD con barre di vita ed energia, stati attivi,
-arma o abilità selezionata. → `HUD`
+**GP-36** *(essential)* — Dialogue options **MUST** vary based on the **previous dialogues** already
+had with that NPC. → `DLG`
 
-**GP-50** *(fondamentale)* — **DEVE** esistere un **diario delle quest** con obiettivi e stato.
+**GP-37** *(essential)* — Dialogue options **MUST** vary based on the **state of the quests**.
+→ `DLG` `QST`
+
+**GP-38** *(essential)* — Dialogue options **MUST** vary based on the **reputation** between the
+player and the speaker (personal and faction-wide). → `DLG` `FAC`
+
+**GP-39** *(depth)* — Dialogue options **MAY** be conditioned by attributes, skills and items held.
+→ `DLG` `STAT` `INV`
+
+---
+
+## 8. Factions and reputation
+
+**GP-40** *(depth)* — There **MUST** be factions of different natures: citizens of a locality,
+corporations, criminal groups, religious orders. → `FAC`
+
+**GP-41** *(depth)* — Every faction **MUST** have **N membership levels**, which unlock advantages and
+dialogue options. → `FAC` `DLG`
+
+**GP-42** *(depth)* — There **MUST** be a player reputation with each faction. → `FAC`
+
+**GP-43** *(depth)* — There **MUST** be an **individual** reputation modifier between the player and a
+single NPC, which adds to the faction one. → `FAC`
+
+**GP-44** *(depth)* — The relations **between factions** (alliance, hostility) **SHOULD** partially
+propagate reputation changes. → `FAC`
+
+---
+
+## 9. Economy
+
+**GP-45** *(depth)* — Buying and selling prices **MUST** be modulated by reputation, faction and
+bargaining skill. → `ECO` `FAC` `STAT`
+
+**GP-46** *(depth)* — Money **MUST** be a finite resource for merchants too: they cannot buy beyond
+their own liquidity. → `ECO`
+
+---
+
+## 10. Crime and notoriety
+
+**GP-47** *(depth)* — Illegal actions (theft, assault, murder) **MUST** have effect only if
+**observed** by an NPC able to perceive them. → `CRM` `AFF` `SPX`
+
+**GP-48** *(depth)* — There **MUST** be a per-faction bounty/notoriety, with consequences: hostile
+guards, worse prices, foreclosed dialogues. → `CRM` `FAC` `ECO`
+
+---
+
+## 11. Interface and feedback
+
+**GP-49** *(essential)* — There **MUST** be a HUD with health and energy bars, active statuses, and
+the selected weapon or skill. → `HUD`
+
+**GP-50** *(essential)* — There **MUST** be a **quest journal** with objectives and status.
 → `HUD` `QST`
 
-**GP-51** *(fondamentale)* — **DEVE** esistere una schermata di inventario ed equipaggiamento.
-→ `HUD` `INV`
+**GP-51** *(essential)* — There **MUST** be an inventory and equipment screen. → `HUD` `INV`
 
-**GP-52** *(qualità)* — **DOVREBBE** esistere una minimappa e/o una mappa del mondo. → `HUD` `MAP`
+**GP-52** *(polish)* — There **SHOULD** be a minimap and/or a world map. → `HUD` `MAP`
 
-**GP-53** *(fondamentale)* — **DEVE** esistere un menu di pausa con opzioni, salvataggio e
-caricamento. → `HUD` `SAVE`
+**GP-53** *(essential)* — There **MUST** be a pause menu with options, saving and loading.
+→ `HUD` `SAVE`
 
-**GP-54** *(fondamentale)* — L'interazione **DEVE** essere contestuale rispetto al bersaglio
-selezionato: attacca, parla, usa, deruba. → `INP` `HUD` `AFF`
+**GP-54** *(essential)* — Interaction **MUST** be contextual with respect to the selected target:
+attack, talk, use, rob. → `INP` `HUD` `AFF`
 
 ---
 
 ## 12. Audio
 
-**GP-55** *(fondamentale per l'esperienza)* — **DEVE** esistere musica di sottofondo per area e
-situazione (esplorazione, combattimento), con transizioni non brusche. → `AUD`
+**GP-55** *(essential to the experience)* — There **MUST** be background music per area and situation
+(exploration, combat), with non-abrupt transitions. → `AUD`
 
-**GP-56** *(fondamentale per l'esperienza)* — **DEVONO** esistere effetti sonori per azioni, colpi,
-interfaccia e ambiente. → `AUD`
+**GP-56** *(essential to the experience)* — There **MUST** be sound effects for actions, hits,
+interface and environment. → `AUD`
 
-**GP-57** *(qualità)* — Il volume **DEVE** essere regolabile separatamente per master, musica ed
-effetti. → `AUD` `CFG`
-
----
-
-## 13. Morte, salvataggio, continuità
-
-**GP-58** *(fondamentale)* — La morte del giocatore **DEVE** avere una gestione esplicita: game
-over, respawn o caricamento dell'ultimo salvataggio, secondo regola dichiarata. → `SAVE` `STAT`
-
-**GP-59** *(fondamentale)* — Il gioco **DEVE** poter essere salvato e ricaricato ripristinando
-stato del giocatore, quest, dialoghi, inventario e mondo. → `SAVE`
-
-**GP-60** *(fondamentale)* — **DEVONO** esistere slot di salvataggio multipli e un autosave.
-→ `SAVE`
-
-**GP-61** *(qualità)* — Un salvataggio creato da una versione precedente del gioco **DEVE** essere
-caricabile o rifiutato con un messaggio chiaro, mai caricato in modo corrotto. → `SAVE`
+**GP-57** *(polish)* — The volume **MUST** be adjustable separately for master, music and effects.
+→ `AUD` `CFG`
 
 ---
 
-## 14. Controlli e accessibilità
+## 13. Death, saving, continuity
 
-**GP-62** *(fondamentale)* — I comandi **DEVONO** passare da un livello di **azioni astratte**: nessun
-tasto fisico cablato nella logica di gioco. → `INP`
+**GP-58** *(essential)* — The player's death **MUST** be handled explicitly: game over, respawn or
+loading the last save, according to a declared rule. → `SAVE` `STAT`
 
-**GP-63** *(qualità)* — I comandi **DEVONO** essere rimappabili, con supporto gamepad. → `INP`
+**GP-59** *(essential)* — The game **MUST** be savable and reloadable, restoring player state,
+quests, dialogues, inventory and world. → `SAVE`
 
-**GP-64** *(fondamentale)* — **DEVE** esistere input buffering: un attacco impartito durante
-un'animazione viene accodato ed eseguito appena possibile. → `INP`
+**GP-60** *(essential)* — There **MUST** be multiple save slots and an autosave. → `SAVE`
 
-**GP-65** *(qualità)* — Tutti i testi **DEVONO** essere esternalizzati e localizzabili. → `I18N`
+**GP-61** *(polish)* — A save created by a previous version of the game **MUST** be either loadable or
+rejected with a clear message, never loaded in a corrupted way. → `SAVE`
 
-**GP-66** *(qualità)* — **DOVREBBERO** esistere opzioni di accessibilità: dimensione del testo,
-riduzione di scuotimento schermo ed effetti. → `HUD` `CFG`
+---
+
+## 14. Controls and accessibility
+
+**GP-62** *(essential)* — Controls **MUST** go through a layer of **abstract actions**: no physical
+key hardwired into the game logic. → `INP`
+
+**GP-63** *(polish)* — Controls **MUST** be remappable, with gamepad support. → `INP`
+
+**GP-64** *(essential)* — There **MUST** be input buffering: an attack issued during an animation is
+queued and executed as soon as possible. → `INP`
+
+**GP-65** *(polish)* — All texts **MUST** be externalized and localizable. → `I18N`
+
+**GP-66** *(polish)* — There **SHOULD** be accessibility options: text size, reduction of screen shake
+and effects. → `HUD` `CFG`

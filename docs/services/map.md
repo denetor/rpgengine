@@ -1,33 +1,33 @@
-# MAP — Mappa: griglia dati e collisione
+# MAP — Map: data grid and collision
 
-**Area:** Mondo · **Natura:** generico · **Priorità:** 1 · **Stato:** proposto
-**Prefisso requisiti:** `MAP-*` — i requisiti `MAP-1…MAP-9` sono definiti in
-[`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md); questa scheda ne definisce il **contratto di
-servizio** e aggiunge `MAP-10` in avanti.
+**Area:** World · **Nature:** generic · **Priority:** 1 · **Status:** proposed
+**Requirement prefix:** `MAP-*` — requirements `MAP-1…MAP-9` are defined in
+[`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md); this sheet defines their **service contract** and
+adds `MAP-10` onwards.
 
-## Scopo
+## Purpose
 
-Possedere la **griglia dati** del mondo — la verità logica su cosa c'è in ogni cella — e rispondere
-alle domande che gameplay e IA le pongono: cosa c'è in (x,y), è calpestabile, che costo ha
-attraversarla, quali celle sono in quest'area.
+Own the world's **data grid** — the logical truth about what is in every cell — and answer the
+questions that gameplay and AI put to it: what is at (x,y), is it walkable, what does it cost to
+cross it, which cells are in this area.
 
-È **dominio puro**: non disegna nulla. Il Dual Grid System e l'ordinamento per Y sono decisioni di
-*rendering* che leggono questa griglia; la griglia non sa che esistono.
+It is **pure domain**: it draws nothing. The Dual Grid System and Y-ordering are *rendering*
+decisions that read this grid; the grid does not know they exist.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | — |
-| NON dipende da | `excalibur`, `TileMap`, altri servizi |
-| Consumato da | `PATH`, `AI`, `SPX`, `REN`, orchestrazione |
-| Stato dinamico | modifiche a runtime (porta aperta, ponte crollato, area rivelata) |
-| Stato statico | griglia dei terreni, tabella delle proprietà per terreno, aree nominate |
-| Dati esterni | mappe Tiled, mappe generate (`GEN`), `terrains.json` (proprietà per terreno) |
-| Eventi emessi | `cell-changed`, `area-entered`, `area-exited` |
-| Ordine di grandezza | mappe fino a 512×512 celle con query di calpestabilità in O(1) |
+| Depends on | — |
+| Does NOT depend on | `excalibur`, `TileMap`, other services |
+| Consumed by | `PATH`, `AI`, `SPX`, `REN`, orchestration |
+| Dynamic state | runtime modifications (door opened, bridge collapsed, area revealed) |
+| Static state | terrain grid, per-terrain property table, named areas |
+| External data | Tiled maps, generated maps (`GEN`), `terrains.json` (per-terrain properties) |
+| Events emitted | `cell-changed`, `area-entered`, `area-exited` |
+| Order of magnitude | maps up to 512×512 cells with O(1) walkability queries |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface MapService {
@@ -36,79 +36,78 @@ interface MapService {
 
   terrainAt(x: number, y: number): TerrainId;
   isWalkable(x: number, y: number): boolean;
-  moveCost(x: number, y: number): number;          // Infinity = intransitabile
-  propertiesAt(x: number, y: number): TerrainProperties;   // acqua, profondo, rumoroso, buio…
+  moveCost(x: number, y: number): number;          // Infinity = impassable
+  propertiesAt(x: number, y: number): TerrainProperties;   // water, deep, noisy, dark…
 
   setTerrain(x: number, y: number, t: TerrainId): CommandResult<void>;
   setBlocked(x: number, y: number, blocked: boolean): CommandResult<void>;
 
   areaAt(x: number, y: number): AreaId | undefined;
   cellsOfArea(id: AreaId): Iterable<Cell>;
-  areaKind(id: AreaId): 'handcrafted' | 'generated';   // determina il respawn (GP-10)
+  areaKind(id: AreaId): 'handcrafted' | 'generated';   // determines respawn (GP-10)
 
-  toWorld(cell: Cell): Vector2;   // in pixel, per la presentazione
+  toWorld(cell: Cell): Vector2;   // in pixels, for the presentation
   toCell(world: Vector2): Cell;
   inBounds(x: number, y: number): boolean;
 }
 ```
 
-## Requisiti aggiuntivi
+## Additional requirements
 
-**MAP-10** — Il servizio **DEVE** essere l'**unica autorità** sulla calpestabilità del terreno. La
-collisione statica **DEVE** derivare dalla griglia dati, non da collider disegnati a mano
-duplicati nel renderer.
+**MAP-10** — The service **MUST** be the **sole authority** on terrain walkability. Static collision
+**MUST** derive from the data grid, not from hand-drawn colliders duplicated in the renderer.
 
-**MAP-11** — Le proprietà di un terreno (calpestabile, costo di movimento, rumorosità, tipo di
-suolo per suoni e particelle, luminosità) **DEVONO** essere **dati** in tabella per `TerrainId`, non
-condizioni cablate nel codice.
+**MAP-11** — A terrain's properties (walkable, movement cost, noisiness, ground type for sounds and
+particles, brightness) **MUST** be **data** in a table keyed by `TerrainId`, not conditions
+hardwired in the code.
 
-**MAP-12** — Le query di cella (`terrainAt`, `isWalkable`, `moveCost`) **DEVONO** essere O(1) e
-prive di allocazioni: sono chiamate migliaia di volte per ricerca di percorso (ARC-13.3).
+**MAP-12** — Cell queries (`terrainAt`, `isWalkable`, `moveCost`) **MUST** be O(1) and
+allocation-free: they are called thousands of times per path search (ARC-13.3).
 
-**MAP-13** — La rappresentazione interna **DOVREBBE** essere un array tipizzato piatto
-(`Uint16Array`), non un array di array di oggetti.
+**MAP-13** — The internal representation **SHOULD** be a flat typed array (`Uint16Array`), not an
+array of arrays of objects.
 
-**MAP-14** — Le coordinate di cella e quelle di mondo **DEVONO** essere tipi distinti o comunque
-distinguibili: confonderle è l'errore più comune di questo dominio.
+**MAP-14** — Cell coordinates and world coordinates **MUST** be distinct types, or at least
+distinguishable: confusing them is the most common mistake in this domain.
 
-**MAP-15** — Le modifiche a runtime **DEVONO** emettere `cell-changed`, perché renderer, indice
-spaziale e cache di pathfinding si aggiornino senza doversi confrontare periodicamente con la
-griglia.
+**MAP-15** — Runtime modifications **MUST** emit `cell-changed`, so that the renderer, the spatial
+index and the pathfinding cache update themselves without having to periodically compare against the
+grid.
 
-**MAP-16** — Il servizio **DEVE** supportare **aree nominate** con confini, tipo (disegnata a mano o
-generata) e proprietà proprie: sono l'unità a cui si agganciano regole di respawn (GP-10), musica
-(GP-55), spawn e crimine.
+**MAP-16** — The service **MUST** support **named areas** with boundaries, a kind (hand-drawn or
+generated) and their own properties: they are the unit that respawn rules (GP-10), music (GP-55),
+spawning and crime hook onto.
 
-**MAP-17** — L'attraversamento del confine di un'area da parte di un'entità tracciata **DEVE**
-emettere `area-entered` / `area-exited`.
+**MAP-17** — A tracked entity crossing an area's boundary **MUST** emit `area-entered` /
+`area-exited`.
 
-**MAP-18** — Lo stato dinamico serializzato **DEVE** contenere **solo le differenze** rispetto alla
-mappa di partenza (celle modificate), non l'intera griglia: una mappa generata si ricostruisce da
-seed (GEN-3) più le differenze.
+**MAP-18** — The serialized dynamic state **MUST** contain **only the differences** with respect to
+the starting map (modified cells), not the whole grid: a generated map is rebuilt from its seed
+(GEN-3) plus the differences.
 
-**MAP-19** — Il servizio **DEVE** accettare indifferentemente una mappa caricata da Tiled e una
-generata proceduralmente: la sorgente **NON DEVE** essere visibile a valle (GP-7, GP-8, GP-9).
+**MAP-19** — The service **MUST** accept a map loaded from Tiled and a procedurally generated one
+alike: the source **MUST NOT** be visible downstream (GP-7, GP-8, GP-9).
 
-**MAP-20** — Il servizio **DEVE** poter ospitare **più mappe** contemporaneamente caricate
-(l'area corrente e quelle adiacenti), con identificazione esplicita: il passaggio da un'area
-all'altra non **DEVE** richiedere di ricostruire il contesto.
+**MAP-20** — The service **MUST** be able to host **several maps** loaded at the same time (the
+current area and the adjacent ones), with explicit identification: moving from one area to another
+**MUST NOT** require rebuilding the context.
 
-**MAP-21** — La collisione delle **entità** (impronta di un barile, di un albero) **NON** appartiene
-a questo servizio ma a `ENT`/`SPX`: la mappa conosce il terreno, non chi ci sta sopra. Chi deve
-sapere se una cella è libera interroga entrambi.
+**MAP-21** — **Entity** collision (the footprint of a barrel, of a tree) does **NOT** belong to this
+service but to `ENT`/`SPX`: the map knows the terrain, not who stands on it. Whoever needs to know
+whether a cell is free queries both.
 
-## Criteri di test
+## Test criteria
 
-- Costruire una mappa sintetica 32×32 e verificare calpestabilità, costi e confini.
-- `toCell(toWorld(c)) === c` per ogni cella, inclusi i bordi.
-- Modificare una cella emette esattamente un `cell-changed`.
-- Il round-trip di serializzazione contiene solo le differenze attese.
-- Il servizio funziona con un insieme di terreni inventato, estraneo a questo gioco (ARC-3.4).
+- Build a synthetic 32×32 map and verify walkability, costs and boundaries.
+- `toCell(toWorld(c)) === c` for every cell, edges included.
+- Modifying a cell emits exactly one `cell-changed`.
+- The serialization round trip contains only the expected differences.
+- The service works with a made-up terrain set, foreign to this game (ARC-3.4).
 
-## Collegamenti
+## Links
 
-- [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) — MAP-1…MAP-9: livelli, DGS, ordinamento per Y,
-  overhead, formato dati
+- [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) — MAP-1…MAP-9: layers, DGS, Y-ordering, overhead,
+  data format
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-7, GP-8, GP-9, GP-10, GP-52
 - [`map-generation.md`](./map-generation.md) · [`pathfinding.md`](./pathfinding.md) ·
   [`spatial-index.md`](./spatial-index.md) · [`rendering.md`](./rendering.md)

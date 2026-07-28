@@ -1,41 +1,41 @@
-# TIME — Tempo di gioco e scheduler
+# TIME — Game time and scheduler
 
-**Area:** Core · **Natura:** generico · **Priorità:** 1 · **Stato:** proposto
-**Prefisso requisiti:** `TIME-*`
+**Area:** Core · **Nature:** generic · **Priority:** 1 · **Status:** proposed
+**Requirement prefix:** `TIME-*`
 
-## Scopo
+## Purpose
 
-Essere l'**unica sorgente di tempo** del dominio. Fornisce il tempo di gioco (distinto dal tempo
-reale), la conversione in orario del mondo per il ciclo giorno/notte, e uno **scheduler** per le
-azioni differite: respawn, scadenza di status effect, rifornimento dei mercanti, routine dei PNG.
+To be the domain's **single source of time**. It provides game time (distinct from real time), the
+conversion into world time for the day/night cycle, and a **scheduler** for deferred actions:
+respawns, status effect expiry, merchant restocking, NPC routines.
 
-Senza questo servizio, i timer finirebbero sparsi come `setTimeout` e contatori privati, rendendo
-impossibili pausa, salvataggio e riproducibilità.
+Without this service, timers would end up scattered as `setTimeout` calls and private counters,
+making pause, saving and reproducibility impossible.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | — |
-| NON dipende da | `excalibur`, `Date.now()`, `setTimeout`, altri servizi |
-| Consumato da | orchestrazione; il `tick` è pompato dal loop di presentazione |
-| Stato dinamico | tempo di gioco trascorso, fattore di scala, coda dei timer pendenti |
-| Stato statico | durata del giorno, mappatura tempo→orario |
-| Dati esterni | parametri del ciclo giorno/notte |
-| Eventi emessi | `timer-elapsed`, `hour-changed`, `day-changed`, `phase-changed` |
+| Depends on | — |
+| Does NOT depend on | `excalibur`, `Date.now()`, `setTimeout`, other services |
+| Consumed by | orchestration; the `tick` is pumped by the presentation loop |
+| Dynamic state | elapsed game time, scale factor, queue of pending timers |
+| Static state | day length, time→clock mapping |
+| External data | day/night cycle parameters |
+| Events emitted | `timer-elapsed`, `hour-changed`, `day-changed`, `phase-changed` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
-type GameTimeMs = number;              // millisecondi di tempo di gioco dall'inizio partita
+type GameTimeMs = number;              // milliseconds of game time since the game started
 type TimerId = string;
 
 interface Clock {
   now(): GameTimeMs;
-  /** Avanza il tempo di gioco. Restituisce gli eventi maturati, non li pubblica (ARC-4.2). */
+  /** Advances game time. Returns the events that came due, it does not publish them (ARC-4.2). */
   tick(realDeltaMs: number): readonly DomainEvent[];
 
-  setScale(factor: number): void;      // 0 = pausa, 1 = normale, >1 = accelerato
+  setScale(factor: number): void;      // 0 = paused, 1 = normal, >1 = accelerated
   isPaused(): boolean;
 
   schedule(afterMs: number, payload: TimerPayload): TimerId;
@@ -46,53 +46,53 @@ interface Clock {
 }
 ```
 
-## Requisiti
+## Requirements
 
-**TIME-1** — Nessun codice di dominio **DEVE** leggere `Date.now()`, `performance.now()` o usare
-`setTimeout`/`setInterval`: il tempo entra solo da `tick()` (ARC-9.3).
+**TIME-1** — No domain code **MUST** read `Date.now()`, `performance.now()` or use
+`setTimeout`/`setInterval`: time only enters through `tick()` (ARC-9.3).
 
-**TIME-2** — Il **tempo di gioco DEVE** essere distinto dal tempo reale e scalabile, con `scale = 0`
-come pausa. In pausa nessun timer **DEVE** maturare.
+**TIME-2** — **Game time MUST** be distinct from real time and scalable, with `scale = 0` meaning
+paused. While paused no timer **MUST** come due.
 
-**TIME-3** — `tick()` **DEVE** restituire gli eventi maturati in ordine di scadenza crescente; a
-parità di scadenza, in ordine di registrazione. Il risultato **DEVE** essere indipendente dalla
-dimensione dei passi: 10 tick da 16 ms e 1 tick da 160 ms **DEVONO** produrre la stessa sequenza.
+**TIME-3** — `tick()` **MUST** return the events that came due in increasing order of deadline; for
+equal deadlines, in registration order. The result **MUST** be independent of step size: 10 ticks of
+16 ms and 1 tick of 160 ms **MUST** produce the same sequence.
 
-**TIME-4** — Lo scheduler **DEVE** gestire correttamente un `delta` che copre **più scadenze**,
-incluse le ripetizioni multiple di un timer periodico.
+**TIME-4** — The scheduler **MUST** correctly handle a `delta` that spans **several deadlines**,
+including multiple repetitions of a periodic timer.
 
-**TIME-5** — Il servizio **DEVE** offrire un **passo fisso di simulazione** opzionale per la logica
-sensibile al determinismo, disaccoppiandola dal frame rate di rendering.
+**TIME-5** — The service **MUST** offer an optional **fixed simulation step** for determinism-
+sensitive logic, decoupling it from the rendering frame rate.
 
-**TIME-6** — Lo scheduler **DEVE** reggere migliaia di timer pendenti con inserimento e scadenza in
-tempo logaritmico: nessuna scansione lineare per tick (ARC-13).
+**TIME-6** — The scheduler **MUST** cope with thousands of pending timers, with insertion and expiry
+in logarithmic time: no linear scan per tick (ARC-13).
 
-**TIME-7** — I timer **DEVONO** essere serializzabili: `payload` è un dato, mai una callback. Al
-caricamento, i timer pendenti riprendono con il tempo residuo corretto (ARC-10.4).
+**TIME-7** — Timers **MUST** be serializable: `payload` is data, never a callback. On load, pending
+timers resume with the correct remaining time (ARC-10.4).
 
-**TIME-8** — Il servizio **DEVE** convertire il tempo di gioco in **orario del mondo** (giorno, ora,
-minuto, fase) secondo una durata del giorno configurabile, ed emettere `hour-changed`,
-`day-changed`, `phase-changed` ai passaggi.
+**TIME-8** — The service **MUST** convert game time into **world time** (day, hour, minute, phase)
+according to a configurable day length, and emit `hour-changed`, `day-changed`, `phase-changed` at
+the transitions.
 
-**TIME-9** — Il servizio **NON DEVE** sapere cosa significhi un timer: `payload` è opaco. Il
-significato ("respawn del nemico E42", "fine avvelenamento") è dell'orchestrazione.
+**TIME-9** — The service **MUST NOT** know what a timer means: `payload` is opaque. The meaning
+("respawn of enemy E42", "end of poisoning") belongs to the orchestration.
 
-**TIME-10** — Un `delta` abnorme (finestra in background, breakpoint) **DEVE** essere limitato da un
-tetto configurabile, per evitare che al ritorno maturino migliaia di eventi in un solo frame.
+**TIME-10** — An abnormal `delta` (backgrounded window, breakpoint) **MUST** be limited by a
+configurable cap, to prevent thousands of events coming due in a single frame on return.
 
-**TIME-11** — Il servizio **DEVE** distinguere tempo **simulato** e tempo **di interfaccia**: le
-animazioni di HUD e menu continuano anche a gioco in pausa.
+**TIME-11** — The service **MUST** distinguish **simulated** time from **interface** time: HUD and
+menu animations continue even while the game is paused.
 
-## Criteri di test
+## Test criteria
 
-- Stessa sequenza di eventi con passi grandi e piccoli, a parità di tempo totale.
-- Un timer periodico da 100 ms su un delta da 350 ms matura 3 volte, con le scadenze corrette.
-- Salvataggio e ricaricamento a metà di un timer: il residuo è esatto.
-- A `scale = 0` il tempo non avanza e nessun timer matura.
-- Le transizioni di fase avvengono una sola volta per passaggio, anche con delta molto grandi.
+- The same sequence of events with large and small steps, for the same total time.
+- A 100 ms periodic timer over a 350 ms delta comes due 3 times, with the correct deadlines.
+- Saving and reloading halfway through a timer: the remainder is exact.
+- At `scale = 0` time does not advance and no timer comes due.
+- Phase transitions happen exactly once per crossing, even with very large deltas.
 
-## Collegamenti
+## Links
 
-- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-9 (determinismo), ARC-13 (performance)
-- [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-10 (respawn), GP-12 (ciclo giorno/notte), GP-13 (routine)
-- [`persistence.md`](./persistence.md) — serializzazione dei timer
+- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-9 (determinism), ARC-13 (performance)
+- [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-10 (respawn), GP-12 (day/night cycle), GP-13 (routines)
+- [`persistence.md`](./persistence.md) — timer serialization

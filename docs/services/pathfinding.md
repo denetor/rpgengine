@@ -1,116 +1,113 @@
 # PATH — Pathfinding
 
-**Area:** Agenti · **Natura:** generico · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `PATH-*`
+**Area:** Agents · **Nature:** generic · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `PATH-*`
 
-## Scopo
+## Purpose
 
-Calcolare percorsi su griglia e rispondere alle domande di raggiungibilità che l'IA pone prima
-ancora di muoversi: *è raggiungibile? quanto costa arrivarci? qual è il primo passo?*
+Compute paths on a grid and answer the reachability questions the AI asks before even moving: *is it
+reachable? how much does it cost to get there? what is the first step?*
 
-Il servizio calcola percorsi; **non muove** le entità. Il movimento, con la sua fisica e le sue
-animazioni, è della presentazione.
+The service computes paths; it **does not move** entities. Movement, with its physics and its
+animations, belongs to the presentation.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | una **porta di navigabilità** (`(x,y) → costo`), implementata su `MAP` + `ENT` |
-| NON dipende da | `excalibur`, `MAP`, `ENT`, altri servizi |
-| Consumato da | orchestrazione (esecuzione degli intenti di `AI`) |
-| Stato dinamico | cache dei percorsi, code di richieste, componenti connesse |
-| Stato statico | parametri: euristica, diagonali, tolleranze |
-| Dati esterni | costi di movimento per terreno (da `MAP`), budget per frame in configurazione |
-| Eventi emessi | `path-ready`, `path-failed` |
-| Ordine di grandezza | ~50 richieste/secondo su mappe 256×256, entro un budget di ~2 ms/frame |
+| Depends on | a **navigability port** (`(x,y) → cost`), implemented on top of `MAP` + `ENT` |
+| Does NOT depend on | `excalibur`, `MAP`, `ENT`, other services |
+| Consumed by | orchestration (execution of `AI`'s intents) |
+| Dynamic state | path cache, request queues, connected components |
+| Static state | parameters: heuristic, diagonals, tolerances |
+| External data | per-terrain movement costs (from `MAP`), per-frame budget in the configuration |
+| Events emitted | `path-ready`, `path-failed` |
+| Order of magnitude | ~50 requests/second on 256×256 maps, within a budget of ~2 ms/frame |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface NavigationPort {
-  cost(x: number, y: number): number;      // Infinity = intransitabile
+  cost(x: number, y: number): number;      // Infinity = impassable
   width: number; height: number;
 }
 
 interface Pathfinder {
-  /** Richiesta asincrona: il calcolo può essere distribuito su più frame. */
+  /** Asynchronous request: the computation can be spread over several frames. */
   request(from: Cell, to: Cell, agent: AgentProfile): PathRequestId;
   poll(id: PathRequestId): PathResult | 'pending';
   cancel(id: PathRequestId): void;
 
-  /** Risposta immediata su distanze brevi, entro un budget di nodi. */
+  /** Immediate answer over short distances, within a node budget. */
   findImmediate(from: Cell, to: Cell, agent: AgentProfile, maxNodes: number): PathResult | 'too-far';
 
-  /** Raggiungibilità in O(1) tramite componenti connesse: da chiamare prima di cercare. */
+  /** O(1) reachability through connected components: to be called before searching. */
   isReachable(from: Cell, to: Cell, agent: AgentProfile): boolean;
 
-  /** Fuga: la cella migliore entro un raggio che massimizza la distanza dalle minacce. */
+  /** Flight: the best cell within a radius that maximizes the distance from the threats. */
   findFleeTarget(from: Cell, threats: readonly Cell[], radius: number, agent: AgentProfile): Cell | undefined;
 
   invalidate(region: Rect): void;
 }
 ```
 
-## Requisiti
+## Requirements
 
-**PATH-1** — Il servizio **DEVE** dipendere solo da una **porta di navigabilità**, non dal servizio
-mappa: deve poter essere testato su una griglia sintetica di costi (ARC-4.1).
+**PATH-1** — The service **MUST** depend only on a **navigability port**, not on the map service: it
+must be testable on a synthetic grid of costs (ARC-4.1).
 
-**PATH-2** — Il calcolo **DEVE** essere deterministico: a parità di griglia, estremi e profilo, il
-percorso restituito **DEVE** essere sempre lo stesso, compresa la risoluzione dei pareggi nella coda
-di priorità (ARC-9.4).
+**PATH-2** — The computation **MUST** be deterministic: for a given grid, endpoints and profile, the
+returned path **MUST** always be the same, including how ties are broken in the priority queue
+(ARC-9.4).
 
-**PATH-3** — Il servizio **DEVE** supportare **profili di agente** diversi: un agente acquatico, uno
-volante e uno terrestre leggono costi diversi sulla stessa griglia. Il profilo è un dato.
+**PATH-3** — The service **MUST** support different **agent profiles**: an aquatic agent, a flying
+one and a ground one read different costs on the same grid. The profile is data.
 
-**PATH-4** — `isReachable` **DEVE** rispondere in tempo pressoché costante tramite **componenti
-connesse** precalcolate: evita di lanciare ricerche costose destinate a fallire, il caso peggiore
-per le prestazioni.
+**PATH-4** — `isReachable` **MUST** answer in near-constant time through precomputed **connected
+components**: this avoids launching expensive searches destined to fail, the worst case for
+performance.
 
-**PATH-5** — Le richieste **DEVONO** poter essere **distribuite su più frame** con un budget di nodi
-esplorati per frame, senza mai bloccare il gioco (ARC-13.2).
+**PATH-5** — Requests **MUST** be spreadable **over several frames** with an explicit budget of
+nodes explored per frame, never freezing the game (ARC-13.2).
 
-**PATH-6** — Le richieste **DEVONO** avere una priorità: il percorso del PNG che insegue il
-giocatore precede quello del contadino che torna a casa.
+**PATH-6** — Requests **MUST** have a priority: the path of the NPC chasing the player comes before
+that of the farmer walking home.
 
-**PATH-7** — I percorsi **DEVONO** essere invalidati alla modifica della navigabilità (porta chiusa,
-ponte crollato), reagendo a `cell-changed`: l'invalidazione **DEVE** essere **regionale**, non
-globale.
+**PATH-7** — Paths **MUST** be invalidated when navigability changes (door closed, bridge
+collapsed), reacting to `cell-changed`: invalidation **MUST** be **regional**, not global.
 
-**PATH-8** — Il servizio **DEVE** supportare un **costo di attraversamento** oltre alla semplice
-transitabilità: il fango rallenta, la strada è preferita, l'area sorvegliata è evitata da chi ha una
-taglia. Costi aggiuntivi contestuali **DEVONO** poter essere aggiunti dal profilo dell'agente.
+**PATH-8** — The service **MUST** support a **crossing cost** beyond simple passability: mud slows
+you down, roads are preferred, a guarded area is avoided by someone with a bounty. Additional
+contextual costs **MUST** be addable by the agent's profile.
 
-**PATH-9** — Il percorso restituito **DOVREBBE** essere **semplificato** (rimozione dei nodi
-collineari, smussatura) prima della consegna, perché il movimento non risulti a scalini.
+**PATH-9** — The returned path **SHOULD** be **simplified** (removal of collinear nodes, smoothing)
+before delivery, so that movement does not look like stair steps.
 
-**PATH-10** — Il servizio **DEVE** offrire una ricerca di **fuga**: non un percorso verso una meta,
-ma la destinazione entro un raggio che massimizza la distanza dalle minacce restando raggiungibile.
-È necessaria a GP-29 e non è esprimibile come una normale ricerca da A a B.
+**PATH-10** — The service **MUST** offer a **flight** search: not a path towards a destination, but
+the destination within a radius that maximizes the distance from the threats while staying
+reachable. It is needed by GP-29 and cannot be expressed as an ordinary A-to-B search.
 
-**PATH-11** — Se la destinazione è occupata o non transitabile, il servizio **DOVREBBE** restituire
-il percorso verso la **cella libera più vicina** ad essa, invece di fallire: è quasi sempre ciò che
-serve.
+**PATH-11** — If the destination is occupied or impassable, the service **SHOULD** return the path
+to the **nearest free cell** to it, instead of failing: that is nearly always what is wanted.
 
-**PATH-12** — I percorsi **NON DEVONO** essere serializzati: sono ricalcolabili (ARC-10.4).
+**PATH-12** — Paths **MUST NOT** be serialized: they are recomputable (ARC-10.4).
 
-**PATH-13** — Il calcolo **NON DEVE** allocare per nodo esplorato: strutture riusate tra le
-richieste (ARC-13.3).
+**PATH-13** — The computation **MUST NOT** allocate per explored node: structures are reused across
+requests (ARC-13.3).
 
-**PATH-14** — Il servizio **NON DEVE** muovere le entità né conoscere la loro rappresentazione:
-restituisce celle.
+**PATH-14** — The service **MUST NOT** move entities nor know their representation: it returns
+cells.
 
-## Criteri di test
+## Test criteria
 
-- Su griglie sintetiche note (labirinti, corridoi, aree isolate) il percorso è ottimo e
-  riproducibile.
-- `isReachable` è coerente con l'esito della ricerca completa su 10⁴ coppie casuali.
-- Una richiesta distribuita su più frame produce lo stesso risultato di una immediata.
-- L'invalidazione regionale non azzera la cache dell'intera mappa.
-- La ricerca di fuga da tre minacce sceglie la cella attesa.
-- Prestazione: 50 richieste su mappa 256×256 entro il budget dichiarato, con zero allocazioni.
+- On known synthetic grids (mazes, corridors, isolated areas) the path is optimal and reproducible.
+- `isReachable` is consistent with the outcome of the full search over 10⁴ random pairs.
+- A request spread over several frames produces the same result as an immediate one.
+- Regional invalidation does not clear the cache for the whole map.
+- The flight search from three threats picks the expected cell.
+- Performance: 50 requests on a 256×256 map within the declared budget, with zero allocations.
 
-## Collegamenti
+## Links
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-13 (performance)
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-13, GP-29

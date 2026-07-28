@@ -1,31 +1,31 @@
-# CBT — Combattimento
+# CBT — Combat
 
-**Area:** Regole · **Natura:** di dominio · **Priorità:** 2 · **Stato:** proposto
-**Prefisso requisiti:** `CBT-*`
+**Area:** Game rules · **Nature:** domain · **Priority:** 2 · **Status:** proposed
+**Requirement prefix:** `CBT-*`
 
-## Scopo
+## Purpose
 
-Essere l'**unico punto** in cui si calcola un danno e si applica un effetto di stato. Riceve una
-richiesta di colpo con tutti i dati necessari, restituisce l'esito e gli eventi prodotti.
+To be the **single point** at which damage is computed and a status effect is applied. It receives a
+hit request with all the necessary data, and returns the outcome and the events produced.
 
-Il difetto che questo servizio esiste per prevenire è documentato in
-[`previous-version/REPORT-VALUTAZIONE.md`](../previous-version/REPORT-VALUTAZIONE.md): più
-implementazioni indipendenti di `takeHit`, ciascuna con le proprie regole, che accedono allo stato
-altrui con `(other as any).model`. Una sola formula, un solo contratto tipizzato.
+The defect this service exists to prevent is documented in
+[`previous-version/ASSESSMENT-REPORT.md`](../previous-version/ASSESSMENT-REPORT.md): several
+independent implementations of `takeHit`, each with its own rules, reaching into other objects'
+state with `(other as any).model`. One formula, one typed contract.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | uno stream `RND` |
-| NON dipende da | `excalibur`, `ENT`, `STAT`, altri servizi |
-| Consumato da | orchestrazione |
-| Stato dinamico | vita corrente, status effect attivi, tempi di recupero, minacce |
-| Stato statico | tipi di danno, tabelle di resistenza, definizioni degli status, formule |
-| Dati esterni | `content/combat/damage-types.json`, `status-effects.json`, `formulas.json` |
-| Eventi emessi | `damage-dealt`, `damage-blocked`, `status-applied`, `status-expired`, `entity-died`, `knockback-applied` |
+| Depends on | an `RND` stream |
+| Does NOT depend on | `excalibur`, `ENT`, `STAT`, other services |
+| Consumed by | orchestration |
+| Dynamic state | current health, active status effects, recovery timings, threat |
+| Static state | damage types, resistance tables, status definitions, formulas |
+| External data | `content/combat/damage-types.json`, `status-effects.json`, `formulas.json` |
+| Events emitted | `damage-dealt`, `damage-blocked`, `status-applied`, `status-expired`, `entity-died`, `knockback-applied` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface DamageInfo {
@@ -38,12 +38,12 @@ interface DamageInfo {
   readonly tags: readonly DamageTag[];          // 'melee' | 'ranged' | 'magic' | 'trap' | …
 }
 
-interface CombatSnapshot {                       // fornito dal chiamante: il servizio non lo cerca
+interface CombatSnapshot {                       // supplied by the caller: the service does not look for it
   readonly resistances: Readonly<Record<DamageTypeId, number>>;
   readonly defense: number;
   readonly currentHealth: number;
   readonly maxHealth: number;
-  readonly guardState: GuardState;               // parata, schivata, i-frame
+  readonly guardState: GuardState;               // block, dodge, i-frames
   readonly immunities: readonly DamageTypeId[];
 }
 
@@ -56,84 +56,83 @@ interface CombatService {
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Unicità della formula
+### A single formula
 
-**CBT-1** — **DEVE** esistere **un solo punto** di calcolo del danno. Nessun'altra parte del codice
-**DEVE** poter ridurre la vita di un'entità (GP-19).
+**CBT-1** — There **MUST** be **a single point** where damage is computed. No other part of the code
+**MUST** be able to reduce an entity's health (GP-19).
 
-**CBT-2** — Il danno **DEVE** passare per la struttura tipizzata `DamageInfo`. Nessun accesso a
-proprietà altrui tramite cast: il chiamante fornisce uno `CombatSnapshot` esplicito.
+**CBT-2** — Damage **MUST** go through the typed `DamageInfo` structure. No reaching into other
+objects' properties through casts: the caller supplies an explicit `CombatSnapshot`.
 
-**CBT-3** — La formula **DEVE** essere dichiarata nei dati e documentata, con l'ordine di
-applicazione dei fattori esplicito (base → variazione → resistenza → difesa → critico → riduzioni →
-minimo).
+**CBT-3** — The formula **MUST** be declared in data and documented, with the order in which factors
+are applied made explicit (base → variation → resistance → defence → critical → reductions →
+minimum).
 
-**CBT-4** — Il calcolo **DEVE** essere deterministico dato lo stream `RND`: nessun `Math.random()`
-(ARC-9.2). La variazione del danno **DOVREBBE** usare la sorgente gaussiana (RND-6), non uniforme:
-i colpi si addensano attorno al valore nominale, con code rare.
+**CBT-4** — The computation **MUST** be deterministic given the `RND` stream: no `Math.random()`
+(ARC-9.2). Damage variation **SHOULD** use the Gaussian source (RND-6), not the uniform one: hits
+cluster around the nominal value, with rare tails.
 
-**CBT-5** — Il servizio **NON DEVE** leggere lo stato di altri servizi: riceve tutto ciò che serve.
-È ciò che lo rende testabile con dati inventati.
+**CBT-5** — The service **MUST NOT** read other services' state: it receives everything it needs.
+That is what makes it testable with made-up data.
 
-### Regole di gioco
+### Game rules
 
-**CBT-6** — **DEVONO** esistere **tipi di danno** con resistenze e vulnerabilità per entità (GP-14).
-L'insieme dei tipi è **dato**: aggiungerne uno non tocca il codice.
+**CBT-6** — There **MUST** be **damage types** with per-entity resistances and vulnerabilities
+(GP-14). The set of types is **data**: adding one does not touch the code.
 
-**CBT-7** — **DEVONO** esistere **status effect a tempo** — veleno, sanguinamento, stordimento,
-rallentamento, buff e debuff — con durata, periodicità, intensità e regole di **cumulo** dichiarate
-(sostituisce, si somma, rinnova la durata, ha un massimo di applicazioni) (GP-15).
+**CBT-7** — There **MUST** be **timed status effects** — poison, bleeding, stun, slow, buffs and
+debuffs — with declared duration, periodicity, intensity and **stacking** rules (replaces, adds,
+refreshes the duration, has a maximum number of applications) (GP-15).
 
-**CBT-8** — Gli status **DEVONO** scadere tramite `TIME` (TIME-7), non con contatori privati, così
-da sopravvivere correttamente a salvataggio e pausa.
+**CBT-8** — Statuses **MUST** expire through `TIME` (TIME-7), not with private counters, so that they
+survive saving and pausing correctly.
 
-**CBT-9** — Un colpo **DEVE** poter produrre **knockback** e **hitstun** parametrizzati dall'arma
-(GP-16). Il servizio ne calcola l'entità e la direzione; ad applicarli al movimento è la
-presentazione, reagendo all'evento.
+**CBT-9** — A hit **MUST** be able to produce **knockback** and **hitstun** parameterized by the
+weapon (GP-16). The service computes their magnitude and direction; applying them to movement is the
+presentation's job, reacting to the event.
 
-**CBT-10** — **DEVONO** essere supportati **parata, schivata e finestre di invulnerabilità**: lo
-stato di guardia entra nello snapshot, e l'esito distingue colpo pieno, parato, schivato e
-completamente evitato (GP-17).
+**CBT-10** — **Blocking, dodging and invulnerability windows MUST** be supported: the guard state is
+part of the snapshot, and the outcome distinguishes a full hit, a blocked one, a dodged one and a
+completely avoided one (GP-17).
 
-**CBT-11** — Il servizio **DEVE** trattare allo stesso modo attacchi in mischia, a distanza e magici,
-per il giocatore e per i PNG (GP-18): differiscono nei dati, non nel percorso di codice.
+**CBT-11** — The service **MUST** treat melee, ranged and magical attacks the same way, for the
+player and for NPCs (GP-18): they differ in the data, not in the code path.
 
-**CBT-12** — Il danno **DEVE** poter provenire dall'ambiente (trappole, fuoco, caduta) senza
-un'entità sorgente.
+**CBT-12** — Damage **MUST** be able to come from the environment (traps, fire, falling) with no
+source entity.
 
-**CBT-13** — Un'entità marcata come **non uccidibile** (quest NPC, GP-27) **NON DEVE** poter morire:
-il danno viene applicato fino a una soglia minima e l'esito lo dichiara esplicitamente. La regola
-**DEVE** vivere qui, non essere ricordata in ogni punto che infligge danno.
+**CBT-13** — An entity marked as **unkillable** (quest NPC, GP-27) **MUST NOT** be able to die:
+damage is applied down to a minimum threshold and the outcome declares this explicitly. The rule
+**MUST** live here, not be remembered at every point that deals damage.
 
-**CBT-14** — La morte **DEVE** essere un esito calcolato dal servizio, che emette `entity-died` una
-sola volta. Un'entità già morta **NON DEVE** poter morire di nuovo, né subire danni.
+**CBT-14** — Death **MUST** be an outcome computed by the service, which emits `entity-died` exactly
+once. An already dead entity **MUST NOT** be able to die again, nor take damage.
 
-**CBT-15** — Il servizio **DOVREBBE** tenere una **tabella delle minacce** per bersaglio (chi mi ha
-colpito, quanto, quando): è ciò che permette all'IA di reagire in modo credibile (GP-29) senza
-ricostruirla da sé.
+**CBT-15** — The service **SHOULD** keep a **threat table** per target (who hit me, how much, when):
+it is what lets the AI react believably (GP-29) without reconstructing it itself.
 
-**CBT-16** — Le entità **DEVONO** poter essere immuni a tipi di danno e a status specifici.
+**CBT-16** — Entities **MUST** be able to be immune to specific damage types and statuses.
 
-**CBT-17** — Il risultato **DEVE** essere una struttura ricca (danno inflitto, danno assorbito,
-critico, uccisione, status applicati e rifiutati), non un numero: è ciò che alimenta HUD, numeri
-fluttuanti, suoni e IA.
+**CBT-17** — The result **MUST** be a rich structure (damage dealt, damage absorbed, critical, kill,
+statuses applied and refused), not a number: it is what feeds the HUD, floating numbers, sounds and
+AI.
 
-**CBT-18** — Il servizio **NON DEVE** muovere entità, riprodurre animazioni o suoni: emette eventi.
+**CBT-18** — The service **MUST NOT** move entities, play animations or sounds: it emits events.
 
-## Criteri di test
+## Test criteria
 
-- La formula produce i valori attesi su una tabella di casi noti, inclusi immunità, resistenza
-  totale, vulnerabilità e danno minimo.
-- Stesso seed → stessa sequenza di colpi, critici e variazioni.
-- Le regole di cumulo degli status si comportano come dichiarato per ciascuna politica.
-- Un quest NPC portato sotto zero sopravvive, con esito esplicito.
-- Un'entità morta non riceve ulteriori danni né emette un secondo `entity-died`.
-- Gli status sopravvivono a un ciclo di salvataggio con la durata residua corretta.
-- Il servizio funziona con tipi di danno e status inventati (ARC-3.4).
+- The formula produces the expected values on a table of known cases, including immunity, total
+  resistance, vulnerability and minimum damage.
+- Same seed → same sequence of hits, criticals and variations.
+- Status stacking rules behave as declared for each policy.
+- A quest NPC taken below zero survives, with an explicit outcome.
+- A dead entity takes no further damage nor emits a second `entity-died`.
+- Statuses survive a save cycle with the correct remaining duration.
+- The service works with made-up damage types and statuses (ARC-3.4).
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-14…GP-19, GP-27
 - [`stats.md`](./stats.md) · [`random.md`](./random.md) · [`time.md`](./time.md) ·

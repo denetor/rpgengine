@@ -1,201 +1,196 @@
-# Spec — `RND`, servizio di casualità
+# Spec — `RND`, the randomness service
 
-**Servizio:** `RND` · **Priorità:** 1 · **Scheda:** [`services/random.md`](../services/random.md)
-**ADR:** [`0001`](../adr/0001-riproducibilita-bit-per-bit.md) ·
-[`0002`](../adr/0002-riaggiustamento-dei-pesi.md)
+**Service:** `RND` · **Priority:** 1 · **Sheet:** [`services/random.md`](../services/random.md)
+**ADR:** [`0001`](../adr/0001-bit-for-bit-reproducibility.md) ·
+[`0002`](../adr/0002-weight-readjustment.md)
 
 ## Problem Statement
 
-Il gioco non ha ancora una sorgente di casualità, e ogni sistema che verrà dopo — combattimento,
-bottino, generazione delle mappe, IA — ne dipende. Se ognuno chiamasse `Math.random()` per conto
-proprio nascerebbero quattro problemi che si scoprono tardi e si pagano con una riscrittura:
+The game has no source of randomness yet, and every system that comes after — combat, loot, map
+generation, AI — depends on one. If each of them called `Math.random()` on its own, four problems
+would arise that are discovered late and paid for with a rewrite:
 
-1. **Le partite non si possono riprodurre.** Un bug segnalato da un giocatore non è riproducibile,
-   un salvataggio non riprende esattamente da dove si era interrotto, e una mappa generata da seed
-   non è la stessa mappa dopo un aggiornamento del browser.
-2. **I sistemi si contaminano a vicenda.** Aggiungere un effetto visivo casuale sposta la sequenza
-   consumata dal combattimento, e l'esito di uno scontro cambia per una ragione che non c'entra
-   nulla con il combattimento.
-3. **Manca la forma statistica giusta.** La variazione del danno vuole addensarsi attorno a un
-   valore centrale, non essere piatta; l'altimetria di una mappa vuole essere continua, non
-   granulosa. Con la sola uniforme, ogni sistema improvvisa la propria approssimazione.
-4. **La casualità corretta è percepita come rotta.** Sette teste di fila sono un risultato
-   legittimo di una moneta equa, ma il giocatore che vede cadere lo stesso oggetto sette volte
-   scrive che il gioco è bacato. Il problema non è il generatore: è che casualità matematicamente
-   corretta e casualità *percepita come tale* sono cose diverse, e un gioco ha bisogno di entrambe.
+1. **Games cannot be reproduced.** A bug reported by a player is not reproducible, a save does not
+   resume exactly where it left off, and a map generated from a seed is not the same map after a
+   browser update.
+2. **Systems contaminate each other.** Adding a random visual effect shifts the sequence consumed by
+   combat, and the outcome of a fight changes for a reason that has nothing to do with combat.
+3. **The right statistical shape is missing.** Damage variation wants to cluster around a central
+   value, not be flat; a map's elevation wants to be continuous, not grainy. With only a uniform
+   distribution, every system improvises its own approximation.
+4. **Correct randomness is perceived as broken.** Seven heads in a row is a legitimate result for a
+   fair coin, but the player who sees the same item drop seven times writes that the game is buggy.
+   The problem is not the generator: it is that mathematically correct randomness and randomness
+   *perceived as such* are different things, and a game needs both.
 
-Nessuno di questi si risolve dopo. Il determinismo e l'indipendenza degli stream sono proprietà
-strutturali: aggiungerle a sistemi già scritti significa riscriverli.
+None of these can be fixed later. Determinism and stream independence are structural properties:
+adding them to already-written systems means rewriting them.
 
 ## Solution
 
-Un servizio `RND` — **generico**, senza alcuna conoscenza di questo gioco — che è l'unica sorgente di
-casualità del progetto, e che offre quattro cose dietro un'API sola:
+A service `RND` — **generic**, with no knowledge of this game — that is the project's single source
+of randomness, and that offers four things behind a single API:
 
-- **Stream indipendenti per dominio d'uso.** Il combattimento, il bottino, la generazione e l'IA
-  consumano sequenze separate. Ognuna è seedata dal **seed radice** attraverso l'hash del proprio
-  nome, quindi aggiungere uno stream nuovo non tocca gli altri e non invalida i salvataggi.
-- **Riproducibilità bit-per-bit, anche tra motori JavaScript diversi.** Il generatore è congelato
-  (`xoshiro128**`), e nessuna funzione trascendente di `Math` compare sul percorso che produce
-  valori, perché ECMAScript non ne specifica il risultato esatto. Vedi ADR 0001.
-- **Le forme statistiche che i sistemi chiedono**: gaussiana troncabile per le grandezze che si
-  addensano attorno a un valore, rumore coerente 2D e fBm per la generazione procedurale, estrazione
-  pesata come primitiva.
-- **Casualità filtrata per canale.** Il chiamante dichiara un **canale**; il servizio ne tiene la
-  **memoria di canale** — il peso corrente di ogni esito — e riduce il peso di ciò che è appena
-  uscito, facendolo poi recuperare. Le sequenze che sembrano rotte diventano improbabili senza
-  introdurre una regola che il giocatore possa imparare e sfruttare. Vedi ADR 0002.
+- **Independent streams per usage domain.** Combat, loot, generation and AI consume separate
+  sequences. Each is seeded from the **root seed** through the hash of its own name, so adding a new
+  stream does not touch the others and does not invalidate saves.
+- **Bit-for-bit reproducibility, across different JavaScript engines too.** The generator is frozen
+  (`xoshiro128**`), and no transcendental `Math` function appears on the path that produces values,
+  because ECMAScript does not specify their exact result. See ADR 0001.
+- **The statistical shapes the systems ask for**: a truncatable Gaussian for quantities that cluster
+  around a value, coherent 2D noise and fBm for procedural generation, the weighted draw as a
+  primitive.
+- **Per-channel filtered randomness.** The caller declares a **channel**; the service keeps its
+  **channel memory** — the current weight of each outcome — and reduces the weight of what has just
+  come up, then lets it recover. Sequences that look broken become improbable without introducing a
+  rule the player can learn and exploit. See ADR 0002.
 
-Tutto lo stato dinamico è serializzabile e ripristinabile per costruzione, così che ricaricare una
-partita riprenda le sequenze dal punto esatto e non azzeri la memoria anti-ripetizione.
+All dynamic state is serializable and restorable by construction, so that reloading a game resumes
+the sequences from the exact point and does not reset the anti-repetition memory.
 
-Essendo il primo servizio del progetto, questo spec include anche l'impalcatura di test che ARC-11.1
-richiede e che oggi non esiste.
+Being the project's first service, this spec also includes the test scaffolding that ARC-11.1
+requires and that does not exist today.
 
 ## User Stories
 
-### Riproducibilità
+### Reproducibility
 
-1. Come **programmatore del gioco**, voglio che due partite avviate con lo stesso seed radice e la
-   stessa sequenza di input producano lo stesso risultato, così da poter riprodurre un bug da una
-   segnalazione invece che da una descrizione.
-2. Come **programmatore del gioco**, voglio che nessun punto del progetto possa chiamare
-   `Math.random()`, così che il determinismo non dipenda dalla disciplina di chi scrive il codice.
-3. Come **manutentore del motore**, voglio che l'algoritmo del generatore sia scelto, documentato e
-   congelato, così che un aggiornamento del browser non cambi le partite dei giocatori.
-4. Come **manutentore del motore**, voglio che le funzioni trascendenti di `Math` siano vietate sul
-   percorso deterministico, così che la promessa di riproducibilità valga anche tra motori diversi e
-   non solo sulla mia macchina.
-5. Come **manutentore del motore**, voglio che il divieto sia imposto da un controllo automatico,
-   così che non rientri da una modifica distratta mesi dopo.
-6. Come **giocatore**, voglio che una mappa generata da un seed sia la stessa mappa domani, così da
-   poter condividere un seed con un altro giocatore e parlare dello stesso mondo.
+1. As a **game programmer**, I want two games started with the same root seed and the same sequence
+   of inputs to produce the same result, so that I can reproduce a bug from a report rather than from
+   a description.
+2. As a **game programmer**, I want no point in the project to be able to call `Math.random()`, so
+   that determinism does not depend on the discipline of whoever writes the code.
+3. As an **engine maintainer**, I want the generator's algorithm to be chosen, documented and
+   frozen, so that a browser update does not change players' games.
+4. As an **engine maintainer**, I want the transcendental `Math` functions to be forbidden on the
+   deterministic path, so that the reproducibility promise also holds across different engines and
+   not only on my machine.
+5. As an **engine maintainer**, I want the prohibition to be enforced by an automated check, so that
+   it does not creep back in through a careless change months later.
+6. As a **player**, I want a map generated from a seed to be the same map tomorrow, so that I can
+   share a seed with another player and talk about the same world.
 
-### Stream
+### Streams
 
-7. Come **programmatore del gioco**, voglio ottenere uno stream per dominio d'uso, così che il
-   combattimento e il bottino non consumino la stessa sequenza.
-8. Come **programmatore del gioco**, voglio che consumare numeri in uno stream non alteri la
-   sequenza degli altri, così da poter aggiungere un effetto visivo casuale senza cambiare l'esito
-   di uno scontro.
-9. Come **programmatore del gioco**, voglio che il seed di uno stream dipenda dal suo **nome** e non
-   dall'ordine in cui gli stream vengono creati, così che introdurre uno stream nuovo non rinumeri
-   tutti gli altri e non rompa i salvataggi esistenti.
-10. Come **programmatore del gioco**, voglio che chiedere lo stesso stream due volte restituisca la
-    stessa istanza, così che due parti del codice che si credono indipendenti non ricevano tiri
-    identici.
-11. Come **programmatore del gioco**, voglio poter fissare a mano il seed di uno stream quando ho
-    una ragione per farlo, così da non dover accettare la derivazione automatica in ogni caso.
-12. Come **programmatore del gioco**, voglio che un seed fissato a mano sopravviva al salvataggio,
-    così che il ripristino non dipenda dal fatto che il codice ripassi lo stesso numero.
+7. As a **game programmer**, I want to obtain one stream per usage domain, so that combat and loot do
+   not consume the same sequence.
+8. As a **game programmer**, I want consuming numbers in one stream not to alter the sequence of the
+   others, so that I can add a random visual effect without changing the outcome of a fight.
+9. As a **game programmer**, I want a stream's seed to depend on its **name** and not on the order in
+   which the streams are created, so that introducing a new stream does not renumber all the others
+   and does not break existing saves.
+10. As a **game programmer**, I want asking for the same stream twice to return the same instance, so
+    that two parts of the code that believe themselves independent do not receive identical rolls.
+11. As a **game programmer**, I want to be able to fix a stream's seed by hand when I have a reason
+    to, so that I do not have to accept the automatic derivation in every case.
+12. As a **game programmer**, I want a hand-fixed seed to survive saving, so that restore does not
+    depend on the code passing the same number again.
 
-### Forme statistiche
+### Statistical shapes
 
-13. Come **programmatore del combattimento**, voglio una sorgente gaussiana parametrica su media e
-    deviazione standard, così che la variazione del danno si addensi attorno al valore nominale
-    invece di essere piatta.
-14. Come **programmatore del gioco**, voglio poter troncare la gaussiana a un intervallo, così che
-    una variazione non possa mai produrre un danno negativo o assurdo.
-15. Come **programmatore del gioco**, voglio la gaussiana su jitter delle attese e imprecisione dei
-    PNG, così che i comportamenti sembrino umani invece che sorteggiati.
-16. Come **programmatore della generazione**, voglio rumore coerente e continuo in 2D, così da poter
-    produrre altimetrie e biomi che variano con gradualità invece che a caso da cella a cella.
-17. Come **programmatore della generazione**, voglio poter sommare più ottave di rumore, così da
-    ottenere terreno con dettaglio a più scale.
-18. Come **programmatore della generazione**, voglio che il rumore dipenda solo da seed e coordinate
-    e **non** dall'ordine di campionamento, così da poter campionare le celle in qualunque ordine e
-    rigenerare una porzione senza che il risultato cambi.
-19. Come **programmatore del gioco**, voglio l'estrazione pesata come primitiva del servizio, così
-    che le loot table e le scelte di IA non la reimplementino ciascuna a modo proprio.
-20. Come **programmatore del gioco**, voglio primitive di comodo (intero in intervallo, booleano con
-    probabilità, scelta da elenco, mescolamento), così da non riscrivere ogni volta le stesse
-    conversioni dalla uniforme.
+13. As a **combat programmer**, I want a Gaussian source parametric in mean and standard deviation,
+    so that damage variation clusters around the nominal value instead of being flat.
+14. As a **game programmer**, I want to be able to truncate the Gaussian to an interval, so that a
+    variation can never produce negative or absurd damage.
+15. As a **game programmer**, I want the Gaussian for wait jitter and NPC inaccuracy, so that
+    behaviours look human rather than drawn from a lottery.
+16. As a **generation programmer**, I want coherent, continuous 2D noise, so that I can produce
+    elevations and biomes that vary gradually rather than randomly from cell to cell.
+17. As a **generation programmer**, I want to be able to sum several octaves of noise, so as to get
+    terrain with detail at multiple scales.
+18. As a **generation programmer**, I want the noise to depend only on the seed and the coordinates
+    and **not** on the sampling order, so that I can sample the cells in any order and regenerate a
+    portion without the result changing.
+19. As a **game programmer**, I want the weighted draw as a service primitive, so that loot tables
+    and AI choices do not each reimplement it in their own way.
+20. As a **game programmer**, I want convenience primitives (integer in a range, boolean with a
+    probability, choice from a list, shuffling), so that I do not rewrite the same conversions from
+    the uniform distribution every time.
 
-### Casualità filtrata
+### Filtered randomness
 
-21. Come **giocatore**, voglio non vedere cadere lo stesso oggetto sette volte di fila dallo stesso
-    nemico, così da non concludere che il gioco sia bacato.
-22. Come **giocatore**, voglio che l'anti-ripetizione non diventi una regola prevedibile, così da
-    non poter sapere in anticipo che il prossimo colpo non sarà critico.
-23. Come **programmatore del gioco**, voglio dichiarare un **canale** al momento dell'estrazione,
-    così da decidere io quali sequenze sono separate e quali condivise.
-24. Come **programmatore del gioco**, voglio che il servizio non deduca la granularità dal tipo di
-    entità, così che sia il mio codice a stabilire se ogni porta ha la sua sequenza o se tutte le
-    porte ne condividono una.
-25. Come **game designer**, voglio poter regolare quanto si riduce il peso di un esito appena uscito
-    e in quante estrazioni lo recupera, così da poter tarare la sensazione senza ricompilare.
-26. Come **game designer**, voglio raggruppare quei parametri in **profili di filtro** e assegnarli
-    per prefisso del nome di canale, così da poterli applicare a canali che nascono a runtime e non
-    possono essere elencati in un file.
-27. Come **game designer**, voglio un profilo di default obbligatorio, così che un canale che non
-    corrisponde a nessuna regola abbia comunque un comportamento definito.
-28. Come **giocatore**, voglio che salvare e ricaricare non azzeri la memoria anti-ripetizione, così
-    che il salvataggio non sia un modo per manipolare gli esiti.
-29. Come **programmatore del gioco**, voglio che la memoria dei canali non cresca senza limite, così
-    che una partita da cinquanta ore non trascini nel salvataggio le sequenze di migliaia di entità
-    che non esistono più.
-30. Come **programmatore del gioco**, voglio poter dichiarare esplicitamente che un canale non serve
-    più, così da liberarne la memoria quando so che l'entità è morta.
-31. Come **manutentore del motore**, voglio che lo sfratto automatico sia deterministico e non
-    dipenda dall'orologio di sistema, così che non introduca una divergenza tra due partite altrimenti
-    identiche.
-32. Come **programmatore del gioco**, voglio poter elencare i canali vivi e il profilo risolto per
-    ciascuno, così da accorgermi che un canale che credevo filtrato non lo è.
-33. Come **programmatore del gioco**, voglio che senza configurazione il filtro sia semplicemente
-    inattivo, così che il servizio funzioni in un progetto che non lo usa e nei test di riusabilità.
+21. As a **player**, I want not to see the same item drop seven times in a row from the same enemy,
+    so that I do not conclude that the game is buggy.
+22. As a **player**, I want the anti-repetition not to become a predictable rule, so that I cannot
+    know in advance that the next hit will not be a critical.
+23. As a **game programmer**, I want to declare a **channel** at draw time, so that I decide which
+    sequences are separate and which are shared.
+24. As a **game programmer**, I want the service not to infer granularity from the entity type, so
+    that it is my code that establishes whether each door has its own sequence or all the doors
+    share one.
+25. As a **game designer**, I want to be able to adjust how much the weight of an outcome that has
+    just come up is reduced and over how many draws it recovers, so that I can tune the feel without
+    recompiling.
+26. As a **game designer**, I want to group those parameters into **filter profiles** and assign them
+    by channel-name prefix, so that I can apply them to channels that come into existence at runtime
+    and cannot be listed in a file.
+27. As a **game designer**, I want a mandatory default profile, so that a channel matching no rule
+    still has a defined behaviour.
+28. As a **player**, I want saving and reloading not to reset the anti-repetition memory, so that
+    saving is not a way of manipulating outcomes.
+29. As a **game programmer**, I want channel memory not to grow without bound, so that a fifty-hour
+    game does not drag the sequences of thousands of entities that no longer exist into the save.
+30. As a **game programmer**, I want to be able to declare explicitly that a channel is no longer
+    needed, so as to free its memory when I know the entity is dead.
+31. As an **engine maintainer**, I want automatic eviction to be deterministic and not depend on the
+    system clock, so that it does not introduce a divergence between two otherwise identical games.
+32. As a **game programmer**, I want to be able to list the live channels and the profile resolved
+    for each, so as to notice that a channel I thought was filtered is not.
+33. As a **game programmer**, I want the filter simply to be inactive without configuration, so that
+    the service works in a project that does not use it and in the reusability tests.
 
-### Salvataggio
+### Saving
 
-34. Come **giocatore**, voglio che ricaricare una partita riprenda le sequenze casuali dal punto
-    esatto, così da non poter rigiocare lo stesso momento con esiti diversi.
-35. Come **programmatore del gioco**, voglio che il ripristino avvenga per **costruzione** e non con
-    un metodo chiamato dopo, così che non esista un istante in cui il servizio è vivo ma contiene la
-    casualità della partita sbagliata.
-36. Come **programmatore del gioco**, voglio che lo stato serializzato abbia un proprio numero di
-    versione, così da poterlo migrare senza toccare il formato degli altri servizi.
-37. Come **programmatore del gioco**, voglio che si salvi solo ciò che non è ricostruibile dal seed,
-    così che il salvataggio cresca con l'uso effettivo e non con il tempo di gioco.
+34. As a **player**, I want reloading a game to resume the random sequences from the exact point, so
+    that I cannot replay the same moment with different outcomes.
+35. As a **game programmer**, I want restore to happen by **construction** and not through a method
+    called afterwards, so that there is no instant in which the service is alive but holds the
+    randomness of the wrong game.
+36. As a **game programmer**, I want the serialized state to have a version number of its own, so
+    that I can migrate it without touching the format of the other services.
+37. As a **game programmer**, I want only what cannot be rebuilt from the seed to be saved, so that
+    the save grows with actual usage and not with playing time.
 
-### Struttura e prestazioni
+### Structure and performance
 
-38. Come **programmatore del gioco**, voglio che `RND` non importi né riceva altri servizi, così che
-    resti collaudabile da solo e riusabile in un altro progetto.
-39. Come **programmatore del gioco**, voglio che i parametri arrivino già validati nel costruttore e
-    che il servizio non legga file, così che un contenuto non valido fallisca in caricamento e non a
-    metà partita.
-40. Come **programmatore del gioco**, voglio poter costruire due servizi indipendenti nello stesso
-    processo, così che i test non condividano stato e che due partite possano coesistere.
-41. Come **programmatore della generazione**, voglio poter campionare il rumore centinaia di
-    migliaia di volte per mappa senza scatti, così che la generazione non blocchi il gioco.
-42. Come **manutentore del motore**, voglio che l'impurità sia confinata a due sole operazioni —
-    avanzare uno stream, aggiornare la memoria di un canale — così che il resto sia ragionabile come
-    trasformazione pura.
+38. As a **game programmer**, I want `RND` neither to import nor to receive other services, so that
+    it stays testable on its own and reusable in another project.
+39. As a **game programmer**, I want the parameters to arrive already validated in the constructor
+    and the service not to read files, so that invalid content fails at load time and not halfway
+    through a game.
+40. As a **game programmer**, I want to be able to construct two independent services in the same
+    process, so that the tests do not share state and two games can coexist.
+41. As a **generation programmer**, I want to be able to sample the noise hundreds of thousands of
+    times per map without stutters, so that generation does not freeze the game.
+42. As an **engine maintainer**, I want impurity to be confined to two operations only — advancing a
+    stream, updating a channel's memory — so that the rest can be reasoned about as a pure
+    transformation.
 
-### Collaudo
+### Testing
 
-43. Come **manutentore del motore**, voglio un test runner headless separato da quello di
-    integrazione, così da poter collaudare i servizi senza avviare un browser.
-44. Come **manutentore del motore**, voglio che la promessa di riproducibilità tra motori sia
-    verificata su più motori reali, così che non resti una dichiarazione d'intenti — oggi «due
-    istanze con lo stesso seed» gira su un motore solo e passa sempre.
-45. Come **manutentore del motore**, voglio che il servizio sia esercitato con canali e
-    distribuzioni inventati, estranei a questo gioco, così da dimostrare che è davvero generico.
+43. As an **engine maintainer**, I want a headless test runner separate from the integration one, so
+    that I can test the services without starting a browser.
+44. As an **engine maintainer**, I want the cross-engine reproducibility promise to be verified on
+    several real engines, so that it does not remain a statement of intent — today "two instances
+    with the same seed" runs on a single engine and always passes.
+45. As an **engine maintainer**, I want the service to be exercised with made-up channels and
+    distributions, foreign to this game, so as to prove that it really is generic.
 
 ## Implementation Decisions
 
-### Moduli
+### Modules
 
-- **`RND`, servizio generico**, senza dipendenze da altri servizi e senza `excalibur`. Costruito una
-  volta sola nel `GameContext` (CTX-1), riceve le proprie dipendenze e i propri parametri per
-  costruttore (CTX-2).
-- **Nessun servizio consumatore viene toccato.** `CBT`, `LOOT`, `GEN` e `AI` non esistono ancora;
-  questo spec si ferma al contratto che consumeranno.
-- **Impalcatura di test**, oggi assente: un test runner headless, e un progetto di test browser che
-  riutilizza la configurazione Playwright esistente.
+- **`RND`, a generic service**, with no dependencies on other services and no `excalibur`. Built
+  exactly once in the `GameContext` (CTX-1), it receives its own dependencies and parameters through
+  the constructor (CTX-2).
+- **No consumer service is touched.** `CBT`, `LOOT`, `GEN` and `AI` do not exist yet; this spec stops
+  at the contract they will consume.
+- **Test scaffolding**, absent today: a headless test runner, and a browser test project that reuses
+  the existing Playwright configuration.
 
-### Contratto pubblico
+### Public contract
 
-Il contratto è quello fissato nella scheda `random.md`, che resta la fonte autorevole:
+The contract is the one fixed in the `random.md` sheet, which remains the authoritative source:
 
 ```ts
 interface RandomService {
@@ -204,167 +199,164 @@ interface RandomService {
   channels(): readonly { channel: string; profile: string }[];
   serialize(): RandomState;
 }
-// ripristino per costruzione, mai per metodo d'istanza
+// restore by construction, never through an instance method
 declare function deserialize(state: RandomState): RandomService;
 ```
 
-### Decisioni tecniche
+### Technical decisions
 
-1. **Generatore: `xoshiro128**`**, stato in `Uint32Array`, moltiplicazioni con `Math.imul`. Non
-   PCG32: richiederebbe aritmetica a 64 bit, cioè `BigInt`, che alloca a ogni operazione. Congelato:
-   cambiarlo invalida ogni salvataggio e ogni mappa da seed (ADR 0001).
-2. **Seed di stream = `hash(seed radice, id)`**, con una funzione di hash sulle stringhe scelta,
-   nominata e congelata insieme al generatore. L'ordine di creazione degli stream è irrilevante per
-   costruzione. Un seed esplicito passato dal chiamante ha la precedenza e viene serializzato.
-3. **`stream(id)` è memoizzato**: la stessa `id` restituisce la stessa istanza per tutta la vita del
-   servizio.
-4. **Gaussiana per somma di uniformi** (dodici estrazioni meno sei: media 0 e σ 1 esatte), non
-   Box–Muller, che userebbe `Math.log` e `Math.cos`. Code troncate a ±6σ, che è oltre il significato
-   di ogni uso previsto (ADR 0001).
-5. **Rumore coerente 2D con tabella di permutazione** costruita **una volta sola**, dallo stream,
-   alla creazione dello stream. Da lì in poi `noise2` e `fbm2` sono funzioni pure di (seed, x, y) e
-   **non avanzano lo stato dello stream**: è questa la proprietà che rende il campionamento
-   indipendente dall'ordine. La lacunarità delle ottave si applica per moltiplicazione ripetuta, mai
-   con `Math.pow`.
-6. **Tabella di consumo come parte del contratto**: `next`, `int`, `bool`, `pick`, `weighted`,
-   `shuffle`, `gaussian` e `filtered` avanzano lo stream; `noise2` e `fbm2` no.
-7. **Casualità filtrata per riaggiustamento dei pesi**, mai per riestrazione: la memoria di canale
-   contiene il peso corrente di ogni esito, ridotto all'uscita e recuperato nel corso delle
-   estrazioni successive. Nessun ciclo di riestrazione, quindi nessuna terminazione da garantire
-   (ADR 0002).
-8. **Risoluzione canale → profilo per prefisso**, risolta **una volta** alla nascita del canale e
-   memorizzata con il suo stato: nessun costo di matching per estrazione. Forma dei dati:
+1. **Generator: `xoshiro128**`**, state in a `Uint32Array`, multiplications with `Math.imul`. Not
+   PCG32: it would require 64-bit arithmetic, i.e. `BigInt`, which allocates on every operation.
+   Frozen: changing it invalidates every save and every map from a seed (ADR 0001).
+2. **Stream seed = `hash(root seed, id)`**, with a string hash function chosen, named and frozen
+   together with the generator. The order in which streams are created is irrelevant by
+   construction. An explicit seed passed by the caller takes precedence and is serialized.
+3. **`stream(id)` is memoized**: the same `id` returns the same instance for the whole life of the
+   service.
+4. **Gaussian by sum of uniforms** (twelve draws minus six: mean 0 and σ 1 exactly), not Box–Muller,
+   which would use `Math.log` and `Math.cos`. Tails truncated at ±6σ, which is beyond the meaning of
+   any foreseen use (ADR 0001).
+5. **Coherent 2D noise with a permutation table** built **exactly once**, from the stream, when the
+   stream is created. From then on `noise2` and `fbm2` are pure functions of (seed, x, y) and **do
+   not advance the stream's state**: this is the property that makes sampling independent of the
+   order. The lacunarity of the octaves is applied by repeated multiplication, never with
+   `Math.pow`.
+6. **The consumption table is part of the contract**: `next`, `int`, `bool`, `pick`, `weighted`,
+   `shuffle`, `gaussian` and `filtered` advance the stream; `noise2` and `fbm2` do not.
+7. **Filtered randomness by weight readjustment**, never by re-rolling: the channel memory holds the
+   current weight of each outcome, reduced when it comes up and recovered over the following draws.
+   No re-roll loop, hence no termination to guarantee (ADR 0002).
+8. **Channel → profile resolution by prefix**, resolved **once** when the channel is created and
+   stored with its state: no matching cost per draw. Data shape:
 
    ```json
    {
-     "tettoCanali": 512,
-     "default": "neutro",
-     "profili": {
-       "neutro":        { "riduzione": 0.60, "recupero": 2 },
-       "scassinamento": { "riduzione": 0.25, "recupero": 5 }
+     "channelCap": 512,
+     "default": "neutral",
+     "profiles": {
+       "neutral":  { "reduction": 0.60, "recovery": 2 },
+       "lockpick": { "reduction": 0.25, "recovery": 5 }
      },
-     "regole": [ { "canale": "lockpick:*", "profilo": "scassinamento" } ]
+     "rules": [ { "channel": "lockpick:*", "profile": "lockpick" } ]
    }
    ```
 
-9. **Configurazione facoltativa.** In sua assenza il filtro è inattivo e `filtered()` si comporta
-   come `weighted()`. Non è un default di bilanciamento nascosto in un servizio generico: è
-   l'assenza della funzionalità.
-10. **Validazione dei parametri.** `RND` non legge file. Espone la **forma attesa** della propria
-    configurazione perché il caricatore del gioco la validi prima della costruzione del contesto
-    (ARC-7.2, CTX-10). Serve una libreria di validazione a schema, oggi non tra le dipendenze.
-11. **Tetto ai canali con sfratto LRU deterministico**, più `forget(channel)` esplicito. La recenza
-    si misura con il **contatore delle estrazioni** del servizio, mai con l'orologio di sistema
-    (ARC-9.3); i pari merito si rompono con il nome del canale, per avere un ordine totale.
-12. **Serializzazione**: versione, seed radice, stato dei soli stream toccati (con il seed esplicito
-    se presente), pesi correnti dei canali vivi. Fuori: stream mai richiesti, tabelle di
-    permutazione, qualunque valore ricostruibile dal seed. Ripristino tramite fabbrica statica.
-13. **Nessun `derive()`.** L'unico richiedente è GEN-9, in un servizio di priorità 3 la cui API
-    genera una mappa intera per chiamata, e la generazione a chunk non è nei piani. Il seeding per
-    hash rende l'aggiunta futura additiva: non altererà il seed di nessuno stream esistente.
-14. **Controllo automatico dei divieti.** Una regola di lint deve vietare `Math.random()` fuori da
-    `RND` (ARC-9.2) e `Math.log`, `Math.cos`, `Math.sin`, `Math.exp`, `Math.pow` dentro `RND` e in
-    ogni cammino deterministico. Senza, l'ADR 0001 è solo un proposito.
+9. **Optional configuration.** In its absence the filter is inactive and `filtered()` behaves like
+   `weighted()`. It is not a balancing default hidden inside a generic service: it is the absence of
+   the feature.
+10. **Parameter validation.** `RND` reads no files. It exposes the **expected shape** of its own
+    configuration so that the game's loader validates it before the context is constructed
+    (ARC-7.2, CTX-10). A schema validation library is needed, currently not among the dependencies.
+11. **A channel cap with deterministic LRU eviction**, plus an explicit `forget(channel)`. Recency is
+    measured with the service's **draw counter**, never with the system clock (ARC-9.3); ties are
+    broken by channel name, to obtain a total order.
+12. **Serialization**: version, root seed, state of the touched streams only (with the explicit seed
+    if present), current weights of the live channels. Out: streams never requested, permutation
+    tables, any value rebuildable from the seed. Restore through a static factory.
+13. **No `derive()`.** The only requester is GEN-9, in a priority-3 service whose API generates a
+    whole map per call, and chunked generation is not planned. Hash-based seeding makes a future
+    addition additive: it will not alter the seed of any existing stream.
+14. **Automated checking of the prohibitions.** A lint rule must forbid `Math.random()` outside
+    `RND` (ARC-9.2) and `Math.log`, `Math.cos`, `Math.sin`, `Math.exp`, `Math.pow` inside `RND` and
+    on every deterministic path. Without it, ADR 0001 is just an intention.
 
-### Numeri deliberatamente non fissati
+### Numbers deliberately left unfixed
 
-Il tetto dei canali e i parametri dei profili (riduzione, recupero) sono **dati**, non decisioni di
-questo spec. I valori nell'esempio sono segnaposto plausibili, non tarati: si tarano osservando le
-sequenze prodotte, non ragionandoci sopra.
+The channel cap and the profile parameters (reduction, recovery) are **data**, not decisions of this
+spec. The values in the example are plausible placeholders, not tuned: they are tuned by observing
+the sequences produced, not by reasoning about them.
 
 ## Testing Decisions
 
-### Cosa rende buono un test qui
+### What makes a good test here
 
-Un test deve esercitare **solo il comportamento esterno**: entra da `RND` costruito e ne osserva i
-valori. Non deve conoscere la struttura interna del generatore, la forma della memoria di canale, né
-il nome delle funzioni di trasformazione. Il criterio pratico: se il test si rompe quando
-l'implementazione del rumore viene sostituita da simplex a parità di contratto, il test è sbagliato.
+A test must exercise **external behaviour only**: it enters through a constructed `RND` and observes
+its values. It must not know the generator's internal structure, the shape of the channel memory, nor
+the names of the transformation functions. The practical criterion: if the test breaks when the noise
+implementation is replaced by simplex with the same contract, the test is wrong.
 
-L'eccezione, deliberata, sono i **vettori d'oro**: lì l'esattezza dei valori *è* il contratto (ADR
-0001), e un test che si rompe quando l'implementazione cambia sta facendo esattamente il suo mestiere.
+The deliberate exception is the **golden vectors**: there the exactness of the values *is* the
+contract (ADR 0001), and a test that breaks when the implementation changes is doing exactly its job.
 
 ### Seam
 
-**Uno solo: la costruzione del servizio.** Ogni test costruisce un `RND` con un seed (e, dove
-serve, una configurazione) e verifica proprietà osservabili dall'esterno. Non viene introdotto
-nessun punto d'ingresso di livello più basso: né funzioni di trasformazione esportate, né sorgente
-uniforme iniettabile.
+**Only one: the construction of the service.** Every test builds an `RND` with a seed (and, where
+needed, a configuration) and verifies externally observable properties. No lower-level entry point is
+introduced: no exported transformation functions, no injectable uniform source.
 
-La conseguenza va dichiarata: le proprietà che riguardano una singola trasformazione si possono
-verificare **solo statisticamente**, con campioni grandi, e mai con asserzioni esatte su un ingresso
-scelto. In particolare, la clausola di RND-17 sulla collaudabilità delle trasformazioni «senza
-generatore» **non viene esercitata**: resta una regola di progetto, non un fatto verificato.
+The consequence must be stated: the properties concerning a single transformation can be verified
+**only statistically**, with large samples, and never with exact assertions on a chosen input. In
+particular, RND-17's clause about the transformations being testable "without a generator" is **not
+exercised**: it remains a design rule, not a verified fact.
 
-Un secondo punto d'ingresso resta inevitabile per RND-4: la riproducibilità **tra motori** non è
-osservabile da un solo motore. I vettori d'oro vengono quindi eseguiti anche dentro i browser.
+A second entry point remains unavoidable for RND-4: reproducibility **across engines** is not
+observable from a single engine. The golden vectors are therefore also run inside the browsers.
 
-### Infrastruttura da introdurre
+### Infrastructure to introduce
 
-- **Test runner headless** (Vitest, coerente con Vite già in uso), separato dai test di integrazione
-  — ARC-11.1 lo richiede e oggi non esiste.
-- **Riabilitazione di firefox e webkit** nella configurazione Playwright: oggi sono commentati e
-  gira il solo chromium, quindi qualunque test cross-engine passerebbe senza dimostrare nulla.
-- **Una pagina di prova** che esegue i vettori d'oro nel browser e ne espone l'esito, raggiunta dal
-  test Playwright.
+- **A headless test runner** (Vitest, consistent with the Vite already in use), separate from the
+  integration tests — ARC-11.1 requires it and it does not exist today.
+- **Re-enabling firefox and webkit** in the Playwright configuration: today they are commented out
+  and only chromium runs, so any cross-engine test would pass without proving anything.
+- **A test page** that runs the golden vectors in the browser and exposes the result, reached by the
+  Playwright test.
 
-### Cosa viene collaudato
+### What gets tested
 
-| Proprietà | Come |
+| Property | How |
 |---|---|
-| Riproducibilità | due istanze con lo stesso seed, sequenze identiche su 10⁶ estrazioni |
-| Riproducibilità tra motori (RND-4) | vettori d'oro versionati nel repo per `next`, `int`, `gaussian`, `noise2`, `fbm2`, eseguiti su chromium, firefox e webkit |
-| Indipendenza degli stream | consumare 1000 valori da uno non altera la sequenza di un altro |
-| Indipendenza dalla creazione (RND-19) | creare uno stream nuovo non altera nessun altro; `stream(id)` due volte → stessa istanza |
-| Uniformità | χ² su bucket per `next` e `int` |
-| Gaussiana | media e σ campionarie entro tolleranza su 10⁵ campioni; il troncamento non sposta la media oltre il limite dichiarato; nessun campione oltre ±6σ |
-| Rumore | continuità tra campioni vicini, determinismo per coordinata, indipendenza dall'ordine; campionare non altera la sequenza dello stream |
-| Filtro | le ripetizioni consecutive crollano rispetto all'estrazione pesata non filtrata; **monotonia** (`w(a) > w(b)` ⇒ `freq(a) ≥ freq(b)`); **vettore d'oro della distribuzione** misurata per una configurazione fissata |
-| Sfratto | superato il tetto viene sfrattato il canale meno recente, in modo deterministico e indipendente dall'ordine di iterazione |
-| Serializzazione | salvare, estrarre 100 valori, ricaricare, riestrarre → stessi 100 valori |
-| Riusabilità (ARC-3.4) | canali e distribuzioni inventati, e **senza alcun file di configurazione** |
+| Reproducibility | two instances with the same seed, identical sequences over 10⁶ draws |
+| Cross-engine reproducibility (RND-4) | golden vectors versioned in the repo for `next`, `int`, `gaussian`, `noise2`, `fbm2`, run on chromium, firefox and webkit |
+| Stream independence | consuming 1000 values from one does not alter another's sequence |
+| Independence from creation (RND-19) | creating a new stream does not alter any other; `stream(id)` twice → the same instance |
+| Uniformity | χ² on buckets for `next` and `int` |
+| Gaussian | sample mean and σ within tolerance over 10⁵ samples; truncation does not shift the mean beyond the declared limit; no sample beyond ±6σ |
+| Noise | continuity between nearby samples, determinism per coordinate, independence from order; sampling does not alter the stream's sequence |
+| Filter | consecutive repetitions collapse compared with the unfiltered weighted draw; **monotonicity** (`w(a) > w(b)` ⇒ `freq(a) ≥ freq(b)`); a **golden vector of the distribution** measured for a fixed configuration |
+| Eviction | once the cap is exceeded the least recent channel is evicted, deterministically and independently of iteration order |
+| Serialization | save, draw 100 values, reload, draw again → the same 100 values |
+| Reusability (ARC-3.4) | made-up channels and distributions, and **with no configuration file at all** |
 
-**Non** si asserisce che la distribuzione a lungo termine del filtro resti entro tolleranza dai pesi
-nominali: il filtro la sposta per costruzione, ed è il suo mestiere. Una tolleranza abbastanza larga
-da far passare quel test lo renderebbe privo di significato (ADR 0002).
+It is **not** asserted that the filter's long-term distribution stays within tolerance of the nominal
+weights: the filter shifts it by construction, and that is its job. A tolerance wide enough to let
+that test pass would make it meaningless (ADR 0002).
 
 ### Prior art
 
-Nessuna per i test unitari: `RND` è il primo servizio e il runner headless non esiste ancora, quindi
-questo spec fissa anche la convenzione per chi verrà dopo. L'unico test esistente è uno snapshot
-visivo Playwright sulla pagina principale, che è prior art solo per la parte browser: stessa
-configurazione, stesso `webServer`, un progetto in più.
+None for the unit tests: `RND` is the first service and the headless runner does not exist yet, so
+this spec also fixes the convention for whoever comes next. The only existing test is a Playwright
+visual snapshot on the main page, which is prior art only for the browser part: same configuration,
+same `webServer`, one project more.
 
 ## Out of Scope
 
-- **`derive()` e la generazione a chunk** (RND-5, GEN-9). Rimandati; l'aggiunta sarà additiva.
-- **Rumore 3D**, e simplex come alternativa a Perlin: RND-7 lo consente (**PUÒ**), non lo richiede.
-- **Il meccanismo di pietà**: è una regola di gioco del bottino (LOOT-6), non una tecnica di
-  casualità. Vive in `LOOT` e non tocca `RND`.
-- **I servizi consumatori.** `CBT`, `LOOT`, `GEN` e `AI` non vengono scritti né modificati.
-- **Il formato del file di salvataggio.** `RND` produce e consuma la propria porzione di stato con
-  la propria versione; comporla, scriverla e migrarla è di `SAVE`.
-- **La taratura dei profili di filtro e del tetto dei canali.** Sono dati, e si tarano giocando.
-- **Il caricamento e la validazione di `random.json`.** Il servizio riceve parametri già validati;
-  caricare e validare è del gioco (`CFG`).
-- **Qualunque integrazione con `excalibur`.**
+- **`derive()` and chunked generation** (RND-5, GEN-9). Deferred; the addition will be additive.
+- **3D noise**, and simplex as an alternative to Perlin: RND-7 allows it (**MAY**), it does not
+  require it.
+- **The pity mechanism**: it is a loot game rule (LOOT-6), not a randomness technique. It lives in
+  `LOOT` and does not touch `RND`.
+- **The consumer services.** `CBT`, `LOOT`, `GEN` and `AI` are neither written nor modified.
+- **The save file format.** `RND` produces and consumes its own portion of state with its own
+  version; composing it, writing it and migrating it belongs to `SAVE`.
+- **Tuning the filter profiles and the channel cap.** They are data, and they are tuned by playing.
+- **Loading and validating `random.json`.** The service receives already-validated parameters;
+  loading and validating belongs to the game (`CFG`).
+- **Any integration with `excalibur`.**
 
 ## Further Notes
 
-- **RND-17 non ha criterio di test.** La scheda elencava «Trasformazioni senza generatore:
-  iniettando una sequenza uniforme finta…», criterio che il seam scelto non permette di soddisfare;
-  è stato rimosso. RND-17 resta in vigore come **regola di progetto** — l'impurità è confinata,
-  le trasformazioni sono pure — ma nessun test lo verifica: lo tiene in piedi la revisione del
-  codice.
-- **La regola di lint è la parte fragile.** Il divieto sui trascendenti non ha nessun effetto
-  osservabile finché non lo si viola su un motore diverso da quello di sviluppo: è precisamente il
-  tipo di errore che nessun test locale intercetta e che il controllo automatico deve prevenire.
-- **La riabilitazione di firefox e webkit ha un costo**: il tempo di CI cresce, e i test di snapshot
-  visivo esistenti potrebbero richiedere snapshot per motore. Se questo diventa un problema, i
-  vettori d'oro possono girare in un progetto Playwright dedicato, con i tre motori, mentre lo
-  snapshot visivo resta sul solo chromium.
-- **Due dipendenze mancano** e vanno introdotte con questo lavoro: il runner headless e una libreria
-  di validazione a schema.
-- **`Math.sqrt` e `Math.imul` sono ammessi** e vanno esclusi esplicitamente dalla regola di lint:
-  ECMAScript ne specifica il risultato esattamente. Il divieto riguarda solo le funzioni
-  trascendenti.
+- **RND-17 has no test criterion.** The sheet listed "Transformations without a generator: by
+  injecting a fake uniform sequence…", a criterion the chosen seam does not allow to be satisfied;
+  it has been removed. RND-17 remains in force as a **design rule** — impurity is confined, the
+  transformations are pure — but no test verifies it: code review is what holds it up.
+- **The lint rule is the fragile part.** The prohibition on transcendentals has no observable effect
+  until it is violated on an engine different from the development one: it is precisely the kind of
+  error that no local test catches and that the automated check must prevent.
+- **Re-enabling firefox and webkit has a cost**: CI time grows, and the existing visual snapshot
+  tests may require per-engine snapshots. If this becomes a problem, the golden vectors can run in a
+  dedicated Playwright project, with the three engines, while the visual snapshot stays on chromium
+  alone.
+- **Two dependencies are missing** and must be introduced with this work: the headless runner and a
+  schema validation library.
+- **`Math.sqrt` and `Math.imul` are allowed** and must be explicitly excluded from the lint rule:
+  ECMAScript specifies their result exactly. The prohibition concerns transcendental functions only.

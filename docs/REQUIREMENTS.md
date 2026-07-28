@@ -1,365 +1,360 @@
-# Requisiti — Hub
+# Requirements — Hub
 
-**Progetto:** `rpgengine` — motore per GdR 2D top-down a tile quadrati, e un gioco costruito sopra
-**Versione:** 0.2 (ristrutturazione a servizi)
-**Stato:** proposto
+**Project:** `rpgengine` — an engine for 2D top-down RPGs on square tiles, and a game built on top
+**Version:** 0.2 (restructured around services)
+**Status:** proposed
 
-Linguaggio dei requisiti: **DEVE** = obbligatorio, **DOVREBBE** = raccomandato, **PUÒ** = opzionale.
-
----
-
-## 1. Visione
-
-L'obiettivo non è "un gioco che funziona", ma **un insieme di servizi indipendenti, isolabili e
-testabili**, ciascuno responsabile di un solo aspetto (mappa, quest, inventario, dialoghi, IA,
-generazione procedurale, caratteristiche del personaggio, numeri casuali, input, persistenza…), più
-un gioco che li assembla.
-
-Da questo discendono tre conseguenze che valgono come vincoli di progetto:
-
-1. **Il motore non conosce il gioco.** Un servizio del motore non sa che esiste "la spada di
-   Aramis", né che il giocatore ha una statistica chiamata *Carisma*: sa gestire *oggetti* e
-   *statistiche* definiti altrove, come dati.
-2. **I servizi non si conoscono tra loro.** Le regole che li collegano ("uccidi il boss → avanza la
-   quest → sblocca un'opzione di dialogo") sono regole *di questo gioco* e vivono in uno strato di
-   **orchestrazione** sopra il motore, non dentro i servizi.
-3. **Ogni servizio è testabile da solo, headless.** In un runner Node, senza Excalibur, senza
-   canvas, senza asset, senza gli altri servizi.
+Requirement language: **MUST** = mandatory, **SHOULD** = recommended, **MAY** = optional.
 
 ---
 
-## 2. Mappa della documentazione
+## 1. Vision
 
-| Documento | Contenuto |
+The goal is not "a game that works", but **a set of independent, isolable and testable services**,
+each responsible for a single aspect (map, quests, inventory, dialogues, AI, procedural generation,
+character attributes, random numbers, input, persistence…), plus a game that assembles them.
+
+Three consequences follow, and they count as project constraints:
+
+1. **The engine does not know the game.** An engine service does not know that "Aramis's sword"
+   exists, nor that the player has an attribute called *Charisma*: it knows how to handle *items*
+   and *attributes* defined elsewhere, as data.
+2. **The services do not know each other.** The rules that connect them ("kill the boss → advance
+   the quest → unlock a dialogue option") are rules *of this game* and live in an **orchestration**
+   layer above the engine, not inside the services.
+3. **Every service is testable on its own, headless.** In a Node runner, without Excalibur, without
+   a canvas, without assets, without the other services.
+
+---
+
+## 2. Documentation map
+
+| Document | Content |
 |---|---|
-| [`../CONTEXT.md`](../CONTEXT.md) | **Il linguaggio del progetto**: il glossario unico dei termini di dominio, con i sinonimi da evitare. Un termine si definisce lì, e solo lì |
-| `REQUIREMENTS.md` *(questo file)* | Visione, principi architetturali `ARC-*`, catalogo dei servizi, regole di confine, priorità |
-| [`GAMEPLAY.md`](./GAMEPLAY.md) | Cosa deve fare **il gioco**: feature viste dal giocatore, con rimando ai servizi che le realizzano |
-| [`MAP-REQUIREMENTS.md`](./MAP-REQUIREMENTS.md) | Struttura mappa a livelli e rendering del terreno (Dual Grid System). Possiede i requisiti `MAP-1…MAP-9` |
-| [`services/*.md`](./services/) | Una scheda per servizio: contratto, API, requisiti numerati, criteri di test |
-| [`adr/*.md`](./adr/) | **Perché** una decisione difficile da invertire è stata presa così, e quali alternative sono state scartate |
-| [`specs/*.md`](./specs/) | Come si realizza un servizio: problema, storie utente, decisioni tecniche e di collaudo, cosa resta fuori |
+| [`../CONTEXT.md`](../CONTEXT.md) | **The project's language**: the single glossary of domain terms, with the synonyms to avoid. A term is defined there, and only there |
+| `REQUIREMENTS.md` *(this file)* | Vision, architectural principles `ARC-*`, service catalogue, boundary rules, priorities |
+| [`GAMEPLAY.md`](./GAMEPLAY.md) | What **the game** must do: features seen by the player, pointing to the services that implement them |
+| [`MAP-REQUIREMENTS.md`](./MAP-REQUIREMENTS.md) | Layered map structure and terrain rendering (Dual Grid System). Owns requirements `MAP-1…MAP-9` |
+| [`services/*.md`](./services/) | One sheet per service: contract, API, numbered requirements, test criteria |
+| [`adr/*.md`](./adr/) | **Why** a hard-to-reverse decision was taken this way, and which alternatives were rejected |
+| [`specs/*.md`](./specs/) | How a service is built: problem, user stories, technical and testing decisions, what stays out |
 
-### Convenzioni
+### Conventions
 
-- Ogni servizio ha un **prefisso di requisito** stabile (`RND-*`, `QST-*`, …). Gli ID **non
-  vengono riusati**: se un requisito viene rimosso, il suo numero resta vacante.
-- Ogni scheda di servizio segue lo **stesso template**: Scopo → Contratto → API pubblica →
-  Requisiti → Criteri di test → Collegamenti.
-- Le firme TypeScript nelle schede sono **indicative**: fissano la forma e le responsabilità del
-  contratto, non l'implementazione.
-- Un **ADR** si scrive solo quando la decisione è difficile da invertire, sorprende chi legge il
-  codice, ed è il risultato di un compromesso vero. Le schede dicono *cosa*; gli ADR dicono *perché
-  non nell'altro modo*.
+- Every service has a stable **requirement prefix** (`RND-*`, `QST-*`, …). IDs are **not reused**:
+  if a requirement is removed, its number stays vacant.
+- Every service sheet follows the **same template**: Purpose → Contract → Public API →
+  Requirements → Test criteria → Links.
+- The TypeScript signatures in the sheets are **indicative**: they fix the shape and the
+  responsibilities of the contract, not the implementation.
+- An **ADR** is written only when the decision is hard to reverse, surprises whoever reads the code,
+  and is the result of a genuine trade-off. The sheets say *what*; the ADRs say *why not the other
+  way*.
 
-| ADR | Decisione |
+| ADR | Decision |
 |---|---|
-| [`0001`](./adr/0001-riproducibilita-bit-per-bit.md) | Riproducibilità bit-per-bit tra motori JavaScript: `xoshiro128**`, niente funzioni trascendenti, gaussiana per somma di uniformi |
-| [`0002`](./adr/0002-riaggiustamento-dei-pesi.md) | Casualità filtrata per riaggiustamento dei pesi, non per riestrazione |
+| [`0001`](./adr/0001-bit-for-bit-reproducibility.md) | Bit-for-bit reproducibility across JavaScript engines: `xoshiro128**`, no transcendental functions, Gaussian by sum of uniforms |
+| [`0002`](./adr/0002-weight-readjustment.md) | Filtered randomness by weight readjustment, not by re-rolling |
 
 ---
 
-## 3. Principi architetturali
+## 3. Architectural principles
 
-### ARC-1 — Separazione presentazione / dominio
+### ARC-1 — Presentation / domain separation
 
-**ARC-1.1** — Il codice **DEVE** essere organizzato in strati con dipendenze a senso unico:
-presentazione → gioco → motore. Nessuna dipendenza risale.
+**ARC-1.1** — The code **MUST** be organized into layers with one-way dependencies: presentation →
+game → engine. No dependency goes back up.
 
-**ARC-1.2** — Nessun file sotto `engine/` **DEVE** importare `excalibur` o qualunque API di
-rendering, DOM o audio. La regola è verificabile automaticamente (vedi ARC-14).
+**ARC-1.2** — No file under `engine/` **MUST** import `excalibur` or any rendering, DOM or audio
+API. The rule is automatically verifiable (see ARC-14).
 
-**ARC-1.3** — Lo stato di dominio **NON DEVE** contenere riferimenti ad `Actor` o a nodi di
-rendering. Il legame runtime `Actor ↔ modello` è mantenuto solo dalla presentazione, tipicamente
-come mappa `EntityId → Actor`.
+**ARC-1.3** — Domain state **MUST NOT** contain references to `Actor`s or to rendering nodes. The
+runtime `Actor ↔ model` binding is maintained only by the presentation, typically as an
+`EntityId → Actor` map.
 
-**ARC-1.4** — La presentazione **DEVE** essere sostituibile: la stessa partita **DEVE** poter
-girare senza alcun renderer (simulazione headless), condizione che rende i test di sistema
-possibili.
+**ARC-1.4** — The presentation **MUST** be replaceable: the same game **MUST** be able to run with
+no renderer at all (headless simulation), a condition that makes system tests possible.
 
-### ARC-2 — Tutto è un servizio
+### ARC-2 — Everything is a service
 
-**ARC-2.1** — Ogni aspetto del gioco **DEVE** essere realizzato come servizio con una **superficie
-pubblica unica** (`index.ts`): tutto ciò che non è esportato da lì è privato del servizio.
+**ARC-2.1** — Every aspect of the game **MUST** be implemented as a service with a **single public
+surface** (`index.ts`): everything not exported from there is private to the service.
 
-**ARC-2.2** — Un servizio **DEVE** poter essere compilato, testato ed eseguito senza gli altri
-servizi, sostituendo le sue dipendenze con fake.
+**ARC-2.2** — A service **MUST** be compilable, testable and runnable without the other services, by
+replacing its dependencies with fakes.
 
-**ARC-2.3** — Un servizio **DEVE** avere una scheda in `docs/services/` con il contratto compilato.
-Un servizio senza scheda non esiste.
+**ARC-2.3** — A service **MUST** have a sheet in `docs/services/` with the contract filled in. A
+service without a sheet does not exist.
 
-**ARC-2.4** — Preferire **più servizi piccoli e ottusi** a un servizio grande e intelligente: se una
-scheda accumula responsabilità eterogenee, il servizio **DOVREBBE** essere scorporato.
+**ARC-2.4** — Prefer **several small, dumb services** to one large, clever one: if a sheet
+accumulates heterogeneous responsibilities, the service **SHOULD** be split.
 
-### ARC-3 — Motore riusabile, gioco separato
+### ARC-3 — Reusable engine, separate game
 
-**ARC-3.1** — Ogni servizio **DEVE** dichiarare nella propria scheda la sua **natura**:
-*generico* (nessuna conoscenza di questo gioco) oppure *di dominio* (accetta il modello di dominio
-di questo progetto).
+**ARC-3.1** — Every service **MUST** declare its **nature** in its own sheet: *generic* (no
+knowledge of this game) or *domain* (accepts this project's domain model).
 
-**ARC-3.2** — Un servizio generico **NON DEVE** contenere costanti, nomi, identificativi o regole di
-bilanciamento di questo gioco: li riceve come **dati** o come **configurazione**.
+**ARC-3.2** — A generic service **MUST NOT** contain constants, names, identifiers or balancing
+rules from this game: it receives them as **data** or as **configuration**.
 
-**ARC-3.3** — I servizi generici **DEVONO** essere parametrici sul modello dei dati dove ciò non
-degrada l'ergonomia: un servizio inventario gestisce "oggetti con id, peso e tag", non "spade".
+**ARC-3.3** — Generic services **MUST** be parametric on the data model where that does not degrade
+ergonomics: an inventory service handles "items with an id, a weight and tags", not "swords".
 
-**ARC-3.4** — La prova di riusabilità è un test: ogni servizio generico **DOVREBBE** avere almeno
-un test che lo esercita con un dominio inventato, diverso da quello del gioco.
+**ARC-3.4** — The proof of reusability is a test: every generic service **SHOULD** have at least one
+test that exercises it with a made-up domain, different from the game's.
 
-### ARC-4 — Servizi muti, orchestrazione esplicita
+### ARC-4 — Mute services, explicit orchestration
 
-**ARC-4.1** — Un servizio **NON DEVE** importare né ricevere per iniezione un altro servizio. Le
-sole dipendenze ammesse sono i servizi di infrastruttura elencati nella propria scheda
-(tipicamente: nessuna).
+**ARC-4.1** — A service **MUST NOT** import nor receive another service by injection. The only
+dependencies allowed are the infrastructure services listed in its own sheet (typically: none).
 
-**ARC-4.2** — Un comando di servizio **DEVE** restituire l'esito e gli **eventi di dominio**
-prodotti, invece di pubblicarli da sé. Pubblicare è responsabilità del chiamante.
+**ARC-4.2** — A service command **MUST** return the outcome and the **domain events** produced,
+instead of publishing them itself. Publishing is the caller's responsibility.
 
 ```ts
 type CommandResult<T> = { value: T; events: DomainEvent[] };
 ```
 
-**ARC-4.3** — Nessun servizio **DEVE** sottoscrivere eventi. I sottoscrittori ammessi sono lo strato
-di orchestrazione e la presentazione.
+**ARC-4.3** — No service **MUST** subscribe to events. The permitted subscribers are the
+orchestration layer and the presentation.
 
-**ARC-4.4** — Il collegamento tra servizi **DEVE** vivere in `game/orchestration/`, suddiviso per
-tema (regole di quest, regole di crimine, regole di economia…), non in un unico file.
+**ARC-4.4** — The wiring between services **MUST** live in `game/orchestration/`, split by theme
+(quest rules, crime rules, economy rules…), not in a single file.
 
-**ARC-4.5** — Le regole di orchestrazione **DOVREBBERO** essere data-driven ove la forma lo consenta
-(ARC-7), riducendo l'orchestrazione a codice a un insieme piccolo di casi irriducibili.
+**ARC-4.5** — Orchestration rules **SHOULD** be data-driven wherever their shape allows (ARC-7),
+reducing orchestration-as-code to a small set of irreducible cases.
 
-**ARC-4.6** — Il grafo delle dipendenze tra servizi **DEVE** essere aciclico. Poiché ARC-4.1 vieta
-le dipendenze dirette, questo è garantito per costruzione: i cicli concettuali
-(quest ↔ inventario ↔ dialoghi) si risolvono nell'orchestrazione.
+**ARC-4.6** — The dependency graph between services **MUST** be acyclic. Since ARC-4.1 forbids direct
+dependencies, this is guaranteed by construction: the conceptual cycles (quests ↔ inventory ↔
+dialogues) are resolved in the orchestration.
 
-### ARC-5 — EventBus tipizzato e riferimenti stabili
+### ARC-5 — Typed EventBus and stable references
 
-**ARC-5.1** — Gli eventi di dominio **DEVONO** essere una **union discriminata** tipizzata, chiusa e
-serializzabile: nessun payload contenente funzioni, `Actor`, `Map`, `Set` o riferimenti runtime.
+**ARC-5.1** — Domain events **MUST** be a typed, closed and serializable **discriminated union**: no
+payload containing functions, `Actor`s, `Map`s, `Set`s or runtime references.
 
-**ARC-5.2** — Le entità **DEVONO** essere referenziate tramite un **`EntityId` opaco e stabile**,
-mai per nome-stringa e mai cercando nella scena.
+**ARC-5.2** — Entities **MUST** be referenced through an **opaque and stable `EntityId`**, never by
+string name and never by searching the scene.
 
-**ARC-5.3** — Stati, direzioni, tag e categorie **DEVONO** essere enum o costanti tipizzate; nessuna
-stringa magica.
+**ARC-5.3** — States, directions, tags and categories **MUST** be enums or typed constants; no magic
+strings.
 
-**ARC-5.4** — L'ordine di consegna degli eventi **DEVE** essere deterministico e documentato
-(vedi [`services/event-bus.md`](./services/event-bus.md)).
+**ARC-5.4** — The event delivery order **MUST** be deterministic and documented (see
+[`services/event-bus.md`](./services/event-bus.md)).
 
-### ARC-6 — Composizione a componenti e capacità
+### ARC-6 — Component composition and capabilities
 
-**ARC-6.1** — Le entità **DEVONO** essere modellate come **composizione di componenti**
-(`Health`, `Combat`, `Inventory`, `Dialog`, `Faction`, `Loot`, `Interactable`…), non con gerarchie
-di classi (`NpcActor → Slime/Merchant`, `Item → Weapon → Sword`).
+**ARC-6.1** — Entities **MUST** be modelled as a **composition of components** (`Health`, `Combat`,
+`Inventory`, `Dialog`, `Faction`, `Loot`, `Interactable`…), not with class hierarchies
+(`NpcActor → Slime/Merchant`, `Item → Weapon → Sword`).
 
-**ARC-6.2** — Un componente **DEVE** poter essere usato come **marcatore di capacità**, cioè come
-dichiarazione al mondo che l'entità partecipa a una certa interazione. Tutto ciò che può essere
-bersagliato — giocatore, PNG, serratura, barile esplosivo, telecamera, porta — è tale perché
-**possiede il componente**, non perché appartiene a una classe.
+**ARC-6.2** — A component **MUST** be usable as a **capability marker**, that is, as a declaration to
+the world that the entity takes part in a given interaction. Everything that can be targeted —
+player, NPC, lock, explosive barrel, camera, door — is so because it **owns the component**, not
+because it belongs to a class.
 
-**ARC-6.3** — Le query per capacità (*"tutte le entità bersagliabili entro 5 tile"*) **DEVONO**
-essere una primitiva efficiente del registro entità, non una scansione della scena
-(vedi [`services/entity-registry.md`](./services/entity-registry.md),
+**ARC-6.3** — Queries by capability (*"all targetable entities within 5 tiles"*) **MUST** be an
+efficient primitive of the entity registry, not a scan of the scene (see
+[`services/entity-registry.md`](./services/entity-registry.md),
 [`services/spatial-index.md`](./services/spatial-index.md)).
 
-**ARC-6.4** — Casi come "mercante che sa combattere" o "slime amichevole" **DEVONO** ottenersi
-aggiungendo o togliendo componenti, senza nuovi rami di classi.
+**ARC-6.4** — Cases such as "a merchant who can fight" or "a friendly slime" **MUST** be obtained by
+adding or removing components, without new class branches.
 
-**ARC-6.5** — La logica di ogni componente di dominio **DEVE** essere testabile in isolamento, senza
-motore grafico.
+**ARC-6.5** — The logic of every domain component **MUST** be testable in isolation, without a
+graphics engine.
 
-### ARC-7 — Contenuti data-driven, validati, interpretati
+### ARC-7 — Data-driven, validated, interpreted content
 
-**ARC-7.1** — Quest, dialoghi, definizioni di oggetti e nemici, loot table, tabelle prezzi, curve di
-IA, parametri di generazione **DEVONO** risiedere in **file dati** (JSON/YAML), non come letterali
-TypeScript dentro le classi.
+**ARC-7.1** — Quests, dialogues, item and enemy definitions, loot tables, price tables, AI curves,
+generation parameters **MUST** live in **data files** (JSON/YAML), not as TypeScript literals inside
+classes.
 
-**ARC-7.2** — I dati **DEVONO** essere validati al caricamento con uno schema (es. Zod), con errori
-diagnostici che indicano file, percorso e valore. Un contenuto non valido **DEVE** fallire in
-caricamento, non a metà partita.
+**ARC-7.2** — Data **MUST** be validated at load time against a schema (e.g. Zod), with diagnostic
+errors that state file, path and value. Invalid content **MUST** fail at load time, not halfway
+through a game.
 
-**ARC-7.3** — Precondizioni ed effetti **DEVONO** essere modellati come **union discriminate**
-(`{ type: 'player-in-area', area: string }`) e valutati da un **interprete** dedicato. I repository
-**leggono** i dati: non li contengono e non li interpretano.
+**ARC-7.3** — Preconditions and effects **MUST** be modelled as **discriminated unions**
+(`{ type: 'player-in-area', area: string }`) and evaluated by a dedicated **interpreter**. The
+repositories **read** the data: they do not contain it and do not interpret it.
 
-**ARC-7.4** — Un game o narrative designer **DEVE** poter modificare i contenuti **senza
-ricompilare** il gioco.
+**ARC-7.4** — A game or narrative designer **MUST** be able to modify the content **without
+recompiling** the game.
 
-**ARC-7.5** — Ogni riferimento incrociato tra contenuti (quest → oggetto, dialogo → quest)
-**DEVE** essere verificabile da un controllo di integrità eseguibile offline.
+**ARC-7.5** — Every cross-reference between content items (quest → item, dialogue → quest) **MUST**
+be verifiable by an integrity check runnable offline.
 
-### ARC-8 — Nessuno stato globale: GameContext e DI
+### ARC-8 — No global state: GameContext and DI
 
-**ARC-8.1** — **NON DEVE** esistere alcun singleton mutabile esportato dal bootstrap e importato in
-profondità, né dipendenze circolari `main → Scene → Actor → main`.
+**ARC-8.1** — There **MUST NOT** be any mutable singleton exported from the bootstrap and imported
+deep down, nor circular dependencies `main → Scene → Actor → main`.
 
-**ARC-8.2** — Le dipendenze **DEVONO** essere iniettate via costruttore, radunate in un
-**GameContext** costruito una sola volta nel bootstrap
-(vedi [`services/game-context.md`](./services/game-context.md)).
+**ARC-8.2** — Dependencies **MUST** be injected via the constructor, gathered in a **GameContext**
+built exactly once during bootstrap (see
+[`services/game-context.md`](./services/game-context.md)).
 
-**ARC-8.3** — Deve essere possibile istanziare **più partite indipendenti** nello stesso processo:
-è la verifica pratica dell'assenza di stato globale, e serve ai test.
+**ARC-8.3** — It must be possible to instantiate **several independent games** in the same process:
+it is the practical check for the absence of global state, and the tests need it.
 
-**ARC-8.4** — Lo stato di selezione e di interfaccia appartiene alla presentazione, mai al dominio.
+**ARC-8.4** — Selection and interface state belongs to the presentation, never to the domain.
 
-### ARC-9 — Determinismo e riproducibilità
+### ARC-9 — Determinism and reproducibility
 
-**ARC-9.1** — Data la stessa partita salvata e la stessa sequenza di input, la simulazione **DEVE**
-produrre lo stesso risultato.
+**ARC-9.1** — Given the same saved game and the same sequence of inputs, the simulation **MUST**
+produce the same result.
 
-**ARC-9.2** — Nessun accesso diretto a `Math.random()` **DEVE** esistere fuori dal servizio Random.
+**ARC-9.2** — No direct access to `Math.random()` **MUST** exist outside the Random service.
 
-**ARC-9.3** — Nessun accesso diretto all'orologio di sistema **DEVE** esistere fuori dal servizio
-Time: il dominio riceve il tempo, non lo legge.
+**ARC-9.3** — No direct access to the system clock **MUST** exist outside the Time service: the
+domain receives time, it does not read it.
 
-**ARC-9.4** — L'iterazione su collezioni in punti che influenzano l'esito **DEVE** avere ordine
-definito (nessuna dipendenza dall'ordine di inserimento in una `Map` non documentato).
+**ARC-9.4** — Iteration over collections in places that influence the outcome **MUST** have a defined
+order (no undocumented dependency on insertion order in a `Map`).
 
-### ARC-10 — Serializzabilità
+### ARC-10 — Serializability
 
-**ARC-10.1** — La distinzione tra **stato statico** (definizioni) e **stato dinamico** (salvabile)
-**DEVE** essere esplicita in ogni servizio, e dichiarata nella sua scheda.
+**ARC-10.1** — The distinction between **static state** (definitions) and **dynamic state** (savable)
+**MUST** be explicit in every service, and declared in its sheet.
 
-**ARC-10.2** — Ogni servizio con stato dinamico **DEVE** esporre `serialize()` / `deserialize()` per
-la **sua sola porzione** di stato, con un numero di versione proprio.
+**ARC-10.2** — Every service with dynamic state **MUST** expose `serialize()` / `deserialize()` for
+**its own portion only** of the state, with a version number of its own.
 
-**ARC-10.3** — Lo stato dinamico **DEVE** referenziare lo stato statico tramite **ID stabili**, mai
-per indice o per posizione in un array.
+**ARC-10.3** — Dynamic state **MUST** reference static state through **stable IDs**, never by index
+or by position in an array.
 
-**ARC-10.4** — Lo stato serializzabile **NON DEVE** contenere riferimenti runtime (ARC-1.3), né
-funzioni, né valori derivabili per ricalcolo se questi possono divergere.
+**ARC-10.4** — Serializable state **MUST NOT** contain runtime references (ARC-1.3), nor functions,
+nor values derivable by recomputation if those can diverge.
 
-### ARC-11 — Testabilità e rigore
+### ARC-11 — Testability and rigour
 
-**ARC-11.1** — Il progetto **DEVE** avere un test runner headless (Vitest o equivalente) separato
-dai test end-to-end Playwright già presenti.
+**ARC-11.1** — The project **MUST** have a headless test runner (Vitest or equivalent) separate from
+the Playwright end-to-end tests already present.
 
-**ARC-11.2** — Ogni servizio **DEVE** avere unit test sulla propria logica; i servizi che producono
-valori casuali o statistici **DEVONO** avere test di proprietà (media, varianza, continuità,
-riproducibilità da seed).
+**ARC-11.2** — Every service **MUST** have unit tests on its own logic; services that produce random
+or statistical values **MUST** have property tests (mean, variance, continuity, reproducibility from
+a seed).
 
-**ARC-11.3** — `as any` e `undefined as any` **NON DEVONO** comparire nel codice di produzione;
-`strict` **DEVE** essere attivo in TypeScript.
+**ARC-11.3** — `as any` and `undefined as any` **MUST NOT** appear in production code; `strict`
+**MUST** be enabled in TypeScript.
 
-**ARC-11.4** — Prima di rifattorizzare codice esistente **DOVREBBERO** essere scritti test di
-caratterizzazione che ne congelano il comportamento.
+**ARC-11.4** — Before refactoring existing code, characterization tests that freeze its behaviour
+**SHOULD** be written.
 
-**ARC-11.5** — Artefatti di build (`dist/`) **DEVONO** essere in `.gitignore`.
+**ARC-11.5** — Build artefacts (`dist/`) **MUST** be in `.gitignore`.
 
-### ARC-12 — Configurazione, localizzazione, asset
+### ARC-12 — Configuration, localization, assets
 
-**ARC-12.1** — I parametri di bilanciamento **DEVONO** essere centralizzati e tipizzati
-(vedi [`services/config.md`](./services/config.md)): nessun magic number sparso (z-order, griglie
-sprite, soglie di IA, timer di respawn).
+**ARC-12.1** — Balancing parameters **MUST** be centralized and typed (see
+[`services/config.md`](./services/config.md)): no magic numbers scattered around (z-order, sprite
+grids, AI thresholds, respawn timers).
 
-**ARC-12.2** — Nessuna stringa mostrata al giocatore **DEVE** essere hardcoded: i testi passano dal
-servizio di localizzazione (vedi [`services/localization.md`](./services/localization.md)).
+**ARC-12.2** — No string shown to the player **MUST** be hardcoded: texts go through the
+localization service (see [`services/localization.md`](./services/localization.md)).
 
-**ARC-12.3** — Il caricamento degli asset **DEVE** essere data-driven, coerente con il caricamento
-da Tiled già usato per il posizionamento spaziale.
+**ARC-12.3** — Asset loading **MUST** be data-driven, consistent with the loading from Tiled already
+used for spatial placement.
 
 ### ARC-13 — Performance
 
-**ARC-13.1** — Nessuna scansione O(n) della scena per entità per tick: le query di prossimità
-passano dall'indice spaziale.
+**ARC-13.1** — No O(n) scan of the scene per entity per tick: proximity queries go through the
+spatial index.
 
-**ARC-13.2** — I sistemi costosi (IA, pathfinding, rigenerazione mercanti) **DEVONO** supportare
-**throttling**: raggio di attivazione e intervallo discreto di rivalutazione, con distribuzione del
-carico tra i frame (budget per frame).
+**ARC-13.2** — Expensive systems (AI, pathfinding, merchant restocking) **MUST** support
+**throttling**: an activation radius and a discrete re-evaluation interval, with the load spread
+across frames (a per-frame budget).
 
-**ARC-13.3** — Nessun logging né allocazione evitabile negli hot path.
+**ARC-13.3** — No logging and no avoidable allocation on the hot paths.
 
-**ARC-13.4** — Ogni servizio **DOVREBBE** dichiarare nella propria scheda l'ordine di grandezza
-atteso di entità/chiamate che deve reggere.
+**ARC-13.4** — Every service **SHOULD** declare in its own sheet the expected order of magnitude of
+entities/calls it must cope with.
 
-### ARC-14 — Confini verificati automaticamente
+### ARC-14 — Automatically verified boundaries
 
-**ARC-14.1** — I confini tra servizi **DEVONO** essere imposti da uno strumento (ESLint
-`no-restricted-imports`, `dependency-cruiser` o equivalente) eseguito in CI, non dalla sola
-disciplina.
+**ARC-14.1** — The boundaries between services **MUST** be enforced by a tool (ESLint
+`no-restricted-imports`, `dependency-cruiser` or equivalent) run in CI, not by discipline alone.
 
-**ARC-14.2** — Regole minime da imporre:
+**ARC-14.2** — Minimum rules to enforce:
 
-| # | Regola |
+| # | Rule |
 |---|---|
-| 1 | Nessun import di `excalibur` sotto `engine/` |
-| 2 | Import di un servizio ammesso solo dal suo `index.ts` (mai percorsi interni) |
-| 3 | Nessun import da un servizio a un altro servizio (ARC-4.1) |
-| 4 | Nessun import da `engine/` verso `game/` o `presentation/` |
-| 5 | Nessun import da `game/` verso `presentation/` |
-| 6 | Nessun ciclo di import in tutto `src/` |
+| 1 | No import of `excalibur` under `engine/` |
+| 2 | A service may only be imported from its `index.ts` (never internal paths) |
+| 3 | No import from one service to another service (ARC-4.1) |
+| 4 | No import from `engine/` towards `game/` or `presentation/` |
+| 5 | No import from `game/` towards `presentation/` |
+| 6 | No import cycle anywhere in `src/` |
 
-**ARC-14.3** — La violazione di una regola di confine **DEVE** far fallire la build.
+**ARC-14.3** — Violating a boundary rule **MUST** make the build fail.
 
 ---
 
-## 4. Catalogo dei servizi
+## 4. Service catalogue
 
-**Natura:** G = generico (riusabile) · D = di dominio (assume il modello RPG di questo progetto).
-**Prio:** priorità di adozione (vedi §7).
+**Nature:** G = generic (reusable) · D = domain (assumes this project's RPG model).
+**Prio:** adoption priority (see §7).
 
-### Core — infrastruttura
+### Core — infrastructure
 
-| ID | Servizio | Scheda | Natura | Prio |
+| ID | Service | Sheet | Nature | Prio |
 |---|---|---|---|---|
 | `BUS` | EventBus | [event-bus.md](./services/event-bus.md) | G | 1 |
 | `CTX` | GameContext / DI | [game-context.md](./services/game-context.md) | G | 1 |
-| `CFG` | Config e bilanciamento | [config.md](./services/config.md) | G | 1 |
-| `TIME` | Tempo di gioco e scheduler | [time.md](./services/time.md) | G | 1 |
-| `RND` | Numeri casuali | [random.md](./services/random.md) | G | 1 |
-| `SAVE` | Persistenza | [persistence.md](./services/persistence.md) | G | 2 |
+| `CFG` | Config and balancing | [config.md](./services/config.md) | G | 1 |
+| `TIME` | Game time and scheduler | [time.md](./services/time.md) | G | 1 |
+| `RND` | Random numbers | [random.md](./services/random.md) | G | 1 |
+| `SAVE` | Persistence | [persistence.md](./services/persistence.md) | G | 2 |
 | `INP` | Input | [input.md](./services/input.md) | G | 2 |
-| `I18N` | Localizzazione | [localization.md](./services/localization.md) | G | 3 |
-| `AST` | Asset e risorse | [assets.md](./services/assets.md) | G | 3 |
+| `I18N` | Localization | [localization.md](./services/localization.md) | G | 3 |
+| `AST` | Assets and resources | [assets.md](./services/assets.md) | G | 3 |
 
-### Mondo
+### World
 
-| ID | Servizio | Scheda | Natura | Prio |
+| ID | Service | Sheet | Nature | Prio |
 |---|---|---|---|---|
-| `MAP` | Mappa: griglia dati e collisione | [map.md](./services/map.md) + [MAP-REQUIREMENTS.md](./MAP-REQUIREMENTS.md) | G | 1 |
-| `GEN` | Generazione procedurale di mappe | [map-generation.md](./services/map-generation.md) | G | 3 |
-| `SPX` | Indice spaziale | [spatial-index.md](./services/spatial-index.md) | G | 2 |
-| `ENT` | Registro entità e componenti | [entity-registry.md](./services/entity-registry.md) | G | 1 |
+| `MAP` | Map: data grid and collision | [map.md](./services/map.md) + [MAP-REQUIREMENTS.md](./MAP-REQUIREMENTS.md) | G | 1 |
+| `GEN` | Procedural map generation | [map-generation.md](./services/map-generation.md) | G | 3 |
+| `SPX` | Spatial index | [spatial-index.md](./services/spatial-index.md) | G | 2 |
+| `ENT` | Entity and component registry | [entity-registry.md](./services/entity-registry.md) | G | 1 |
 
-### Agenti
+### Agents
 
-| ID | Servizio | Scheda | Natura | Prio |
+| ID | Service | Sheet | Nature | Prio |
 |---|---|---|---|---|
 | `BB` | Blackboard | [blackboard.md](./services/blackboard.md) | G | 3 |
-| `AI` | Utility-AI | [utility-ai.md](./services/utility-ai.md) | G | 3 |
-| `AFF` | Affordance e percezione | [affordance.md](./services/affordance.md) | G | 4 |
+| `AI` | Utility AI | [utility-ai.md](./services/utility-ai.md) | G | 3 |
+| `AFF` | Affordances and perception | [affordance.md](./services/affordance.md) | G | 4 |
 | `PATH` | Pathfinding | [pathfinding.md](./services/pathfinding.md) | G | 3 |
 
-### Regole di gioco
+### Game rules
 
-| ID | Servizio | Scheda | Natura | Prio |
+| ID | Service | Sheet | Nature | Prio |
 |---|---|---|---|---|
-| `STAT` | Caratteristiche e progressione | [stats.md](./services/stats.md) | D | 2 |
-| `CBT` | Combattimento | [combat.md](./services/combat.md) | D | 2 |
-| `INV` | Inventario ed equipaggiamento | [inventory.md](./services/inventory.md) | G | 2 |
-| `LOOT` | Loot table e drop | [loot.md](./services/loot.md) | G | 3 |
-| `QST` | Quest | [quest.md](./services/quest.md) | G | 2 |
-| `DLG` | Dialoghi | [dialog.md](./services/dialog.md) | G | 2 |
-| `FAC` | Fazioni e reputazione | [faction.md](./services/faction.md) | G | 3 |
-| `ECO` | Economia e commercio | [economy.md](./services/economy.md) | D | 4 |
-| `CRM` | Crimine e notorietà | [crime.md](./services/crime.md) | D | 4 |
+| `STAT` | Attributes and progression | [stats.md](./services/stats.md) | D | 2 |
+| `CBT` | Combat | [combat.md](./services/combat.md) | D | 2 |
+| `INV` | Inventory and equipment | [inventory.md](./services/inventory.md) | G | 2 |
+| `LOOT` | Loot tables and drops | [loot.md](./services/loot.md) | G | 3 |
+| `QST` | Quests | [quest.md](./services/quest.md) | G | 2 |
+| `DLG` | Dialogues | [dialog.md](./services/dialog.md) | G | 2 |
+| `FAC` | Factions and reputation | [faction.md](./services/faction.md) | G | 3 |
+| `ECO` | Economy and trading | [economy.md](./services/economy.md) | D | 4 |
+| `CRM` | Crime and notoriety | [crime.md](./services/crime.md) | D | 4 |
 
-### Presentazione
+### Presentation
 
-| ID | Servizio | Scheda | Natura | Prio |
+| ID | Service | Sheet | Nature | Prio |
 |---|---|---|---|---|
-| `REN` | Rendering e adattatore di scena | [rendering.md](./services/rendering.md) | D | 1 |
-| `HUD` | HUD e schermate | [hud.md](./services/hud.md) | D | 3 |
+| `REN` | Rendering and scene adapter | [rendering.md](./services/rendering.md) | D | 1 |
+| `HUD` | HUD and screens | [hud.md](./services/hud.md) | D | 3 |
 | `AUD` | Audio | [audio.md](./services/audio.md) | G | 4 |
 | `CAM` | Camera | [camera.md](./services/camera.md) | G | 3 |
 
 ---
 
-## 5. Struttura delle cartelle
+## 5. Folder structure
 
 ```
 src/
-├─ engine/                    Generico e riusabile. Nessun import da excalibur.
+├─ engine/                    Generic and reusable. No import from excalibur.
 │  ├─ core/
 │  │  ├─ event-bus/  game-context/  config/  time/  random/
 │  │  └─ persistence/  input/  i18n/  assets/
@@ -367,41 +362,41 @@ src/
 │  │  └─ map/  map-generation/  spatial-index/  entity-registry/
 │  ├─ agents/
 │  │  └─ blackboard/  utility-ai/  affordance/  pathfinding/
-│  └─ systems/                Motori di regole generici, non le regole di questo gioco
+│  └─ systems/                Generic rules engines, not this game's rules
 │     └─ stats/  combat/  inventory/  loot/  quest/  dialog/  faction/  economy/  crime/
 │
-├─ game/                      Questo gioco specifico
-│  ├─ orchestration/          Cablaggio tra servizi, per tema (ARC-4.4)
-│  ├─ content/                Dati: quests, dialogs, items, npcs, loot, prices, maps + schema
-│  ├─ balance/                Valori di bilanciamento (CFG)
-│  └─ bootstrap.ts            Costruzione del GameContext
+├─ game/                      This specific game
+│  ├─ orchestration/          Wiring between services, by theme (ARC-4.4)
+│  ├─ content/                Data: quests, dialogs, items, npcs, loot, prices, maps + schema
+│  ├─ balance/                Balancing values (CFG)
+│  └─ bootstrap.ts            Construction of the GameContext
 │
-└─ presentation/              Excalibur: Scene, Actor, rendering, HUD, audio, camera, input fisico
-   └─ map/                    Rendering terreno (TileMap DGS), z-order per Y, overhead
+└─ presentation/              Excalibur: Scene, Actor, rendering, HUD, audio, camera, physical input
+   └─ map/                    Terrain rendering (TileMap DGS), z-order by Y, overhead
 ```
 
-Ogni cartella di servizio ha la stessa forma:
+Every service folder has the same shape:
 
 ```
 engine/core/random/
-├─ index.ts        Unica superficie pubblica (ARC-2.1)
-├─ types.ts        Tipi del contratto
-├─ …               Implementazione privata
-└─ *.spec.ts       Test headless
+├─ index.ts        The single public surface (ARC-2.1)
+├─ types.ts        Contract types
+├─ …               Private implementation
+└─ *.spec.ts       Headless tests
 ```
 
 ---
 
-## 6. Grafo delle dipendenze
+## 6. Dependency graph
 
-Le frecce sono dipendenze di **import**. Si noti l'assenza di frecce tra servizi (ARC-4.1): il
-collegamento avviene per eventi risaliti all'orchestrazione.
+The arrows are **import** dependencies. Note the absence of arrows between services (ARC-4.1): the
+connection happens through events that rise back up to the orchestration.
 
 ```mermaid
 flowchart TB
     P[presentation<br/>Excalibur: scene, actor, HUD, audio, camera]
-    O[game/orchestration<br/>regole di questo gioco]
-    C[game/content + balance<br/>dati]
+    O[game/orchestration<br/>this game's rules]
+    C[game/content + balance<br/>data]
     S[engine/systems<br/>quest, dialog, combat, inventory, loot,<br/>faction, stats, economy, crime]
     W[engine/world + agents<br/>map, spatial-index, entity-registry,<br/>utility-ai, blackboard, pathfinding, affordance]
     K[engine/core<br/>event-bus, game-context, config, time,<br/>random, persistence, input, i18n, assets]
@@ -411,58 +406,58 @@ flowchart TB
     O --> S
     O --> W
     O --> K
-    C -.dati.-> S
-    C -.dati.-> W
+    C -.data.-> S
+    C -.data.-> W
     S --> K
     W --> K
 ```
 
-Ciclo di vita di un'interazione, come esempio di lettura del grafo:
+The lifecycle of an interaction, as an example of how to read the graph:
 
-1. La **presentazione** rileva un input e lo traduce in azione astratta (`INP`).
-2. L'**orchestrazione** invoca `CBT.resolveAttack(...)`, che restituisce esito ed eventi.
-3. L'orchestrazione **pubblica** gli eventi sul `BUS`.
-4. Altri moduli di orchestrazione reagiscono: `QST.notifyKill(...)`, `LOOT.roll(...)`,
-   `FAC.applyReputationDelta(...)`, ciascuno restituendo altri eventi.
-5. La **presentazione** osserva gli stessi eventi per animazioni, numeri di danno, suoni.
+1. The **presentation** detects an input and translates it into an abstract action (`INP`).
+2. The **orchestration** invokes `CBT.resolveAttack(...)`, which returns an outcome and events.
+3. The orchestration **publishes** the events on the `BUS`.
+4. Other orchestration modules react: `QST.notifyKill(...)`, `LOOT.roll(...)`,
+   `FAC.applyReputationDelta(...)`, each returning further events.
+5. The **presentation** observes the same events for animations, damage numbers, sounds.
 
-Nessuno dei servizi coinvolti sa dell'esistenza degli altri.
+None of the services involved knows that the others exist.
 
 ---
 
-## 7. Priorità di adozione
+## 7. Adoption priorities
 
-| Prio | Contenuto | Obiettivo |
+| Prio | Content | Goal |
 |---|---|---|
-| **1 — Fondamenta** | `BUS` `CTX` `CFG` `TIME` `RND` `ENT` `MAP` `REN` | Un mondo che si carica, si disegna e si muove, con architettura corretta dal primo giorno |
-| **2 — Gioco minimo** | `SPX` `INP` `STAT` `CBT` `INV` `QST` `DLG` `SAVE` | Un ciclo di gioco completo: esplora, combatti, parla, raccogli, salva |
-| **3 — Profondità** | `AI` `BB` `PATH` `LOOT` `FAC` `GEN` `HUD` `CAM` `I18N` `AST` | PNG credibili, mondo variabile, interfaccia completa |
-| **4 — Simulazione** | `AFF` `ECO` `CRM` `AUD` | Mondo reattivo e sistemico |
+| **1 — Foundations** | `BUS` `CTX` `CFG` `TIME` `RND` `ENT` `MAP` `REN` | A world that loads, draws and moves, with the correct architecture from day one |
+| **2 — Minimum game** | `SPX` `INP` `STAT` `CBT` `INV` `QST` `DLG` `SAVE` | A complete game loop: explore, fight, talk, collect, save |
+| **3 — Depth** | `AI` `BB` `PATH` `LOOT` `FAC` `GEN` `HUD` `CAM` `I18N` `AST` | Believable NPCs, a varied world, a complete interface |
+| **4 — Simulation** | `AFF` `ECO` `CRM` `AUD` | A reactive, systemic world |
 
-Regola trasversale: **ARC-1, ARC-2, ARC-4, ARC-8, ARC-11 e ARC-14 valgono dal primo commit.** Sono
-vincoli strutturali: aggiungerli dopo significa riscrivere, come documentato in
-[`previous-version/REPORT-VALUTAZIONE.md`](./previous-version/REPORT-VALUTAZIONE.md).
+A cross-cutting rule: **ARC-1, ARC-2, ARC-4, ARC-8, ARC-11 and ARC-14 hold from the first commit.**
+They are structural constraints: adding them later means rewriting, as documented in
+[`previous-version/ASSESSMENT-REPORT.md`](./previous-version/ASSESSMENT-REPORT.md).
 
 ---
 
-## 8. Tracciabilità rispetto alla versione 0.1
+## 8. Traceability with respect to version 0.1
 
-I requisiti tecnici `TR1…TR13` della versione precedente sono stati assorbiti così:
+The technical requirements `TR1…TR13` of the previous version have been absorbed as follows:
 
-| Vecchio | Destinazione |
+| Old | Destination |
 |---|---|
-| TR1 — Separazione presentazione/dominio | ARC-1 |
-| TR2 — Composizione a componenti (ECS) | ARC-6 + [`entity-registry.md`](./services/entity-registry.md) |
-| TR3 — Contenuti data-driven | ARC-7 |
-| TR4 — EventBus e riferimenti stabili | ARC-5 + [`event-bus.md`](./services/event-bus.md) + ARC-13.1 |
-| TR5 — Niente stato globale, DI | ARC-8 + [`game-context.md`](./services/game-context.md) |
-| TR6 — Utility-AI | [`utility-ai.md`](./services/utility-ai.md) |
-| TR7 — Combattimento centralizzato | [`combat.md`](./services/combat.md) |
-| TR8 — Input centralizzato | [`input.md`](./services/input.md) |
-| TR9 — Persistenza | ARC-10 + [`persistence.md`](./services/persistence.md) |
-| TR10 — RNG deterministico | ARC-9 + [`random.md`](./services/random.md) |
-| TR11 — Testabilità e qualità | ARC-11 |
-| TR12 — Config, i18n, asset | ARC-12 + [`config.md`](./services/config.md), [`localization.md`](./services/localization.md), [`assets.md`](./services/assets.md) |
-| TR13 — RNG avanzato | [`random.md`](./services/random.md) |
-| Feature di gioco (Giocatore, Mappa, Quest, …) | [`GAMEPLAY.md`](./GAMEPLAY.md) |
-| Note "Da aggiungere ai requisiti" | ARC-2, ARC-6.2, [`blackboard.md`](./services/blackboard.md), [`utility-ai.md`](./services/utility-ai.md), [`affordance.md`](./services/affordance.md) |
+| TR1 — Presentation/domain separation | ARC-1 |
+| TR2 — Component composition (ECS) | ARC-6 + [`entity-registry.md`](./services/entity-registry.md) |
+| TR3 — Data-driven content | ARC-7 |
+| TR4 — EventBus and stable references | ARC-5 + [`event-bus.md`](./services/event-bus.md) + ARC-13.1 |
+| TR5 — No global state, DI | ARC-8 + [`game-context.md`](./services/game-context.md) |
+| TR6 — Utility AI | [`utility-ai.md`](./services/utility-ai.md) |
+| TR7 — Centralized combat | [`combat.md`](./services/combat.md) |
+| TR8 — Centralized input | [`input.md`](./services/input.md) |
+| TR9 — Persistence | ARC-10 + [`persistence.md`](./services/persistence.md) |
+| TR10 — Deterministic RNG | ARC-9 + [`random.md`](./services/random.md) |
+| TR11 — Testability and quality | ARC-11 |
+| TR12 — Config, i18n, assets | ARC-12 + [`config.md`](./services/config.md), [`localization.md`](./services/localization.md), [`assets.md`](./services/assets.md) |
+| TR13 — Advanced RNG | [`random.md`](./services/random.md) |
+| Game features (Player, Map, Quests, …) | [`GAMEPLAY.md`](./GAMEPLAY.md) |
+| "To be added to the requirements" notes | ARC-2, ARC-6.2, [`blackboard.md`](./services/blackboard.md), [`utility-ai.md`](./services/utility-ai.md), [`affordance.md`](./services/affordance.md) |

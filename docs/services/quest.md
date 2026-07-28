@@ -1,34 +1,34 @@
-# QST — Quest
+# QST — Quests
 
-**Area:** Regole · **Natura:** generico · **Priorità:** 2 · **Stato:** proposto
-**Prefisso requisiti:** `QST-*`
+**Area:** Game rules · **Nature:** generic · **Priority:** 2 · **Status:** proposed
+**Requirement prefix:** `QST-*`
 
-## Scopo
+## Purpose
 
-Tenere lo stato di avanzamento delle quest e valutare, a fronte di ciò che accade nel mondo, se un
-obiettivo è compiuto, fallito o sbloccato.
+Keep the progress state of the quests and evaluate, against what happens in the world, whether an
+objective is achieved, failed or unlocked.
 
-Il servizio è un **interprete di macchine a stati definite nei dati**: non conosce nessuna quest in
-particolare. «Trova la spada di Aramis» è un file, non una classe.
+The service is an **interpreter of state machines defined in data**: it knows no quest in
+particular. "Find Aramis's sword" is a file, not a class.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | l'**interprete di precondizioni/effetti** condiviso (ARC-7.3) |
-| NON dipende da | `excalibur`, `INV`, `DLG`, `ENT`, altri servizi |
-| Consumato da | orchestrazione, HUD (diario), `DLG` (tramite valutatore) |
-| Stato dinamico | stato di ogni quest, obiettivi compiuti, contatori, marche temporali |
-| Stato statico | definizioni delle quest |
-| Dati esterni | `content/quests/*.json` |
-| Eventi emessi | `quest-started`, `objective-completed`, `quest-advanced`, `quest-completed`, `quest-failed`, `quest-reward-granted` |
+| Depends on | the shared **precondition/effect interpreter** (ARC-7.3) |
+| Does NOT depend on | `excalibur`, `INV`, `DLG`, `ENT`, other services |
+| Consumed by | orchestration, HUD (journal), `DLG` (through the evaluator) |
+| Dynamic state | state of every quest, achieved objectives, counters, timestamps |
+| Static state | quest definitions |
+| External data | `content/quests/*.json` |
+| Events emitted | `quest-started`, `objective-completed`, `quest-advanced`, `quest-completed`, `quest-failed`, `quest-reward-granted` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface QuestDefinition {
   id: QuestId;
-  titleKey: TextKey;                      // chiave I18N, non testo (I18N-1)
+  titleKey: TextKey;                      // I18N key, not text (I18N-1)
   stages: readonly QuestStage[];
   prerequisites: readonly Condition[];
   failConditions?: readonly Condition[];
@@ -37,93 +37,94 @@ interface QuestDefinition {
 
 interface QuestStage {
   id: StageId;
-  objectives: readonly Objective[];       // union discriminata: kill, collect, reach, talk, escort…
+  objectives: readonly Objective[];       // discriminated union: kill, collect, reach, talk, escort…
   completion: 'all' | 'any' | { count: number };
   onEnter?: readonly Effect[];
   onComplete?: readonly Effect[];
-  next?: StageId | readonly { to: StageId; when: Condition }[];   // rami
+  next?: StageId | readonly { to: StageId; when: Condition }[];   // branches
 }
 
 interface QuestService {
   start(id: QuestId, ctx: WorldFacts): CommandResult<StartOutcome>;
-  /** Unico punto d'ingresso per i fatti del mondo: l'orchestrazione traduce gli eventi in fatti. */
+  /** The single entry point for world facts: the orchestration turns events into facts. */
   notify(fact: WorldFact, ctx: WorldFacts): CommandResult<readonly QuestChange[]>;
   fail(id: QuestId, reason: FailReason): CommandResult<void>;
 
   status(id: QuestId): QuestStatus;
   isObjectiveComplete(id: QuestId, obj: ObjectiveId): boolean;
   active(): readonly QuestId[];
-  journal(): readonly JournalEntry[];      // per l'HUD: chiavi, non testo
+  journal(): readonly JournalEntry[];      // for the HUD: keys, not text
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Definizione come dato
+### Definition as data
 
-**QST-1** — Le quest **DEVONO** essere definite in **file dati validati**, modificabili da un
-narrative designer senza ricompilare (ARC-7.1, ARC-7.4, GP-33).
+**QST-1** — Quests **MUST** be defined in **validated data files**, editable by a narrative designer
+without recompiling (ARC-7.1, ARC-7.4, GP-33).
 
-**QST-2** — Obiettivi, precondizioni ed effetti **DEVONO** essere **union discriminate tipizzate**,
-valutate dall'interprete condiviso (ARC-7.3). Il servizio **NON DEVE** contenere un `switch` con la
-logica di ogni tipo di quest.
+**QST-2** — Objectives, preconditions and effects **MUST** be **typed discriminated unions**,
+evaluated by the shared interpreter (ARC-7.3). The service **MUST NOT** contain a `switch` holding
+the logic of every kind of quest.
 
-**QST-3** — Ogni riferimento (oggetto, PNG, area, altra quest) **DEVE** essere verificato dal
-controllo di integrità dei contenuti (ARC-7.5): una quest che cita un oggetto inesistente **DEVE**
-essere rilevata prima di partire.
+**QST-3** — Every reference (item, NPC, area, another quest) **MUST** be verified by the content
+integrity check (ARC-7.5): a quest that names a non-existent item **MUST** be detected before it
+starts.
 
-**QST-4** — Le quest **DEVONO** supportare **fasi** con obiettivi multipli e regole di completamento
-(tutti, uno qualsiasi, N su M).
+**QST-4** — Quests **MUST** support **stages** with multiple objectives and completion rules (all,
+any, N out of M).
 
-**QST-5** — Le quest **DEVONO** supportare **rami**: la fase successiva può dipendere da una
-condizione, non essere solo la seguente in elenco.
+**QST-5** — Quests **MUST** support **branches**: the next stage may depend on a condition, rather
+than simply being the next one in the list.
 
-### Avanzamento
+### Progress
 
-**QST-6** — Il servizio **NON DEVE** sottoscrivere il bus (ARC-4.3): riceve **fatti del mondo**
-tramite `notify`, tradotti dall'orchestrazione dagli eventi di dominio. Così resta interrogabile con
-fatti sintetici in un test.
+**QST-6** — The service **MUST NOT** subscribe to the bus (ARC-4.3): it receives **world facts**
+through `notify`, translated by the orchestration from the domain events. That way it stays queryable
+with synthetic facts in a test.
 
-**QST-7** — La valutazione **DEVE** essere idempotente rispetto ai fatti ripetuti: lo stesso fatto
-consegnato due volte **NON DEVE** far avanzare due volte un obiettivo.
+**QST-7** — Evaluation **MUST** be idempotent with respect to repeated facts: the same fact
+delivered twice **MUST NOT** advance an objective twice.
 
-**QST-8** — Il **fallimento DEVE** essere un esito di prima classe, con condizioni proprie e
-conseguenze definite (rami alternativi o chiusura), non l'assenza di successo (GP-35).
+**QST-8** — **Failure MUST** be a first-class outcome, with conditions of its own and defined
+consequences (alternative branches or closure), not merely the absence of success (GP-35).
 
-**QST-9** — Il servizio **DEVE** dichiarare le **ricompense** come effetti, senza consegnarle:
-consegnarle è dell'orchestrazione, che parla con `INV`, `STAT` e `ECO` (ARC-4.1).
+**QST-9** — The service **MUST** declare the **rewards** as effects, without granting them: granting
+them is the orchestration's job, talking to `INV`, `STAT` and `ECO` (ARC-4.1).
 
-**QST-10** — Lo stato di ogni quest **DEVE** essere interrogabile in modo economico da dialoghi,
-IA e mondo (GP-34): è una lettura molto frequente, e **DEVE** essere O(1).
+**QST-10** — The state of every quest **MUST** be cheaply queryable by dialogues, AI and the world
+(GP-34): it is a very frequent read, and **MUST** be O(1).
 
-**QST-11** — Il servizio **DEVE** produrre il **diario** in forma di dati (chiavi di testo, stato,
-obiettivi visibili e nascosti), mai testo formattato (I18N-8, GP-50).
+**QST-11** — The service **MUST** produce the **journal** as data (text keys, status, visible and
+hidden objectives), never as formatted text (I18N-8, GP-50).
 
-**QST-12** — Gli obiettivi **DEVONO** poter essere nascosti finché non sono scoperti, senza che il
-diario ne riveli l'esistenza.
+**QST-12** — Objectives **MUST** be hideable until they are discovered, without the journal
+revealing their existence.
 
-**QST-13** — Le quest **DEVONO** poter essere ripetibili, con reimpostazione dello stato controllata
-e contatore di completamenti.
+**QST-13** — Quests **MUST** be able to be repeatable, with controlled state reset and a completion
+counter.
 
-**QST-14** — Lo stato **DEVE** essere serializzabile e riferirsi alle definizioni per **ID stabile**
+**QST-14** — The state **MUST** be serializable and refer to the definitions by **stable ID**
 (ARC-10.3).
 
-**QST-15** — Il caricamento di un salvataggio con una definizione di quest **cambiata in modo
-incompatibile** (una fase rimossa) **DEVE** essere rilevato e riportato, non ignorato (SAVE-15).
+**QST-15** — Loading a save with a quest definition **changed incompatibly** (a stage removed)
+**MUST** be detected and reported, not ignored (SAVE-15).
 
-**QST-16** — Il servizio **DEVE** funzionare con quest inventate e tipi di obiettivo estranei a
-questo gioco: i tipi di obiettivo sono un insieme estendibile, registrato dall'esterno (ARC-3.4).
+**QST-16** — The service **MUST** work with made-up quests and objective types foreign to this game:
+objective types are an extensible set, registered from the outside (ARC-3.4).
 
-## Criteri di test
+## Test criteria
 
-- Una quest sintetica a tre fasi con rami avanza per il ramo giusto secondo i fatti forniti.
-- Lo stesso fatto consegnato due volte non produce doppio avanzamento.
-- Una condizione di fallimento chiude la quest con l'esito atteso e non consente più avanzamenti.
-- Round-trip di serializzazione con quest a metà, contatori inclusi.
-- Il diario espone chiavi, mai testo.
-- Una definizione che cita un id inesistente è rifiutata in validazione.
+- A synthetic three-stage quest with branches advances along the right branch given the facts
+  supplied.
+- The same fact delivered twice does not produce double progress.
+- A failure condition closes the quest with the expected outcome and allows no further progress.
+- Serialization round trip with half-done quests, counters included.
+- The journal exposes keys, never text.
+- A definition that names a non-existent id is rejected at validation time.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-20, GP-27, GP-33, GP-34, GP-35, GP-50
 - [`dialog.md`](./dialog.md) · [`inventory.md`](./inventory.md) · [`faction.md`](./faction.md)

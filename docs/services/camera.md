@@ -1,92 +1,91 @@
 # CAM — Camera
 
-**Area:** Presentazione · **Natura:** generico · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `CAM-*`
+**Area:** Presentation · **Nature:** generic · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `CAM-*`
 
-## Scopo
+## Purpose
 
-Decidere che porzione di mondo è inquadrata: inseguire il giocatore, restare entro i confini
-dell'area, spostarsi su un punto d'interesse durante una scena, tremare a un'esplosione.
+Decide which portion of the world is framed: follow the player, stay within the area's bounds, move
+onto a point of interest during a scene, shake at an explosion.
 
-Piccolo servizio, ma incide molto sulla sensazione di gioco — ed è anche uno dei più fastidiosi da
-correggere dopo, perché tende a spargersi tra scene, attori ed effetti.
+A small service, but one that weighs heavily on how the game feels — and also one of the most
+annoying to fix later, because it tends to spread across scenes, actors and effects.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | `CFG`; il risultato è applicato dalla camera di Excalibur |
-| NON dipende da | i servizi di dominio |
-| Consumato da | `REN` |
-| Stato dinamico | posizione, zoom, bersaglio, effetti attivi |
-| Stato statico | parametri di inseguimento, limiti, curve |
-| Dati esterni | parametri in configurazione |
-| Eventi emessi | `camera-focus-reached` |
+| Depends on | `CFG`; the result is applied by Excalibur's camera |
+| Does NOT depend on | the domain services |
+| Consumed by | `REN` |
+| Dynamic state | position, zoom, target, active effects |
+| Static state | follow parameters, limits, curves |
+| External data | parameters in configuration |
+| Events emitted | `camera-focus-reached` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface CameraService {
   follow(target: EntityId, style: FollowStyle): void;
-  focusOn(point: Vector2, durationMs: number): void;   // scene, dialoghi, rivelazioni
+  focusOn(point: Vector2, durationMs: number): void;   // scenes, dialogues, reveals
   release(): void;
 
-  setBounds(bounds: Rect | undefined): void;           // confini dell'area corrente
+  setBounds(bounds: Rect | undefined): void;           // bounds of the current area
   setZoom(zoom: number, durationMs?: number): void;
   shake(intensity: number, durationMs: number): void;
 
-  /** Calcola la posizione del frame. Logica pura: testabile senza renderer. */
+  /** Computes the frame's position. Pure logic: testable without a renderer. */
   update(dt: number, targetPos: Vector2): CameraState;
 }
 ```
 
-## Requisiti
+## Requirements
 
-**CAM-1** — La logica della camera **DEVE** essere **pura e testabile**: `update` è una funzione di
-stato e bersaglio, verificabile senza renderer. Solo l'applicazione del risultato tocca Excalibur.
+**CAM-1** — The camera logic **MUST** be **pure and testable**: `update` is a function of state and
+target, verifiable without a renderer. Only applying the result touches Excalibur.
 
-**CAM-2** — L'inseguimento **DEVE** essere smorzato e configurabile, con una **zona morta** entro cui
-la camera non si muove: seguire il giocatore pixel per pixel produce un'immagine nervosa.
+**CAM-2** — Following **MUST** be damped and configurable, with a **dead zone** inside which the
+camera does not move: following the player pixel by pixel produces a jittery image.
 
-**CAM-3** — La camera **DEVE** rispettare i **confini dell'area**: non **DEVE** mostrare il vuoto
-oltre il bordo della mappa, salvo che l'area sia più piccola dello schermo, caso in cui **DEVE**
-centrarla.
+**CAM-3** — The camera **MUST** respect the **area's bounds**: it **MUST NOT** show empty space
+beyond the edge of the map, unless the area is smaller than the screen, in which case it **MUST**
+centre it.
 
-**CAM-4** — La camera **DEVE** poter essere sottratta all'inseguimento per inquadrare un punto
-(scene, rivelazione di una porta che si apre) e restituita dopo, senza scatti.
+**CAM-4** — The camera **MUST** be able to be taken off following in order to frame a point (scenes,
+revealing a door that opens) and handed back afterwards, without jumps.
 
-**CAM-5** — Lo **scuotimento DEVE** essere parametrico e usare rumore, non oscillazioni casuali pure,
-per un effetto continuo e non granuloso (RND-7).
+**CAM-5** — **Shake MUST** be parametric and use noise, not pure random oscillations, for a
+continuous rather than grainy effect (RND-7).
 
-**CAM-6** — Lo scuotimento **DEVE** rispettare le impostazioni di accessibilità, fino ad annullarsi
+**CAM-6** — Shake **MUST** respect the accessibility settings, down to being cancelled entirely
 (GP-66).
 
-**CAM-7** — Lo zoom **DEVE** essere animabile con durata e curva; la camera **DEVE** restare
-coerente con i confini anche a zoom variabile.
+**CAM-7** — Zoom **MUST** be animatable with a duration and a curve; the camera **MUST** stay
+consistent with the bounds at variable zoom too.
 
-**CAM-8** — La camera **DEVE** poter essere pilotata verso un punto e segnalare l'arrivo, perché una
-sequenza narrativa possa procedere.
+**CAM-8** — The camera **MUST** be steerable towards a point and report arrival, so that a narrative
+sequence can proceed.
 
-**CAM-9** — La posizione della camera **NON DEVE** influenzare la logica di gioco: nessuna regola
-**DEVE** dipendere da cosa è inquadrato. Ciò che si attiva in base alla vicinanza usa distanze di
-dominio, non lo schermo.
+**CAM-9** — The camera's position **MUST NOT** influence the game logic: no rule **MUST** depend on
+what is framed. Whatever triggers based on proximity uses domain distances, not the screen.
 
-**CAM-10** — Lo stato della camera **NON DEVE** essere serializzato: si ricostruisce dal bersaglio e
-dai confini al caricamento (ARC-10.4).
+**CAM-10** — The camera's state **MUST NOT** be serialized: it is rebuilt from the target and the
+bounds on load (ARC-10.4).
 
-**CAM-11** — Al passaggio tra aree la camera **DEVE** ricollocarsi senza interpolazione attraverso lo
-spazio intermedio.
+**CAM-11** — When moving between areas the camera **MUST** relocate without interpolating through
+the space in between.
 
-## Criteri di test
+## Test criteria
 
-- L'inseguimento con zona morta non muove la camera per spostamenti sotto soglia.
-- Ai bordi della mappa la camera si arresta esattamente sul confine.
-- Un'area più piccola dello schermo viene centrata.
-- Lo scuotimento con la stessa intensità e lo stesso seed è riproducibile e si annulla con
-  l'accessibilità attiva.
-- `focusOn` seguito da `release` riprende l'inseguimento senza discontinuità.
+- Following with a dead zone does not move the camera for sub-threshold displacements.
+- At the map's edges the camera stops exactly on the boundary.
+- An area smaller than the screen is centred.
+- Shake with the same intensity and the same seed is reproducible and is cancelled with
+  accessibility enabled.
+- `focusOn` followed by `release` resumes following without discontinuity.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-66
 - [`rendering.md`](./rendering.md) · [`config.md`](./config.md) · [`random.md`](./random.md)

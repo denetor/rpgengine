@@ -1,127 +1,123 @@
-# STAT — Caratteristiche e progressione
+# STAT — Attributes and progression
 
-**Area:** Regole · **Natura:** di dominio · **Priorità:** 2 · **Stato:** proposto
-**Prefisso requisiti:** `STAT-*`
+**Area:** Game rules · **Nature:** domain · **Priority:** 2 · **Status:** proposed
+**Requirement prefix:** `STAT-*`
 
-## Scopo
+## Purpose
 
-Tenere le **caratteristiche**, le **abilità** e i **perk** delle entità, calcolare i valori derivati
-(vita, energia, portata, difese) e gestire la progressione.
+Hold the **attributes**, the **skills** and the **perks** of the entities, compute the derived values
+(health, energy, carrying capacity, defences) and manage progression.
 
-Il modello di progressione di questo gioco è deliberatamente diverso da quello classico: **non
-esistono livelli**. Non c'è un numero che riassume la potenza del personaggio, non ci sono punti
-esperienza da spendere. Le singole caratteristiche crescono per **formazione presso maestri**, le
-abilità anche **con l'uso**, e alcuni **perk** arrivano al superamento di soglie o col passare del
-tempo. Il servizio deve rendere naturale questo modello, non emularlo sopra un sistema a livelli.
+This game's progression model is deliberately different from the classic one: **there are no
+levels**. There is no single number summarizing the character's power, there are no experience
+points to spend. Individual attributes grow through **training with masters**, skills also grow
+**with use**, and some **perks** arrive when thresholds are crossed or as time passes. The service
+must make this model natural, not emulate it on top of a level-based system.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | — |
-| NON dipende da | `excalibur`, altri servizi |
-| Consumato da | orchestrazione; `CBT`, `INV`, `DLG`, `ECO` ricevono i **valori**, non il servizio |
-| Stato dinamico | valori base, esperienza per abilità, perk sbloccati, modificatori attivi |
-| Stato statico | definizioni di caratteristiche, abilità, perk, formule dei derivati |
-| Dati esterni | `content/stats/attributes.json`, `skills.json`, `perks.json`, `derived.json` |
-| Eventi emessi | `attribute-raised`, `skill-improved`, `perk-unlocked`, `derived-changed`, `training-completed` |
+| Depends on | — |
+| Does NOT depend on | `excalibur`, other services |
+| Consumed by | orchestration; `CBT`, `INV`, `DLG`, `ECO` receive the **values**, not the service |
+| Dynamic state | base values, per-skill experience, unlocked perks, active modifiers |
+| Static state | definitions of attributes, skills, perks, formulas for derived values |
+| External data | `content/stats/attributes.json`, `skills.json`, `perks.json`, `derived.json` |
+| Events emitted | `attribute-raised`, `skill-improved`, `perk-unlocked`, `derived-changed`, `training-completed` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface StatBlock {
   base(attr: AttributeId): number;
-  effective(attr: AttributeId): number;        // base + modificatori, con cap
+  effective(attr: AttributeId): number;        // base + modifiers, with caps
   skill(skill: SkillId): number;
   hasPerk(perk: PerkId): boolean;
-  derived(stat: DerivedId): number;            // vita, energia, portata, difesa…
+  derived(stat: DerivedId): number;            // health, energy, carrying capacity, defence…
 }
 
 interface StatsService {
   train(id: EntityId, attr: AttributeId, quality: number): CommandResult<TrainingOutcome>;
   useSkill(id: EntityId, skill: SkillId, difficulty: number): CommandResult<SkillCheck>;
 
-  addModifier(id: EntityId, m: StatModifier): CommandResult<ModifierId>;   // equip, buff, sovraccarico
+  addModifier(id: EntityId, m: StatModifier): CommandResult<ModifierId>;   // equipment, buff, encumbrance
   removeModifier(id: EntityId, m: ModifierId): CommandResult<void>;
 
-  meets(id: EntityId, req: readonly Requirement[]): boolean;   // requisiti di equip e dialogo
+  meets(id: EntityId, req: readonly Requirement[]): boolean;   // equip and dialogue requirements
   evaluate(id: EntityId): StatBlock;
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Modello
+### Model
 
-**STAT-1** — **NON DEVE** esistere alcun livello di personaggio né un contatore globale di
-esperienza: la progressione avviene per **caratteristica singola** (GP-1).
+**STAT-1** — There **MUST NOT** be any character level nor a global experience counter: progression
+happens per **individual attribute** (GP-1).
 
-**STAT-2** — Le caratteristiche **DEVONO** migliorare tramite **formazione presso maestri**, con
-costo, tempo e limite dipendenti dal maestro e dal valore attuale (GP-2). Un maestro **DEVE** poter
-insegnare fino a un massimo proprio: oltre, serve un maestro migliore.
+**STAT-2** — Attributes **MUST** improve through **training with masters**, with cost, time and limit
+depending on the master and on the current value (GP-2). A master **MUST** be able to teach up to a
+maximum of their own: beyond that, a better master is needed.
 
-**STAT-3** — Le **abilità** (scasso, alchimia, persuasione, mercanteggiare) **DEVONO** essere
-distinte dalle caratteristiche e migliorare **con l'uso**, con rendimenti decrescenti, e/o con la
-formazione (GP-4).
+**STAT-3** — **Skills** (lockpicking, alchemy, persuasion, bargaining) **MUST** be distinct from
+attributes and improve **with use**, with diminishing returns, and/or with training (GP-4).
 
-**STAT-4** — I **perk DEVONO** sbloccarsi al superamento di soglie su una o più caratteristiche
-o al trascorrere del tempo, non per spesa di punti (GP-3). Le condizioni sono dati.
+**STAT-4** — **Perks MUST** unlock when thresholds on one or more attributes are crossed or as time
+passes, not by spending points (GP-3). The conditions are data.
 
-**STAT-5** — I **valori derivati** (vita, energia, mana, portata, difese) **DEVONO** essere calcolati
-da formule dichiarate nei dati, mai memorizzati come valori indipendenti che possono divergere
-(GP-6). Fanno eccezione i **valori correnti** — la vita attuale — che sono stato, mentre il massimo
-è derivato.
+**STAT-5** — **Derived values** (health, energy, mana, carrying capacity, defences) **MUST** be
+computed from formulas declared in data, never stored as independent values that can diverge (GP-6).
+The exception is **current values** — current health — which are state, while the maximum is derived.
 
-**STAT-6** — Le formule dei derivati **DEVONO** essere data-driven ed espresse con l'interprete di
-espressioni condiviso (ARC-7.3), non come funzioni TypeScript per ogni statistica.
+**STAT-6** — The formulas for derived values **MUST** be data-driven and expressed with the shared
+expression interpreter (ARC-7.3), not as TypeScript functions for each derived value.
 
-### Modificatori
+### Modifiers
 
-**STAT-7** — I modificatori (equipaggiamento, buff, debuff, sovraccarico, ferite) **DEVONO** essere
-**tracciati per origine** e rimovibili individualmente: togliere l'armatura toglie esattamente il suo
-contributo.
+**STAT-7** — Modifiers (equipment, buffs, debuffs, encumbrance, wounds) **MUST** be **tracked by
+origin** and individually removable: taking off the armour removes exactly its contribution.
 
-**STAT-8** — L'ordine di applicazione dei modificatori (additivi, moltiplicativi, cap) **DEVE**
-essere dichiarato e deterministico: due modificatori applicati in ordine diverso **DEVONO** dare lo
-stesso risultato (ARC-9.4).
+**STAT-8** — The order in which modifiers are applied (additive, multiplicative, caps) **MUST** be
+declared and deterministic: two modifiers applied in a different order **MUST** give the same result
+(ARC-9.4).
 
-**STAT-9** — Il valore efficace **DEVE** essere calcolabile senza effetti collaterali e
-**DOVREBBE** essere memoizzato con invalidazione a ogni cambio di modificatore: è letto molte volte
-per frame.
+**STAT-9** — The effective value **MUST** be computable without side effects and **SHOULD** be
+memoized with invalidation on every modifier change: it is read many times per frame.
 
-**STAT-10** — Ogni caratteristica e abilità **DEVE** avere minimo, massimo e cap dichiarati; nessun
-percorso di codice **DEVE** poter portare un valore fuori intervallo.
+**STAT-10** — Every attribute and skill **MUST** have a declared minimum, maximum and cap; no code
+path **MUST** be able to take a value out of range.
 
-### Interoperabilità
+### Interoperability
 
-**STAT-11** — Il servizio **DEVE** esporre `meets(requirements)` come primitiva unica per i requisiti
-di equipaggiamento, dialogo e interazione (GP-5, GP-39): un solo punto di valutazione, riusato da
-tutti.
+**STAT-11** — The service **MUST** expose `meets(requirements)` as the single primitive for
+equipment, dialogue and interaction requirements (GP-5, GP-39): a single evaluation point, reused by
+everyone.
 
-**STAT-12** — Le prove di abilità (scasso, persuasione) **DEVONO** essere risolte da questo servizio
-con un unico meccanismo, usando lo stream `RND` del caso, e restituire un esito strutturato (successo,
-margine, critico) invece di un booleano.
+**STAT-12** — Skill checks (lockpicking, persuasion) **MUST** be resolved by this service with a
+single mechanism, using the appropriate `RND` stream, and return a structured outcome (success,
+margin, critical) instead of a boolean.
 
-**STAT-13** — Il servizio **NON DEVE** conoscere combattimento, inventario o dialoghi: fornisce
-valori e verdetti. Chi decide cosa farne è l'orchestrazione (ARC-4.1).
+**STAT-13** — The service **MUST NOT** know about combat, inventory or dialogues: it supplies values
+and verdicts. Deciding what to do with them is the orchestration's job (ARC-4.1).
 
-**STAT-14** — Ogni variazione permanente **DEVE** emettere l'evento corrispondente, perché HUD,
-audio e diario reagiscano senza sondare lo stato.
+**STAT-14** — Every permanent change **MUST** emit the corresponding event, so that HUD, audio and
+journal react without polling the state.
 
-**STAT-15** — L'insieme delle caratteristiche, delle abilità e dei perk **DEVE** essere definito
-come **dato**: aggiungere una caratteristica **NON DEVE** richiedere modifiche al codice. È anche
-ciò che rende il servizio riusabile in un gioco con un modello di personaggio diverso.
+**STAT-15** — The set of attributes, skills and perks **MUST** be defined as **data**: adding an
+attribute **MUST NOT** require changes to the code. It is also what makes the service reusable in a
+game with a different character model.
 
-## Criteri di test
+## Test criteria
 
-- Il valore efficace è indipendente dall'ordine di applicazione dei modificatori.
-- Rimuovere l'equipaggiamento riporta esattamente ai valori precedenti, senza deriva su 10³ cicli.
-- L'uso ripetuto di un'abilità la migliora con la curva a rendimenti decrescenti attesa.
-- Un perk si sblocca esattamente al superamento della soglia, una sola volta.
-- I derivati cambiano coerentemente al variare delle caratteristiche di base.
-- Il servizio funziona con un insieme di caratteristiche inventato (ARC-3.4).
+- The effective value is independent of the order in which modifiers are applied.
+- Removing equipment returns exactly to the previous values, with no drift over 10³ cycles.
+- Repeated use of a skill improves it along the expected diminishing-returns curve.
+- A perk unlocks exactly when the threshold is crossed, exactly once.
+- Derived values change consistently as the base attributes vary.
+- The service works with a made-up set of attributes (ARC-3.4).
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-1, GP-2, GP-3, GP-4, GP-5, GP-6, GP-21, GP-22
 - [`combat.md`](./combat.md) · [`inventory.md`](./inventory.md) · [`dialog.md`](./dialog.md)

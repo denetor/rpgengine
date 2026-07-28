@@ -1,108 +1,106 @@
-# REN — Rendering e adattatore di scena
+# REN — Rendering and scene adapter
 
-**Area:** Presentazione · **Natura:** di dominio · **Priorità:** 1 · **Stato:** proposto
-**Prefisso requisiti:** `REN-*`
+**Area:** Presentation · **Nature:** domain · **Priority:** 1 · **Status:** proposed
+**Requirement prefix:** `REN-*`
 
-## Scopo
+## Purpose
 
-Essere il **confine** tra il motore e Excalibur: l'unico luogo dove uno stato di dominio diventa un
-`Actor`, uno sprite, un'animazione, un ordine di disegno.
+To be the **boundary** between the engine and Excalibur: the only place where a domain state becomes
+an `Actor`, a sprite, an animation, a drawing order.
 
-È l'inverso di tutti gli altri servizi: gli altri esistono per **non** conoscere Excalibur, questo
-esiste per contenerlo. Se la separazione presentazione/dominio fallisce, fallisce qui.
+It is the inverse of all the other services: the others exist in order **not** to know Excalibur,
+this one exists to contain it. If the presentation/domain separation fails, it fails here.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | `excalibur`, `AST`; osserva il bus |
-| NON dipende da | nessun servizio di dominio se non in **lettura** attraverso viste |
-| Consumato da | il ciclo di gioco |
-| Stato dinamico | mappa `EntityId → Actor`, pool di attori, stato delle animazioni |
-| Stato statico | mappatura archetipo → aspetto, z-band, definizioni di animazione |
-| Dati esterni | `content/visuals/*.json` — aspetto per archetipo, animazioni, effetti |
-| Eventi emessi | nessuno verso il dominio; consuma eventi di dominio |
+| Depends on | `excalibur`, `AST`; observes the bus |
+| Does NOT depend on | any domain service, except for **reading** through views |
+| Consumed by | the game loop |
+| Dynamic state | `EntityId → Actor` map, actor pool, animation state |
+| Static state | archetype → appearance mapping, z-bands, animation definitions |
+| External data | `content/visuals/*.json` — appearance per archetype, animations, effects |
+| Events emitted | none towards the domain; it consumes domain events |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface RenderAdapter {
-  /** Reagisce agli eventi di dominio: nasce un'entità, nasce un Actor. */
+  /** Reacts to domain events: an entity is born, an Actor is born. */
   onEntitySpawned(id: EntityId, view: EntityView): void;
   onEntityDespawned(id: EntityId): void;
 
-  /** Sincronizza gli Actor con lo stato di dominio, una volta per frame. */
+  /** Synchronizes the Actors with the domain state, once per frame. */
   sync(world: WorldView, alpha: number): void;
 
-  actorOf(id: EntityId): Actor | undefined;      // solo dentro la presentazione
-  playEffect(effect: EffectRequest): void;       // colpi, particelle, numeri fluttuanti
+  actorOf(id: EntityId): Actor | undefined;      // only inside the presentation
+  playEffect(effect: EffectRequest): void;       // hits, particles, floating numbers
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Confine
+### Boundary
 
-**REN-1** — Questo servizio, insieme a `HUD`, `AUD`, `CAM` e all'adattatore di input, **DEVE** essere
-l'unico a importare `excalibur` (ARC-1.2).
+**REN-1** — This service, together with `HUD`, `AUD`, `CAM` and the input adapter, **MUST** be the
+only one to import `excalibur` (ARC-1.2).
 
-**REN-2** — Il legame `EntityId → Actor` **DEVE** vivere solo qui, come mappa esplicita. Nessun
-`Actor` **DEVE** comparire in uno stato di dominio (ARC-1.3).
+**REN-2** — The `EntityId → Actor` binding **MUST** live only here, as an explicit map. No `Actor`
+**MUST** appear in a domain state (ARC-1.3).
 
-**REN-3** — La direzione della dipendenza **DEVE** essere unica: la presentazione osserva il dominio
-e reagisce ai suoi eventi; il dominio **NON DEVE** conoscere l'esistenza degli `Actor` (ARC-1.1).
+**REN-3** — The direction of the dependency **MUST** be one-way: the presentation observes the domain
+and reacts to its events; the domain **MUST NOT** know that `Actor`s exist (ARC-1.1).
 
-**REN-4** — Gli `Actor` **DEVONO** essere creati e distrutti reagendo a `entity-spawned` e
-`entity-despawned`, mai per iniziativa della presentazione (ENT-13).
+**REN-4** — `Actor`s **MUST** be created and destroyed in reaction to `entity-spawned` and
+`entity-despawned`, never on the presentation's own initiative (ENT-13).
 
-**REN-5** — La presentazione **NON DEVE** contenere regole di gioco: nessun calcolo di danno,
-nessuna decisione di IA, nessuna transizione di quest in un `onPreUpdate`.
+**REN-5** — The presentation **MUST NOT** contain game rules: no damage computation, no AI decision,
+no quest transition in an `onPreUpdate`.
 
-### Disegno
+### Drawing
 
-**REN-6** — L'ordinamento degli elementi **DEVE** seguire le z-band e l'ordinamento per Y della base
-definiti in [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) (MAP-1, MAP-5), con i valori presi da
-configurazione (CFG-1).
+**REN-6** — The ordering of elements **MUST** follow the z-bands and the Y-ordering of the base
+defined in [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) (MAP-1, MAP-5), with the values taken
+from the configuration (CFG-1).
 
-**REN-7** — Il rendering del terreno **DEVE** applicare il **Dual Grid System** leggendo la griglia
-dati di `MAP`, senza possedere una propria copia della verità (MAP-2, MAP-3, MAP-10).
+**REN-7** — Terrain rendering **MUST** apply the **Dual Grid System** by reading `MAP`'s data grid,
+without owning its own copy of the truth (MAP-2, MAP-3, MAP-10).
 
-**REN-8** — L'aspetto di un'entità **DEVE** essere **dato**: la mappatura archetipo → sprite,
-animazioni e offset sta nei file di contenuto, non in una classe per tipo di nemico (ARC-7.1).
+**REN-8** — An entity's appearance **MUST** be **data**: the archetype → sprite mapping, animations
+and offsets live in the content files, not in a class per enemy type (ARC-7.1).
 
-**REN-9** — Le animazioni **DEVONO** essere guidate dallo **stato di dominio** (in movimento, ferito,
-morto), non da una macchina a stati parallela che può divergere.
+**REN-9** — Animations **MUST** be driven by the **domain state** (moving, wounded, dead), not by a
+parallel state machine that can diverge.
 
-**REN-10** — Gli `Actor` **DOVREBBERO** essere riusati tramite pool per le entità frequenti
-(proiettili, particelle, numeri fluttuanti), evitando allocazioni per frame (ARC-13.3).
+**REN-10** — `Actor`s **SHOULD** be reused through a pool for frequent entities (projectiles,
+particles, floating numbers), avoiding per-frame allocations (ARC-13.3).
 
-**REN-11** — Il numero di entità disegnate **DEVE** essere limitato a ciò che è visibile o prossimo:
-il culling **NON DEVE** dipendere da una scansione di tutte le entità del mondo (ARC-13.1).
+**REN-11** — The number of entities drawn **MUST** be limited to what is visible or nearby: culling
+**MUST NOT** depend on a scan of all the world's entities (ARC-13.1).
 
-**REN-12** — L'interpolazione tra due passi di simulazione **DEVE** essere gestita qui: se la logica
-gira a passo fisso (TIME-5), il rendering interpola. La logica **NON DEVE** essere alterata per
-apparire fluida.
+**REN-12** — Interpolation between two simulation steps **MUST** be handled here: if the logic runs
+at a fixed step (TIME-5), the rendering interpolates. The logic **MUST NOT** be altered in order to
+look smooth.
 
-**REN-13** — Il feedback visivo (numeri di danno, lampeggio, scuotimento, particelle) **DEVE** essere
-attivato da **eventi di dominio**, non da chiamate dirette sparse nella logica.
+**REN-13** — Visual feedback (damage numbers, flashing, shake, particles) **MUST** be triggered by
+**domain events**, not by direct calls scattered through the logic.
 
-**REN-14** — L'intero servizio **DEVE** poter essere **assente**: una partita headless funziona senza
-adattatore di rendering, ed è così che girano i test di sistema (ARC-1.4).
+**REN-14** — The whole service **MUST** be able to be **absent**: a headless game works without a
+rendering adapter, and that is how the system tests run (ARC-1.4).
 
-**REN-15** — Gli effetti di scuotimento e lampeggio **DEVONO** rispettare le impostazioni di
-accessibilità (GP-66, CFG-5).
+**REN-15** — Shake and flash effects **MUST** respect the accessibility settings (GP-66, CFG-5).
 
-## Criteri di test
+## Test criteria
 
-- Un test di confine verifica che nessun file fuori dalla presentazione importi `excalibur`
-  (ARC-14.2).
-- Una simulazione completa gira senza adattatore di rendering, con gli stessi risultati.
-- Ogni `entity-spawned` produce esattamente un `Actor`; ogni `entity-despawned` lo rimuove, senza
-  perdite dopo 10³ cicli.
-- L'ordinamento per Y produce la sovrapposizione corretta su casi noti.
-- Nessun riferimento ad `Actor` compare in un documento di salvataggio.
+- A boundary test verifies that no file outside the presentation imports `excalibur` (ARC-14.2).
+- A complete simulation runs without a rendering adapter, with the same results.
+- Every `entity-spawned` produces exactly one `Actor`; every `entity-despawned` removes it, with no
+  leaks after 10³ cycles.
+- Y-ordering produces the correct overlapping on known cases.
+- No reference to an `Actor` appears in a save document.
 
-## Collegamenti
+## Links
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-1, ARC-13
 - [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) — MAP-1…MAP-6

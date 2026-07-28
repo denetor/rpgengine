@@ -1,36 +1,36 @@
-# DLG — Dialoghi
+# DLG — Dialogues
 
-**Area:** Regole · **Natura:** generico · **Priorità:** 2 · **Stato:** proposto
-**Prefisso requisiti:** `DLG-*`
+**Area:** Game rules · **Nature:** generic · **Priority:** 2 · **Status:** proposed
+**Requirement prefix:** `DLG-*`
 
-## Scopo
+## Purpose
 
-Condurre una conversazione: dato un nodo di dialogo e lo stato del mondo, stabilire quali opzioni
-sono disponibili, quali sono visibili ma precluse, e dove porta ogni scelta.
+Conduct a conversation: given a dialogue node and the state of the world, establish which options
+are available, which are visible but foreclosed, and where each choice leads.
 
-Il servizio è un **interprete di grafi definiti nei dati**. Non contiene battute, non contiene testo:
-contiene chiavi e condizioni. Le battute stanno nei file di contenuto, i testi nei cataloghi di
-localizzazione.
+The service is an **interpreter of graphs defined in data**. It contains no lines, contains no text:
+it contains keys and conditions. The lines live in the content files, the texts in the localization
+catalogues.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | l'**interprete di precondizioni/effetti** condiviso (ARC-7.3) |
-| NON dipende da | `excalibur`, `QST`, `FAC`, `STAT`, `INV`, altri servizi |
-| Consumato da | orchestrazione, HUD |
-| Stato dinamico | nodi già visitati per interlocutore, argomenti sbloccati, conversazione in corso |
-| Stato statico | grafi di dialogo |
-| Dati esterni | `content/dialogs/*.json` + cataloghi `I18N` |
-| Eventi emessi | `dialog-started`, `dialog-node-entered`, `dialog-choice-made`, `dialog-ended`, `topic-unlocked` |
+| Depends on | the shared **precondition/effect interpreter** (ARC-7.3) |
+| Does NOT depend on | `excalibur`, `QST`, `FAC`, `STAT`, `INV`, other services |
+| Consumed by | orchestration, HUD |
+| Dynamic state | nodes already visited per speaker, unlocked topics, conversation in progress |
+| Static state | dialogue graphs |
+| External data | `content/dialogs/*.json` + `I18N` catalogues |
+| Events emitted | `dialog-started`, `dialog-node-entered`, `dialog-choice-made`, `dialog-ended`, `topic-unlocked` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface DialogNode {
   id: NodeId;
   speaker: SpeakerRef;
-  textKey: TextKey;                      // chiave, mai testo (I18N-1)
+  textKey: TextKey;                      // a key, never text (I18N-1)
   choices: readonly DialogChoice[];
   onEnter?: readonly Effect[];
   once?: boolean;
@@ -39,14 +39,14 @@ interface DialogNode {
 interface DialogChoice {
   id: ChoiceId;
   textKey: TextKey;
-  conditions: readonly Condition[];      // quest, reputazione, stat, oggetti, nodi visitati
-  hiddenIfUnmet: boolean;                // false ⇒ mostrata ma disabilitata, con motivo
+  conditions: readonly Condition[];      // quests, reputation, attributes, items, visited nodes
+  hiddenIfUnmet: boolean;                // false ⇒ shown but disabled, with a reason
   effects: readonly Effect[];
   goto: NodeId | 'end';
 }
 
 interface DialogService {
-  /** `facts` è una vista in sola lettura fornita dall'orchestrazione: il servizio non interroga nessuno. */
+  /** `facts` is a read-only view supplied by the orchestration: the service queries nobody. */
   start(dialog: DialogId, speaker: EntityId, facts: WorldFacts): CommandResult<DialogView>;
   choose(choice: ChoiceId, facts: WorldFacts): CommandResult<DialogView>;
   end(): CommandResult<void>;
@@ -56,75 +56,75 @@ interface DialogService {
 }
 ```
 
-## Requisiti
+## Requirements
 
-### Condizionamento
+### Conditioning
 
-**DLG-1** — Le opzioni **DEVONO** poter dipendere dai **dialoghi precedenti** con quell'interlocutore
-(nodi visitati, scelte compiute), memorizzati per coppia interlocutore-nodo (GP-36).
+**DLG-1** — Options **MUST** be able to depend on **previous dialogues** with that speaker (visited
+nodes, choices made), stored per speaker-node pair (GP-36).
 
-**DLG-2** — Le opzioni **DEVONO** poter dipendere dallo **stato delle quest** (GP-37).
+**DLG-2** — Options **MUST** be able to depend on the **state of the quests** (GP-37).
 
-**DLG-3** — Le opzioni **DEVONO** poter dipendere dalla **reputazione**, sia di fazione sia
-individuale verso quell'interlocutore (GP-38).
+**DLG-3** — Options **MUST** be able to depend on **reputation**, both faction-wide and individual
+towards that speaker (GP-38).
 
-**DLG-4** — Le opzioni **POSSONO** dipendere da caratteristiche, abilità, perk e oggetti posseduti
-(GP-39), valutati tramite la stessa primitiva di requisito usata altrove (STAT-11).
+**DLG-4** — Options **MAY** depend on attributes, skills, perks and items held (GP-39), evaluated
+through the same requirement primitive used elsewhere (STAT-11).
 
-**DLG-5** — Tutte le condizioni **DEVONO** essere valutate dall'**interprete condiviso** su una vista
-di fatti fornita dal chiamante: il servizio **NON DEVE** interrogare `QST`, `FAC` o `STAT`
-(ARC-4.1). È ciò che permette di testare un dialogo con fatti inventati.
+**DLG-5** — All conditions **MUST** be evaluated by the **shared interpreter** on a facts view
+supplied by the caller: the service **MUST NOT** query `QST`, `FAC` or `STAT` (ARC-4.1). That is
+what makes it possible to test a dialogue with made-up facts.
 
-**DLG-6** — Un'opzione non disponibile **DEVE** poter essere **nascosta** oppure **mostrata come
-preclusa con il motivo** («serve Persuasione 40»), a scelta del designer per ogni opzione: sono due
-esperienze di gioco diverse, entrambe legittime.
+**DLG-6** — An unavailable option **MUST** be able to be either **hidden** or **shown as foreclosed
+with the reason** ("requires Persuasion 40"), at the designer's choice for each option: they are two
+different play experiences, both legitimate.
 
-### Struttura
+### Structure
 
-**DLG-7** — I dialoghi **DEVONO** essere dati validati, modificabili senza ricompilare (ARC-7.4).
+**DLG-7** — Dialogues **MUST** be validated data, editable without recompiling (ARC-7.4).
 
-**DLG-8** — Ogni riferimento (quest, oggetto, chiave di testo, nodo di destinazione) **DEVE** essere
-verificato dal controllo di integrità: **nessun nodo irraggiungibile**, nessun `goto` verso un nodo
-inesistente, nessuna chiave di testo mancante (ARC-7.5).
+**DLG-8** — Every reference (quest, item, text key, destination node) **MUST** be verified by the
+integrity check: **no unreachable node**, no `goto` towards a non-existent node, no missing text key
+(ARC-7.5).
 
-**DLG-9** — Il servizio **NON DEVE** contenere testo: solo chiavi. La risoluzione avviene nella
-presentazione tramite `I18N` (I18N-8).
+**DLG-9** — The service **MUST NOT** contain text: only keys. Resolution happens in the presentation
+through `I18N` (I18N-8).
 
-**DLG-10** — Gli **effetti** delle scelte **DEVONO** essere dichiarati come dati e **restituiti**,
-non eseguiti: dare un oggetto, avviare una quest, cambiare reputazione, aprire il commercio sono
-azioni dell'orchestrazione (ARC-4.2).
+**DLG-10** — The **effects** of choices **MUST** be declared as data and **returned**, not executed:
+giving an item, starting a quest, changing reputation, opening trade are the orchestration's actions
+(ARC-4.2).
 
-**DLG-11** — I dialoghi **DEVONO** supportare **argomenti** riusabili condivisi tra più
-interlocutori (chiedere indicazioni, chiedere di una voce di corridoio), senza duplicare i grafi.
+**DLG-11** — Dialogues **MUST** support reusable **topics** shared among several speakers (asking for
+directions, asking about a rumour), without duplicating the graphs.
 
-**DLG-12** — Il servizio **DEVE** supportare le **battute uniche** (`once`) e i nodi di ripiego
-quando ogni contenuto è esaurito.
+**DLG-12** — The service **MUST** support **unique lines** (`once`) and fallback nodes for when all
+content is exhausted.
 
-**DLG-13** — Lo stato **DEVE** essere serializzabile e compatto: memorizzare i nodi visitati per
-interlocutore **NON DEVE** crescere senza limite con la durata della partita.
+**DLG-13** — The state **MUST** be serializable and compact: storing the visited nodes per speaker
+**MUST NOT** grow without bound with the length of the game.
 
-**DLG-14** — Il servizio **DEVE** gestire una sola conversazione attiva per volta, con chiusura
-esplicita, e **DEVE** poterla interrompere in modo pulito (il PNG muore, il giocatore fugge) senza
-lasciare stato pendente.
+**DLG-14** — The service **MUST** handle a single active conversation at a time, with explicit
+closure, and **MUST** be able to interrupt it cleanly (the NPC dies, the player flees) without
+leaving pending state.
 
-**DLG-15** — La valutazione delle opzioni disponibili **DEVE** essere sufficientemente economica da
-poter avvenire a ogni apertura di nodo per tutte le opzioni.
+**DLG-15** — Evaluating the available options **MUST** be cheap enough to be done on every node
+opening for every option.
 
-**DLG-16** — Il servizio **DEVE** funzionare con grafi e tipi di condizione inventati (ARC-3.4).
+**DLG-16** — The service **MUST** work with made-up graphs and condition types (ARC-3.4).
 
-**DLG-17** — I dialoghi **DOVREBBERO** poter essere generati o estesi da strumenti esterni: il
-formato **DEVE** essere semplice da produrre a macchina, oltre che leggibile a mano.
+**DLG-17** — Dialogues **SHOULD** be generatable or extensible by external tools: the format **MUST**
+be simple to produce by machine as well as readable by hand.
 
-## Criteri di test
+## Test criteria
 
-- Un grafo sintetico offre le opzioni attese al variare dei fatti forniti.
-- Un'opzione preclusa non nascosta riporta il motivo corretto.
-- Le battute `once` non ricompaiono; il ripiego appare quando previsto.
-- La validazione rileva nodi irraggiungibili, `goto` rotti e chiavi mancanti.
-- Interrompere una conversazione a metà non lascia stato attivo.
-- Round-trip di serializzazione con molti interlocutori e nodi visitati.
+- A synthetic graph offers the expected options as the supplied facts vary.
+- A foreclosed but not hidden option reports the correct reason.
+- `once` lines do not reappear; the fallback appears when expected.
+- Validation detects unreachable nodes, broken `goto`s and missing keys.
+- Interrupting a conversation halfway leaves no active state.
+- Serialization round trip with many speakers and visited nodes.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-36, GP-37, GP-38, GP-39, GP-2
 - [`quest.md`](./quest.md) · [`faction.md`](./faction.md) · [`localization.md`](./localization.md)

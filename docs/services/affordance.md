@@ -1,49 +1,49 @@
-# AFF — Affordance e percezione
+# AFF — Affordances and perception
 
-**Area:** Agenti · **Natura:** generico · **Priorità:** 4 · **Stato:** proposto
-**Prefisso requisiti:** `AFF-*`
+**Area:** Agents · **Nature:** generic · **Priority:** 4 · **Status:** proposed
+**Requirement prefix:** `AFF-*`
 
-## Scopo
+## Purpose
 
-Permettere agli elementi del mondo di **pubblicizzare cosa offrono**, e agli agenti di scoprirlo
-senza conoscerli.
+Let the elements of the world **advertise what they offer**, and let the agents discover it without
+knowing them.
 
-Una sorgente d'acqua dichiara «riduco la sete». Un coniglio dichiara «sono cibo, per chi è abbastanza
-forte da prendermi». Una sedia dichiara «ci si può sedere». Un fuoco dichiara «scaldo, e brucio chi
-si avvicina troppo».
+A water source declares "I reduce thirst". A rabbit declares "I am food, for whoever is strong
+enough to catch me". A chair declares "you can sit here". A fire declares "I give warmth, and I burn
+whoever comes too close".
 
-Il guadagno è strutturale: **aggiungere un oggetto al mondo aggiunge un comportamento possibile a
-tutti i PNG, senza toccare l'IA.** Senza questo servizio, ogni nuovo oggetto richiederebbe una nuova
-azione cablata nel ragionatore, e l'IA crescerebbe insieme al catalogo degli oggetti.
+The gain is structural: **adding an object to the world adds a possible behaviour to every NPC,
+without touching the AI.** Without this service, every new object would require a new action
+hardwired into the reasoner, and the AI would grow along with the object catalogue.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | porte astratte per prossimità e per lettura dei componenti (non `SPX` né `ENT` diretti) |
-| NON dipende da | `excalibur`, `AI`, altri servizi |
-| Consumato da | orchestrazione, che ne compone i risultati nel contesto di `AI` |
-| Stato dinamico | prenotazioni in corso, disponibilità, tempi di ricarica |
-| Stato statico | catalogo delle affordance e dei loro requisiti |
-| Dati esterni | `content/ai/affordances.json` |
-| Eventi emessi | `affordance-claimed`, `affordance-released`, `affordance-consumed` |
-| Ordine di grandezza | ~10² affordance attive per area |
+| Depends on | abstract ports for proximity and for reading components (not `SPX` or `ENT` directly) |
+| Does NOT depend on | `excalibur`, `AI`, other services |
+| Consumed by | orchestration, which composes its results into `AI`'s context |
+| Dynamic state | claims in progress, availability, cooldowns |
+| Static state | catalogue of affordances and their requirements |
+| External data | `content/ai/affordances.json` |
+| Events emitted | `affordance-claimed`, `affordance-released`, `affordance-consumed` |
+| Order of magnitude | ~10² active affordances per area |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface AffordanceOffer {
   readonly provider: EntityId;
   readonly kind: AffordanceKind;                  // 'drink' | 'sit' | 'eat' | 'warm' | 'hide' | …
-  readonly satisfies: Partial<Record<NeedId, number>>;   // quanto riduce quale bisogno, 0..1
-  readonly requires?: readonly Requirement[];     // forza minima, oggetto posseduto, fazione…
+  readonly satisfies: Partial<Record<NeedId, number>>;   // how much it reduces which need, 0..1
+  readonly requires?: readonly Requirement[];     // minimum strength, item held, faction…
   readonly cost?: { timeMs: number; risk: number };
-  readonly capacity: number;                      // quanti agenti insieme
+  readonly capacity: number;                      // how many agents at once
   readonly exclusive: boolean;
 }
 
 interface AffordanceService {
-  /** Offerte percepibili da un agente: filtrate per distanza, requisiti e disponibilità. */
+  /** Offers perceivable by an agent: filtered by distance, requirements and availability. */
   query(seeker: SeekerSnapshot, near: readonly EntityId[], now: GameTimeMs): readonly AffordanceOffer[];
 
   claim(offer: AffordanceOffer, seeker: EntityId, now: GameTimeMs): CommandResult<ClaimId | 'unavailable'>;
@@ -52,72 +52,70 @@ interface AffordanceService {
 }
 ```
 
-## Requisiti
+## Requirements
 
-**AFF-1** — Un'entità **DEVE** poter dichiarare le proprie affordance tramite un componente
-(`Provides`), come dato dell'archetipo: è la forma concreta di ARC-6.2 applicata alle intenzioni
-(GP-32).
+**AFF-1** — An entity **MUST** be able to declare its own affordances through a component
+(`Provides`), as archetype data: it is the concrete form of ARC-6.2 applied to intentions (GP-32).
 
-**AFF-2** — Un'affordance **DEVE** dichiarare **quali bisogni soddisfa e in che misura**, in una
-scala comparabile con gli input dell'IA (`0..1`): è ciò che permette al ragionatore di confrontare
-bere, mangiare e riposare senza conoscerne la natura.
+**AFF-2** — An affordance **MUST** declare **which needs it satisfies and to what degree**, on a
+scale comparable with the AI's inputs (`0..1`): that is what lets the reasoner compare drinking,
+eating and resting without knowing their nature.
 
-**AFF-3** — Un'affordance **DEVE** poter dichiarare **requisiti** sul richiedente — forza minima,
-dieta (carnivoro), oggetto posseduto, appartenenza a una fazione, non essere ostile al fornitore.
-Il coniglio è cibo, ma solo per chi è abbastanza forte da prenderlo.
+**AFF-3** — An affordance **MUST** be able to declare **requirements** on the seeker — minimum
+strength, diet (carnivore), item held, faction membership, not being hostile to the provider. The
+rabbit is food, but only for whoever is strong enough to catch it.
 
-**AFF-4** — Un'affordance **DEVE** poter dichiarare un **costo**: tempo richiesto e rischio. Un
-ragionatore deve poter preferire una pozza vicina a un fiume lontano, e un fiume sicuro a uno
-sorvegliato.
+**AFF-4** — An affordance **MUST** be able to declare a **cost**: time required and risk. A reasoner
+must be able to prefer a nearby pool to a distant river, and a safe river to a guarded one.
 
-**AFF-5** — Il servizio **DEVE** gestire **capacità e prenotazione**: una sedia accoglie una
-persona, un fuoco quattro. Un'affordance esclusiva già prenotata **NON DEVE** essere offerta ad
-altri, evitando che dieci PNG convergano sullo stesso oggetto.
+**AFF-5** — The service **MUST** manage **capacity and claiming**: a chair takes one person, a fire
+four. An exclusive affordance already claimed **MUST NOT** be offered to others, preventing ten NPCs
+from converging on the same object.
 
-**AFF-6** — Le prenotazioni **DEVONO** scadere: un agente che muore, cambia idea o viene interrotto
-**NON DEVE** bloccare l'oggetto per sempre. La scadenza passa da `TIME`.
+**AFF-6** — Claims **MUST** expire: an agent who dies, changes their mind or is interrupted **MUST
+NOT** block the object forever. Expiry goes through `TIME`.
 
-**AFF-7** — Un'affordance **DEVE** poter essere **consumabile** (una bacca sparisce, una pozza si
-prosciuga) o **rigenerabile** con tempo di ricarica.
+**AFF-7** — An affordance **MUST** be able to be **consumable** (a berry disappears, a pool dries
+up) or **regenerable** with a cooldown.
 
-**AFF-8** — Il fornitore **NON DEVE** conoscere il richiedente e viceversa: il collegamento avviene
-per **tipo di affordance**, mai per identità. Un nuovo oggetto potabile è immediatamente utilizzabile
-da tutti gli agenti assetati esistenti, senza modificare nulla.
+**AFF-8** — The provider **MUST NOT** know the seeker and vice versa: the connection is made by
+**affordance kind**, never by identity. A new drinkable object is immediately usable by every
+existing thirsty agent, without changing anything.
 
-**AFF-9** — Il servizio **NON DEVE** decidere: propone opzioni valutabili. La scelta è di `AI`
-(separazione delle responsabilità).
+**AFF-9** — The service **MUST NOT** decide: it proposes options that can be evaluated. The choice
+belongs to `AI` (separation of responsibilities).
 
-**AFF-10** — La ricerca **DEVE** partire dai candidati già filtrati dall'indice spaziale, non da una
-scansione del mondo (ARC-13.1), ed essere limitata da un numero massimo di offerte restituite.
+**AFF-10** — The search **MUST** start from candidates already filtered by the spatial index, not
+from a scan of the world (ARC-13.1), and be limited by a maximum number of offers returned.
 
-**AFF-11** — Il servizio **DEVE** modellare la **percezione**: un'affordance è offerta solo se il
-richiedente può accorgersene, secondo distanza, angolo di vista, ostruzione o memoria (l'ha vista
-in passato, `BB`). Un PNG **NON DEVE** conoscere magicamente ogni fonte d'acqua della mappa.
+**AFF-11** — The service **MUST** model **perception**: an affordance is offered only if the seeker
+can notice it, according to distance, viewing angle, occlusion or memory (they saw it in the past,
+`BB`). An NPC **MUST NOT** magically know every water source on the map.
 
-**AFF-12** — Il servizio **DEVE** poter modellare anche affordance **negative** o pericolose (il
-fuoco brucia, il precipizio uccide), perché il ragionatore possa evitarle con lo stesso meccanismo
-con cui cerca le altre.
+**AFF-12** — The service **MUST** also be able to model **negative** or dangerous affordances (fire
+burns, a cliff kills), so that the reasoner can avoid them with the same mechanism it uses to seek
+the others.
 
-**AFF-13** — Il catalogo delle affordance **DEVE** essere dato validato (ARC-7): tipi di affordance,
-bisogni soddisfatti, requisiti e costi non **DEVONO** essere cablati nel codice.
+**AFF-13** — The affordance catalogue **MUST** be validated data (ARC-7): affordance kinds, needs
+satisfied, requirements and costs **MUST NOT** be hardwired in the code.
 
-**AFF-14** — Le prenotazioni **DEVONO** essere serializzate o annullate in modo pulito al
-salvataggio: nessuna prenotazione orfana dopo il caricamento.
+**AFF-14** — Claims **MUST** be serialized or cleanly cancelled on save: no orphan claim after
+loading.
 
-**AFF-15** — Anche il **giocatore DOVREBBE** poter interrogare le affordance vicine: è ciò che
-alimenta l'interazione contestuale dell'interfaccia — «bevi», «siediti», «parla», «scassina»
-(GP-54).
+**AFF-15** — The **player SHOULD** also be able to query nearby affordances: it is what feeds the
+interface's contextual interaction — "drink", "sit", "talk", "pick the lock" (GP-54).
 
-## Criteri di test
+## Test criteria
 
-- Un agente assetato riceve la sorgente d'acqua tra le offerte; un agente sazio no.
-- Un requisito non soddisfatto esclude l'offerta (il lupo debole non vede il coniglio come cibo).
-- Un'affordance esclusiva prenotata non compare ad altri richiedenti; alla scadenza ricompare.
-- Un'affordance consumata sparisce; una rigenerabile ricompare dopo la ricarica.
-- Un'affordance dietro un muro non è percepita; se già nota per memoria, sì.
-- Aggiungere un nuovo tipo di affordance ai dati non richiede modifiche al codice dell'IA (ARC-3.4).
+- A thirsty agent receives the water source among the offers; a sated agent does not.
+- An unmet requirement excludes the offer (the weak wolf does not see the rabbit as food).
+- An exclusive affordance that has been claimed does not appear to other seekers; on expiry it
+  reappears.
+- A consumed affordance disappears; a regenerable one reappears after the cooldown.
+- An affordance behind a wall is not perceived; if already known from memory, it is.
+- Adding a new affordance kind to the data requires no changes to the AI code (ARC-3.4).
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-32, GP-47, GP-54
 - [`utility-ai.md`](./utility-ai.md) · [`blackboard.md`](./blackboard.md) ·

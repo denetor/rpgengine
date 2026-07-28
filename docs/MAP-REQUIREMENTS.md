@@ -1,120 +1,159 @@
-# Requisito Tecnico — Struttura della mappa e rendering del terreno
+# Technical Requirement — Map structure and terrain rendering
 
-**Progetto:** GdR 2D top-down a tile quadrati
-**Componente:** Sistema di mappa e rendering
-**Versione:** 0.1 (bozza)
-**Stato:** proposto
+**Project:** 2D top-down RPG on square tiles
+**Component:** Map and rendering system
+**Version:** 0.1 (draft)
+**Status:** proposed
 
-Linguaggio dei requisiti: **DEVE** = obbligatorio, **DOVREBBE** = raccomandato, **PUÒ** = opzionale.
+Requirement language: **MUST** = mandatory, **SHOULD** = recommended, **MAY** = optional.
 
-> Questo documento possiede i requisiti `MAP-1…MAP-9` e specifica il **come si disegna** il mondo.
-> Il **contratto di servizio** della mappa — API, dipendenze, stato serializzabile, requisiti da
-> `MAP-10` in avanti — sta in [`services/map.md`](./services/map.md); i principi architetturali
-> trasversali stanno in [`REQUIREMENTS.md`](./REQUIREMENTS.md); le feature di gioco che questo
-> documento serve (GP-7, GP-8, GP-9, GP-52) stanno in [`GAMEPLAY.md`](./GAMEPLAY.md).
+> This document owns requirements `MAP-1…MAP-9` and specifies **how the world is drawn**.
+> The map's **service contract** — API, dependencies, serializable state, requirements from `MAP-10`
+> onwards — lives in [`services/map.md`](./services/map.md); the cross-cutting architectural
+> principles live in [`REQUIREMENTS.md`](./REQUIREMENTS.md); the game features this document serves
+> (GP-7, GP-8, GP-9, GP-52) live in [`GAMEPLAY.md`](./GAMEPLAY.md).
 >
-> I termini usati qui — griglia dati, griglia di disegno, Dual Grid System, priorità di terreno,
-> base, z-band, overhead, impronta — sono definiti in [`../CONTEXT.md`](../CONTEXT.md), il glossario
-> unico del progetto.
+> The terms used here — data grid, drawing grid, Dual Grid System, terrain priority, base, z-band,
+> overhead, footprint — are defined in [`../CONTEXT.md`](../CONTEXT.md), the project's single
+> glossary.
 
 ---
 
-## 1. Scopo
+## 1. Purpose
 
-Definire (a) l'organizzazione della mappa di gioco in livelli e (b) il modo in cui i tile del terreno vengono composti tramite **Dual Grid System (DGS)** applicato a **3 livelli di terreno** sovrapposti per priorità. Il documento fissa le convenzioni necessarie perché autoring (editor), formato dati e renderer siano coerenti.
+Define (a) the organization of the game map into layers and (b) the way terrain tiles are composed
+through the **Dual Grid System (DGS)** applied to **3 terrain layers** stacked by priority. The
+document fixes the conventions needed for authoring (the editor), the data format and the renderer to
+be consistent.
 
 ---
 
-## 2. Parametri di progetto
+## 2. Project parameters
 
-| Parametro | Simbolo | Valore di default | Note |
+| Parameter | Symbol | Default value | Notes |
 |---|---|---|---|
-| Dimensione tile | `TS` | 32 px | quadrato; configurabile |
-| Larghezza mappa (celle) | `W` | — | dato di progetto |
-| Altezza mappa (celle) | `H` | — | dato di progetto |
-| Livelli di terreno | — | 3 | vedi MAP-2 |
-| Tile per livello DGS | — | 16 | vedi MAP-3 |
+| Tile size | `TS` | 32 px | square; configurable |
+| Map width (cells) | `W` | — | project data |
+| Map height (cells) | `H` | — | project data |
+| Terrain layers | — | 3 | see MAP-2 |
+| Tiles per DGS layer | — | 16 | see MAP-3 |
 
 ---
 
-## 3. Requisiti
+## 3. Requirements
 
-### MAP-1 — Struttura a livelli della mappa
+### MAP-1 — Layered structure of the map
 
-La mappa **DEVE** essere organizzata nei seguenti livelli, disegnati dal basso verso l'alto (più in alto = disegnato dopo = in primo piano):
+The map **MUST** be organized into the following layers, drawn from the bottom upwards (higher =
+drawn later = in the foreground):
 
-| # | Livello | Contenuto | Ordinamento | z (default) |
+| # | Layer | Content | Ordering | z (default) |
 |---|---|---|---|---|
-| 6 | UI / HUD | interfaccia | spazio schermo (fuori dal mondo) | — |
-| 5 | Meteo / luce | nebbia, pioggia, tinta giorno/notte | fisso | 20000 |
-| 4 | Overhead | chiome, archi, tetti | fisso | 10000 |
-| 3 | Entità / oggetti | personaggio, NPC, tronchi, rocce, colonne, cespugli | **per Y della base** | `0 … H·TS` |
-| 2 | Dettagli suolo | fiori, sentieri, decal, ombre | fisso | −900 |
-| 1 | Terreno | 3 sotto-livelli DGS (MAP-2) | fisso | da −1000 |
+| 6 | UI / HUD | interface | screen space (outside the world) | — |
+| 5 | Weather / light | fog, rain, day/night tint | fixed | 20000 |
+| 4 | Overhead | canopies, arches, roofs | fixed | 10000 |
+| 3 | Entities / objects | character, NPCs, trunks, rocks, columns, bushes | **by base Y** | `0 … H·TS` |
+| 2 | Ground detail | flowers, paths, decals, shadows | fixed | −900 |
+| 1 | Terrain | 3 DGS sub-layers (MAP-2) | fixed | from −1000 |
 
-Le bande `z` costanti (livelli fissi) **DEVONO** essere scelte in modo da non intersecare mai l'intervallo `0 … H·TS` usato dall'ordinamento per Y (MAP-5).
+The constant `z` bands (fixed layers) **MUST** be chosen so that they never intersect the
+`0 … H·TS` range used by the Y-ordering (MAP-5).
 
-### MAP-2 — Terreno con Dual Grid System a 3 livelli
+### MAP-2 — Terrain with a 3-layer Dual Grid System
 
-Ogni cella della griglia dati **DEVE** contenere un singolo identificativo di terreno `terrain ∈ {0, 1, 2}`, dove il valore rappresenta anche la **priorità** (0 = più bassa, 2 = più alta). Ordine di esempio (configurabile): `0 = acqua`, `1 = terreno incolto`, `2 = prato`.
+Every cell of the data grid **MUST** contain a single terrain identifier `terrain ∈ {0, 1, 2}`, where
+the value also represents the **priority** (0 = lowest, 2 = highest). Example order (configurable):
+`0 = water`, `1 = bare ground`, `2 = grass`.
 
-Il terreno **DEVE** essere reso in 3 passate sovrapposte, dal livello di priorità più bassa a quella più alta:
+The terrain **MUST** be rendered in 3 stacked passes, from the lowest priority layer to the highest:
 
-- **T0 (base):** riempimento del terreno 0 su tutta l'area della mappa.
-- **T1:** passata DGS sulla maschera `mask1(x,y) = terrain(x,y) ≥ 1`, disegnata sopra T0.
-- **T2:** passata DGS sulla maschera `mask2(x,y) = terrain(x,y) ≥ 2`, disegnata sopra T1.
+- **T0 (base):** fill with terrain 0 over the whole map area.
+- **T1:** DGS pass on the mask `mask1(x,y) = terrain(x,y) ≥ 1`, drawn on top of T0.
+- **T2:** DGS pass on the mask `mask2(x,y) = terrain(x,y) ≥ 2`, drawn on top of T1.
 
-Ogni passata DGS **DEVE** trattare gli angoli "assenti" (maschera falsa) come trasparenti, così che il livello sottostante resti visibile e produca la transizione. Questo modello a maschere impilate **DEVE** gestire correttamente anche gli incroci in cui tre terreni si toccano nello stesso vertice.
+Every DGS pass **MUST** treat "absent" corners (false mask) as transparent, so that the layer
+underneath stays visible and produces the transition. This stacked-mask model **MUST** also correctly
+handle the junctions where three terrains meet at the same vertex.
 
-### MAP-3 — Parametri del Dual Grid System
+### MAP-3 — Dual Grid System parameters
 
-Per ciascuna passata DGS valgono le seguenti regole:
+The following rules apply to each DGS pass:
 
-1. La griglia di disegno **DEVE** avere dimensioni `(W+1) × (H+1)` ed essere posizionata con offset `(−TS/2, −TS/2)` rispetto alla griglia dati.
-2. Ogni tile di disegno in posizione `(dx, dy)` **DEVE** campionare le 4 celle dati ai suoi angoli: `TL=(dx−1, dy−1)`, `TR=(dx, dy−1)`, `BL=(dx−1, dy)`, `BR=(dx, dy)`.
-3. Le celle fuori dai limiti della mappa **DEVONO** essere considerate "assenti" (angolo non attivo). Ciò implica un bordo di padding che chiude le transizioni sui margini.
-4. L'indice del tile (0–15) **DEVE** essere calcolato con la convenzione di bit: `TL=1, TR=2, BR=4, BL=8`, sommando i bit degli angoli attivi.
-5. La mappatura `indice → cella del foglio` **DEVE** essere definita da una tabella `INDEX_TO_TILE` di 16 elementi, fissata una sola volta secondo la disposizione del `.png` del livello.
-6. I due casi diagonali (indici 5 e 10, angoli opposti attivi) **DEVONO** seguire una convenzione documentata e coerente in tutto il gioco. Default: angoli **connessi** ("a ponte").
+1. The drawing grid **MUST** have dimensions `(W+1) × (H+1)` and be positioned with an offset of
+   `(−TS/2, −TS/2)` with respect to the data grid.
+2. Every drawing tile at position `(dx, dy)` **MUST** sample the 4 data cells at its corners:
+   `TL=(dx−1, dy−1)`, `TR=(dx, dy−1)`, `BL=(dx−1, dy)`, `BR=(dx, dy)`.
+3. Cells outside the map bounds **MUST** be considered "absent" (inactive corner). This implies a
+   padding border that closes the transitions at the edges.
+4. The tile index (0–15) **MUST** be computed with the bit convention `TL=1, TR=2, BR=4, BL=8`,
+   summing the bits of the active corners.
+5. The `index → sheet cell` mapping **MUST** be defined by a 16-element `INDEX_TO_TILE` table, fixed
+   once according to the layout of the layer's `.png`.
+6. The two diagonal cases (indices 5 and 10, opposite corners active) **MUST** follow a documented
+   convention, consistent throughout the game. Default: **connected** corners ("bridged").
 
-### MAP-4 — Transizioni fra terreni
+### MAP-4 — Transitions between terrains
 
-Le transizioni fra terreni **DEVONO** essere ottenute esclusivamente per sovrapposizione (priorità + trasparenza del DGS), senza set di tile dedicati per ogni coppia di terreni. Ne consegue che il bordo di un dato terreno ha lo stesso aspetto verso qualsiasi terreno inferiore. Se serve un aspetto specifico per un confine (es. sabbia fra prato e acqua), esso **DEVE** essere realizzato inserendo un **terreno intermedio** come livello di priorità aggiuntivo, non come transizione a coppia.
+Transitions between terrains **MUST** be obtained exclusively by stacking (priority + DGS
+transparency), with no dedicated tile sets for each pair of terrains. It follows that the edge of a
+given terrain looks the same against any lower terrain. If a specific look is needed for a boundary
+(e.g. sand between grass and water), it **MUST** be achieved by inserting an **intermediate terrain**
+as an additional priority layer, not as a pairwise transition.
 
-### MAP-5 — Ordinamento per Y delle entità
+### MAP-5 — Y-ordering of entities
 
-Personaggio, NPC e oggetti occludibili (tronchi, rocce, colonne, cespugli) **DEVONO** risiedere nella stessa banda ordinabile (livello 3) ed essere ordinati per la **Y della loro base**. Il valore `z` di ogni elemento ordinabile **DEVE** essere pari alla Y della base; per gli elementi in movimento **DEVE** essere aggiornato a ogni frame, per quelli statici **PUÒ** essere impostato una sola volta.
+The character, NPCs and occludable objects (trunks, rocks, columns, bushes) **MUST** live in the same
+sortable band (layer 3) and be ordered by the **Y of their base**. The `z` value of every sortable
+element **MUST** equal the base's Y; for moving elements it **MUST** be updated every frame, for
+static ones it **MAY** be set once.
 
-Gli sprite ordinabili **DOVREBBERO** avere ancora sul bordo inferiore (`anchor = (0.5, 1)`), così che `pos.y` coincida con la linea dei piedi.
+Sortable sprites **SHOULD** be anchored at the bottom edge (`anchor = (0.5, 1)`), so that `pos.y`
+coincides with the feet line.
 
-### MAP-6 — Livello overhead
+### MAP-6 — Overhead layer
 
-Gli elementi che devono trovarsi sempre sopra il personaggio (chiome, archi, tetti) **DEVONO** stare nel livello overhead (livello 4), con `z` costante superiore a qualsiasi valore possibile della banda ordinabile. Un oggetto "alto" (es. albero) **DEVE** essere spezzato: la parte a terra (tronco) nel livello ordinabile per Y, la parte alta (chioma) nel livello overhead.
+Elements that must always be above the character (canopies, arches, roofs) **MUST** live in the
+overhead layer (layer 4), with a constant `z` greater than any possible value of the sortable band. A
+"tall" object (e.g. a tree) **MUST** be split: the ground part (trunk) in the Y-sortable layer, the
+upper part (canopy) in the overhead layer.
 
-### MAP-7 — Collisione
+### MAP-7 — Collision
 
-La collisione **DEVE** essere un dato separato dal rendering, definito dall'impronta dell'oggetto (in generale la sua base) e indipendente dall'ordine di disegno. Il personaggio **DEVE** poter attraversare visivamente le aree "alte" (es. sotto la chioma) pur essendo bloccato dall'impronta (es. il tronco). Il collision del terreno **DEVE** essere definito sulla griglia dati a interi, non sulla griglia di disegno sfasata.
+Collision **MUST** be data separate from rendering, defined by the object's footprint (in general its
+base) and independent of drawing order. The character **MUST** be able to visually pass through
+"tall" areas (e.g. under the canopy) while being blocked by the footprint (e.g. the trunk). Terrain
+collision **MUST** be defined on the integer data grid, not on the offset drawing grid.
 
-### MAP-8 — Formato dati e autoring
+### MAP-8 — Data format and authoring
 
-1. La griglia dati del terreno (`terrain` per cella) **DEVE** essere la sorgente unica per gameplay, collisioni e rendering DGS.
-2. L'autoring **DOVREBBE** avvenire in un editor di mappe con livelli nominati in modo coerente con MAP-1 (es. `terrain`, `ground_detail`, `entities`, `overhead`, `weather`, e un livello dati/collision non renderizzato).
-3. Le eventuali varianti estetiche di un tile (es. tile pieno del prato) **DEVONO** essere scelte in modo **deterministico** in funzione di `(x, y)` (hash), per evitare sfarfallio tra frame.
+1. The terrain data grid (`terrain` per cell) **MUST** be the single source for gameplay, collisions
+   and DGS rendering.
+2. Authoring **SHOULD** happen in a map editor with layers named consistently with MAP-1 (e.g.
+   `terrain`, `ground_detail`, `entities`, `overhead`, `weather`, and a non-rendered data/collision
+   layer).
+3. Any aesthetic variants of a tile (e.g. the full grass tile) **MUST** be chosen **deterministically**
+   as a function of `(x, y)` (a hash), to avoid flickering between frames.
 
-### MAP-9 — Requisiti non funzionali
+### MAP-9 — Non-functional requirements
 
-1. Le griglie di disegno DGS **DOVREBBERO** essere ricalcolate solo quando i dati del terreno cambiano, non a ogni frame.
-2. Il sistema **DEVE** mantenere separati i tre concetti: forma (DGS/priorità), varianti (estetica), animazione (tempo), così che possano coesistere senza conflitti.
+1. The DGS drawing grids **SHOULD** be recomputed only when the terrain data changes, not every
+   frame.
+2. The system **MUST** keep the three concepts separate: shape (DGS/priority), variants (aesthetics),
+   animation (time), so that they can coexist without conflicts.
 
 ---
 
-## 4. Criteri di accettazione
+## 4. Acceptance criteria
 
-- [ ] La mappa è renderizzata secondo l'ordine di livelli di MAP-1.
-- [ ] Il terreno usa 3 passate DGS impilate per priorità; le transizioni fra prato, incolto e acqua sono corrette, inclusi gli angoli interni e gli incroci a tre.
-- [ ] Non esistono set di tile dedicati alle coppie di terreni: ogni terreno ha un solo set DGS a 16 tile.
-- [ ] Sui margini della mappa le transizioni si chiudono correttamente grazie al padding "assente".
-- [ ] Il personaggio appare **dietro** un tronco quando la sua base è più in alto e **davanti** quando è più in basso.
-- [ ] La chioma di un albero resta sempre sopra il personaggio, in entrambe le situazioni.
-- [ ] Il personaggio è bloccato dall'impronta (tronco/colonna) ma può passare visivamente sotto le parti overhead.
-- [ ] Le varianti del terreno sono stabili tra un frame e l'altro (nessuno sfarfallio).
+- [ ] The map is rendered according to the layer order of MAP-1.
+- [ ] The terrain uses 3 DGS passes stacked by priority; the transitions between grass, bare ground
+      and water are correct, including inner corners and three-way junctions.
+- [ ] There are no tile sets dedicated to pairs of terrains: every terrain has a single 16-tile DGS
+      set.
+- [ ] At the map's edges the transitions close correctly thanks to the "absent" padding.
+- [ ] The character appears **behind** a trunk when its base is higher up and **in front** when it is
+      lower down.
+- [ ] A tree's canopy always stays above the character, in both situations.
+- [ ] The character is blocked by the footprint (trunk/column) but can visually pass under the
+      overhead parts.
+- [ ] Terrain variants are stable from one frame to the next (no flickering).

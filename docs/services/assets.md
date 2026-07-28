@@ -1,30 +1,29 @@
-# AST — Asset e risorse
+# AST — Assets and resources
 
-**Area:** Core · **Natura:** generico · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `AST-*`
+**Area:** Core · **Nature:** generic · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `AST-*`
 
-## Scopo
+## Purpose
 
-Dichiarare, caricare e mettere a disposizione le risorse binarie — sprite sheet, tileset, suoni,
-mappe Tiled, font — in modo **data-driven**, con caricamento a fasi e diagnostica chiara sui file
-mancanti.
+Declare, load and make available the binary resources — sprite sheets, tilesets, sounds, Tiled maps,
+fonts — in a **data-driven** way, with staged loading and clear diagnostics on missing files.
 
-È l'unico servizio con un piede nel mondo esterno: gli asset sono file. Ma la **dichiarazione** di
-quali asset esistono e di come sono fatti (griglie, frame, animazioni) è dato, non codice.
+It is the only service with a foot in the outside world: assets are files. But the **declaration** of
+which assets exist and how they are made (grids, frames, animations) is data, not code.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | una **porta di caricamento** implementata dalla presentazione |
-| NON dipende da | `excalibur` nel manifesto e nell'indice (solo la porta lo tocca) |
-| Consumato da | `presentation`, `REN`, `AUD`, `MAP` |
-| Stato dinamico | quali bundle sono caricati |
-| Stato statico | manifesto degli asset |
-| Dati esterni | `content/assets.json` — manifesto: id, percorso, tipo, griglia, animazioni, bundle |
-| Eventi emessi | `bundle-loaded`, `asset-failed`, `loading-progress` |
+| Depends on | a **loading port** implemented by the presentation |
+| Does NOT depend on | `excalibur` in the manifest and in the index (only the port touches it) |
+| Consumed by | `presentation`, `REN`, `AUD`, `MAP` |
+| Dynamic state | which bundles are loaded |
+| Static state | the asset manifest |
+| External data | `content/assets.json` — manifest: id, path, kind, grid, animations, bundle |
+| Events emitted | `bundle-loaded`, `asset-failed`, `loading-progress` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface AssetManifest {
@@ -48,48 +47,48 @@ interface AssetService {
 }
 ```
 
-## Requisiti
+## Requirements
 
-**AST-1** — Gli asset **DEVONO** essere dichiarati in un **manifesto dati**, non registrati con
-chiamate sparse nel codice (ARC-12.3).
+**AST-1** — Assets **MUST** be declared in a **data manifest**, not registered through calls
+scattered in the code (ARC-12.3).
 
-**AST-2** — Griglie sprite, frame e animazioni **DEVONO** essere descritti nel manifesto: nessun
-indice di frame né dimensione di cella **DEVE** comparire come numero magico nel codice (CFG-1).
+**AST-2** — Sprite grids, frames and animations **MUST** be described in the manifest: no frame
+index and no cell size **MUST** appear as a magic number in the code (CFG-1).
 
-**AST-3** — Il manifesto **DEVE** essere validato allo schema; un asset dichiarato ma assente
-**DEVE** produrre un errore in caricamento con id e percorso.
+**AST-3** — The manifest **MUST** be validated against the schema; an asset that is declared but
+absent **MUST** produce a loading error with id and path.
 
-**AST-4** — Gli asset **DEVONO** essere raggruppati in **bundle** caricabili e scaricabili
-separatamente, per non caricare l'intero gioco all'avvio.
+**AST-4** — Assets **MUST** be grouped into **bundles** that can be loaded and unloaded separately,
+so as not to load the whole game at startup.
 
-**AST-5** — Il servizio **DEVE** esporre l'avanzamento del caricamento, perché la schermata di
-caricamento sia reale e non simulata.
+**AST-5** — The service **MUST** expose loading progress, so that the loading screen is real and not
+simulated.
 
-**AST-6** — Nessun servizio di dominio **DEVE** dipendere dagli asset: il dominio conosce l'**id**
-di uno sprite, mai i suoi pixel (ARC-1).
+**AST-6** — No domain service **MUST** depend on assets: the domain knows a sprite's **id**, never
+its pixels (ARC-1).
 
-**AST-7** — La risoluzione di un asset **DEVE** essere tipizzata per genere: chiedere un suono con
-l'id di uno sprite **DEVE** essere un errore.
+**AST-7** — Resolving an asset **MUST** be typed by kind: asking for a sound with a sprite's id
+**MUST** be an error.
 
-**AST-8** — Un asset mancante in produzione **DOVREBBE** ricadere su una risorsa segnaposto visibile
-(texture di errore, suono muto) invece di far crollare il gioco, segnalando l'anomalia.
+**AST-8** — A missing asset in production **SHOULD** fall back to a visible placeholder resource
+(error texture, silent sound) instead of bringing the game down, while reporting the anomaly.
 
-**AST-9** — Il servizio **DEVE** essere sostituibile con un fake headless che risolve ogni asset in
-un segnaposto, per rendere i test di sistema eseguibili senza file (ARC-1.4).
+**AST-9** — The service **MUST** be replaceable with a headless fake that resolves every asset to a
+placeholder, to make system tests runnable without files (ARC-1.4).
 
-**AST-10** — Il caricamento di una mappa Tiled **DEVE** produrre dati (griglia, oggetti, proprietà)
-consumabili da `MAP` e `ENT` senza passare dal renderer.
+**AST-10** — Loading a Tiled map **MUST** produce data (grid, objects, properties) consumable by
+`MAP` and `ENT` without going through the renderer.
 
-**AST-11** — Un controllo automatico **DOVREBBE** segnalare gli asset dichiarati e mai usati.
+**AST-11** — An automated check **SHOULD** report assets that are declared and never used.
 
-## Criteri di test
+## Test criteria
 
-- Il manifesto non valido produce errori diagnostici con id e percorso.
-- Caricare e scaricare un bundle non lascia risorse trattenute.
-- Il fake headless permette l'esecuzione completa dei test di sistema senza file su disco.
-- Chiedere un asset con il genere sbagliato non compila.
+- An invalid manifest produces diagnostic errors with id and path.
+- Loading and unloading a bundle leaves no resources retained.
+- The headless fake allows the full system test suite to run with no files on disk.
+- Asking for an asset with the wrong kind does not compile.
 
-## Collegamenti
+## Links
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-12.3
 - [`map.md`](./map.md) · [`rendering.md`](./rendering.md) · [`audio.md`](./audio.md)

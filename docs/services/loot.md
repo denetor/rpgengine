@@ -1,44 +1,44 @@
-# LOOT — Loot table e drop
+# LOOT — Loot tables and drops
 
-**Area:** Regole · **Natura:** generico · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `LOOT-*`
+**Area:** Game rules · **Nature:** generic · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `LOOT-*`
 
-## Scopo
+## Purpose
 
-Decidere **cosa cade** quando un nemico muore, un forziere si apre, un'erba viene raccolta. Prende
-una tabella e un contesto, restituisce un elenco di oggetti.
+Decide **what drops** when an enemy dies, a chest is opened, a herb is picked. It takes a table and a
+context, and returns a list of items.
 
-Il servizio è piccolo per scelta: non crea entità, non riempie contenitori, non conosce
-l'inventario. Estrae da tabelle. Ma è il punto in cui la **casualità percepita** conta più che
-altrove, perché il bottino è ciò che il giocatore osserva con più attenzione e su cui costruisce
-teorie riguardo al funzionamento del gioco.
+The service is small by choice: it creates no entities, fills no containers, knows nothing about the
+inventory. It draws from tables. But it is the point where **perceived randomness** matters more
+than anywhere else, because loot is what the player watches most closely and on which they build
+theories about how the game works.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | uno stream `RND` |
-| NON dipende da | `excalibur`, `INV`, `ENT`, altri servizi |
-| Consumato da | orchestrazione (alla morte di un'entità, all'apertura di un contenitore) |
-| Stato dinamico | contatori di pietà · lo stato dei canali filtrati appartiene a `RND` (RND-9) |
-| Stato statico | loot table |
-| Dati esterni | `content/loot/*.json` |
-| Eventi emessi | nessuno: restituisce un risultato |
+| Depends on | an `RND` stream |
+| Does NOT depend on | `excalibur`, `INV`, `ENT`, other services |
+| Consumed by | orchestration (on an entity's death, on opening a container) |
+| Dynamic state | pity counters · the state of the filtered channels belongs to `RND` (RND-9) |
+| Static state | loot tables |
+| External data | `content/loot/*.json` |
+| Events emitted | none: it returns a result |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface LootTable {
   id: LootTableId;
-  rolls: { min: number; max: number };            // quante estrazioni
+  rolls: { min: number; max: number };            // how many draws
   entries: readonly LootEntry[];
-  guaranteed?: readonly LootEntry[];              // sempre presenti
+  guaranteed?: readonly LootEntry[];              // always present
 }
 
 type LootEntry =
   | { kind: 'item'; item: ItemId; weight: number; quantity: { min: number; max: number };
       conditions?: readonly LootCondition[] }
-  | { kind: 'table'; table: LootTableId; weight: number }      // tabelle annidate
+  | { kind: 'table'; table: LootTableId; weight: number }      // nested tables
   | { kind: 'nothing'; weight: number };
 
 interface LootService {
@@ -46,73 +46,73 @@ interface LootService {
 }
 
 interface LootContext {
-  readonly channel: string;            // per la casualità filtrata (RND-9)
+  readonly channel: string;            // for filtered randomness (RND-9)
   readonly luck?: number;
-  readonly tags?: readonly string[];   // condizioni: area, ora, difficoltà
+  readonly tags?: readonly string[];   // conditions: area, time, difficulty
 }
 ```
 
-## Requisiti
+## Requirements
 
-**LOOT-1** — Le loot table **DEVONO** essere **dati validati**, mai codice (ARC-7.1). Ogni `ItemId`
-citato **DEVE** esistere, verificato dal controllo di integrità dei contenuti (ARC-7.5).
+**LOOT-1** — Loot tables **MUST** be **validated data**, never code (ARC-7.1). Every `ItemId` named
+**MUST** exist, as verified by the content integrity check (ARC-7.5).
 
-**LOOT-2** — Le tabelle **DEVONO** supportare l'**annidamento**: una tabella può estrarre da altre
-tabelle. La ricorsione **DEVE** essere rilevata in validazione, non a runtime.
+**LOOT-2** — Tables **MUST** support **nesting**: a table may draw from other tables. Recursion
+**MUST** be detected at validation time, not at runtime.
 
-**LOOT-3** — L'estrazione **DEVE** usare i pesi tramite la primitiva di `RND` (RND-8), senza
-reimplementarla.
+**LOOT-3** — A draw **MUST** use the weights through `RND`'s primitive (RND-8), without
+reimplementing it.
 
-**LOOT-4** — Le voci **DEVONO** poter avere **condizioni** (area, ora del giorno, tag del
-richiedente, stato di quest) valutate con l'interprete di precondizioni condiviso (ARC-7.3). Il
-servizio **NON DEVE** valutarle da sé: riceve un contesto già risolto o un valutatore iniettato.
+**LOOT-4** — Entries **MUST** be able to carry **conditions** (area, time of day, requester's tags,
+quest state) evaluated with the shared precondition interpreter (ARC-7.3). The service **MUST NOT**
+evaluate them itself: it receives an already-resolved context or an injected evaluator.
 
-**LOOT-5** — Il servizio **DEVE** supportare la **casualità filtrata** per canale (RND-9): il
-bottino dello stesso tipo di nemico non **DEVE** ripetere lo stesso oggetto molte volte di seguito,
-anche quando la probabilità lo consentirebbe. Il servizio si limita a passare il `channel` a
-`RND.filtered()`: non tiene memoria propria e non reimplementa il filtro.
+**LOOT-5** — The service **MUST** support per-channel **filtered randomness** (RND-9): loot from the
+same type of enemy **MUST NOT** repeat the same item many times in a row, even when the probability
+would allow it. The service merely passes the `channel` to `RND.filtered()`: it keeps no memory of
+its own and does not reimplement the filter.
 
-**LOOT-6** — Il servizio **DOVREBBE** supportare un meccanismo di **pietà**: la probabilità di un
-oggetto raro cresce a ogni estrazione senza successo e si azzera all'ottenimento. Riduce la
-frustrazione della coda lunga senza alterare la media dichiarata.
+**LOOT-6** — The service **SHOULD** support a **pity** mechanism: the probability of a rare item
+grows with every unsuccessful draw and resets when it is obtained. It reduces the frustration of the
+long tail without altering the declared average.
 
-**LOOT-7** — Lo stato dei **contatori di pietà** **DEVE** essere serializzato: salvare e ricaricare
-**NON DEVE** poter essere usato per manipolare gli esiti. Lo stato del **filtro** non è di questo
-servizio: le memorie di canale appartengono a `RND`, che le mantiene (RND-9) e le serializza
-(RND-13). LOOT passa un `channel` e nient'altro.
+**LOOT-7** — The state of the **pity counters** **MUST** be serialized: saving and reloading **MUST
+NOT** be usable to manipulate outcomes. The **filter**'s state does not belong to this service:
+channel memories belong to `RND`, which maintains them (RND-9) and serializes them (RND-13). LOOT
+passes a `channel` and nothing else.
 
-La divisione non è arbitraria. La **pietà** è una regola di gioco — «dopo N tentativi a vuoto il
-raro è garantito» — e vive dove vivono le regole del bottino. Il **filtro** è una tecnica di
-casualità, e vive nell'unica sorgente di casualità del gioco.
+The division is not arbitrary. **Pity** is a game rule — "after N empty attempts the rare item is
+guaranteed" — and lives where the loot rules live. The **filter** is a randomness technique, and
+lives in the game's single source of randomness.
 
-**LOOT-8** — Un'estrazione **DEVE** essere riproducibile dato lo stream `RND` e il contesto.
+**LOOT-8** — A draw **MUST** be reproducible given the `RND` stream and the context.
 
-**LOOT-9** — Il servizio **DEVE** restituire **descrizioni di drop** (oggetto, quantità, stato
-iniziale), non istanze inserite in contenitori: creare le entità o riempire l'inventario spetta
-all'orchestrazione (ARC-4.1).
+**LOOT-9** — The service **MUST** return **drop descriptions** (item, quantity, initial state), not
+instances placed into containers: creating the entities or filling the inventory is up to the
+orchestration (ARC-4.1).
 
-**LOOT-10** — **DEVE** essere possibile dichiarare voci **garantite**, che non passano
-dall'estrazione: il boss lascia sempre la sua chiave.
+**LOOT-10** — It **MUST** be possible to declare **guaranteed** entries, which do not go through the
+draw: the boss always leaves their key.
 
-**LOOT-11** — Le tabelle **DEVONO** poter esprimere un numero variabile di estrazioni e la
-possibilità di non estrarre nulla, senza artifici come una voce "vuoto" implicita.
+**LOOT-11** — Tables **MUST** be able to express a variable number of draws and the possibility that
+a draw yields nothing, without contrivances such as an implicit "empty" entry.
 
-**LOOT-12** — Il servizio **DEVE** offrire uno strumento offline di **analisi statistica** di una
-tabella: probabilità effettive, valore atteso, oggetti irraggiungibili. Le tabelle annidate con pesi
-rendono la probabilità reale poco intuitiva, ed è così che nascono i drop mai visti da nessuno.
+**LOOT-12** — The service **MUST** offer an offline tool for the **statistical analysis** of a
+table: effective probabilities, expected value, unreachable items. Nested tables with weights make
+the real probability far from intuitive, and that is how drops nobody has ever seen come about.
 
-## Criteri di test
+## Test criteria
 
-- Su 10⁶ estrazioni, le frequenze coincidono con i pesi dichiarati entro tolleranza.
-- Le tabelle annidate producono le probabilità composte attese.
-- Il filtro riduce le ripetizioni consecutive rispetto all'estrazione pesata non filtrata. La
-  distribuzione risultante **non** coincide con i pesi nominali — il filtro la sposta per
-  costruzione (RND-9); si asserisce la monotonia e un vettore d'oro, come in `random.md`.
-- Il contatore di pietà garantisce l'oggetto entro il massimo dichiarato.
-- Una tabella ricorsiva è rifiutata in validazione.
-- Stesso seed e stesso contesto → stesso bottino.
+- Over 10⁶ draws, the frequencies match the declared weights within tolerance.
+- Nested tables produce the expected compound probabilities.
+- The filter reduces consecutive repetitions compared with the unfiltered weighted draw. The
+  resulting distribution does **not** match the nominal weights — the filter shifts it by
+  construction (RND-9); monotonicity and a golden vector are asserted, as in `random.md`.
+- The pity counter guarantees the item within the declared maximum.
+- A recursive table is rejected at validation time.
+- Same seed and same context → same loot.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-25
 - [`random.md`](./random.md) · [`inventory.md`](./inventory.md) · [`combat.md`](./combat.md)

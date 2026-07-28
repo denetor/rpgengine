@@ -1,88 +1,87 @@
-# HUD — Interfaccia e schermate
+# HUD — Interface and screens
 
-**Area:** Presentazione · **Natura:** di dominio · **Priorità:** 3 · **Stato:** proposto
-**Prefisso requisiti:** `HUD-*`
+**Area:** Presentation · **Nature:** domain · **Priority:** 3 · **Status:** proposed
+**Requirement prefix:** `HUD-*`
 
-## Scopo
+## Purpose
 
-Mostrare al giocatore lo stato del gioco e permettergli di agire su di esso: barre di vita ed
-energia, diario delle quest, inventario, mappa, menu di pausa, schermate di dialogo e commercio,
-interazione contestuale.
+Show the player the state of the game and let them act on it: health and energy bars, quest journal,
+inventory, map, pause menu, dialogue and trading screens, contextual interaction.
 
-L'HUD **legge** il dominio e **invia azioni**; non contiene regole. Se una schermata deve decidere se
-un oggetto è equipaggiabile, la risposta viene da `STAT`, non da una condizione scritta nel pannello.
+The HUD **reads** the domain and **sends actions**; it contains no rules. If a screen has to decide
+whether an item is equippable, the answer comes from `STAT`, not from a condition written in the
+panel.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | `excalibur` (o un livello DOM), `I18N`, `INP`; osserva il bus |
-| NON dipende da | i servizi di dominio in **scrittura**: invia intenzioni |
-| Consumato da | il giocatore |
-| Stato dinamico | schermata attiva, selezione, scorrimento, notifiche in coda |
-| Stato statico | layout, temi, definizioni delle schermate |
-| Dati esterni | `content/ui/*.json` + cataloghi `I18N` |
-| Eventi emessi | intenzioni dell'interfaccia (`ui-equip-requested`, `ui-trade-requested`, …) |
+| Depends on | `excalibur` (or a DOM layer), `I18N`, `INP`; observes the bus |
+| Does NOT depend on | the domain services for **writing**: it sends intents |
+| Consumed by | the player |
+| Dynamic state | active screen, selection, scrolling, queued notifications |
+| Static state | layouts, themes, screen definitions |
+| External data | `content/ui/*.json` + `I18N` catalogues |
+| Events emitted | interface intents (`ui-equip-requested`, `ui-trade-requested`, …) |
 
-## Requisiti
+## Requirements
 
-**HUD-1** — L'HUD **DEVE** mostrare barre di vita ed energia, stati attivi e arma o abilità
-selezionata (GP-49).
+**HUD-1** — The HUD **MUST** show health and energy bars, active statuses and the selected weapon or
+skill (GP-49).
 
-**HUD-2** — **DEVE** esistere un **diario delle quest** costruito dai dati di `QST` (QST-11), con
-obiettivi, stato e distinzione tra attive, completate e fallite (GP-50).
+**HUD-2** — There **MUST** be a **quest journal** built from `QST`'s data (QST-11), with objectives,
+status and a distinction between active, completed and failed (GP-50).
 
-**HUD-3** — **DEVE** esistere una schermata di **inventario ed equipaggiamento** che mostra peso,
-sovraccarico, slot e requisiti non soddisfatti con il motivo (GP-51, INV-9).
+**HUD-3** — There **MUST** be an **inventory and equipment** screen that shows weight, encumbrance,
+slots and unmet requirements together with the reason (GP-51, INV-9).
 
-**HUD-4** — **DOVREBBE** esistere una **minimappa** e/o una mappa del mondo, costruite dalla griglia
-dati di `MAP` e dallo stato di esplorazione (GP-52).
+**HUD-4** — There **SHOULD** be a **minimap** and/or a world map, built from `MAP`'s data grid and
+from the exploration state (GP-52).
 
-**HUD-5** — **DEVE** esistere un **menu di pausa** con opzioni, salvataggio e caricamento; l'apertura
-**DEVE** mettere in pausa il tempo di gioco (TIME-2) e cambiare contesto di input (INP-3) (GP-53).
+**HUD-5** — There **MUST** be a **pause menu** with options, save and load; opening it **MUST**
+pause game time (TIME-2) and switch the input context (INP-3) (GP-53).
 
-**HUD-6** — L'**interazione contestuale DEVE** presentare le azioni disponibili sul bersaglio
-selezionato — attacca, parla, usa, deruba, scassina — costruite dalle affordance e dalle capacità
-dell'entità, non da un elenco cablato (GP-54, AFF-15, ARC-6.2).
+**HUD-6** — **Contextual interaction MUST** present the actions available on the selected target —
+attack, talk, use, rob, pick a lock — built from the entity's affordances and capabilities, not from
+a hardwired list (GP-54, AFF-15, ARC-6.2).
 
-**HUD-7** — L'interazione contestuale **DEVE** mostrare il comando corretto per la periferica in uso,
-interrogando `INP` (INP-12).
+**HUD-7** — Contextual interaction **MUST** show the correct control for the device in use, by
+querying `INP` (INP-12).
 
-**HUD-8** — Ogni testo **DEVE** provenire da `I18N`: nessuna stringa nel codice dell'interfaccia
-(I18N-1). Il layout **DEVE** reggere testi di lunghezza molto diversa tra le lingue.
+**HUD-8** — Every text **MUST** come from `I18N`: no strings in the interface code (I18N-1). The
+layout **MUST** cope with texts of very different lengths across languages.
 
-**HUD-9** — L'HUD **NON DEVE** contenere regole di gioco: chiede al dominio, mostra il risultato.
-Nessun calcolo di prezzo, danno o requisito nel codice dell'interfaccia.
+**HUD-9** — The HUD **MUST NOT** contain game rules: it asks the domain and shows the result. No
+price, damage or requirement computation in the interface code.
 
-**HUD-10** — L'HUD **DEVE** aggiornarsi reagendo agli **eventi di dominio**, non interrogando lo
-stato ogni frame.
+**HUD-10** — The HUD **MUST** update by reacting to **domain events**, not by querying the state
+every frame.
 
-**HUD-11** — Le schermate **DEVONO** impilarsi in modo coerente con lo stack di contesti di input
-(inventario sopra pausa sopra gioco), e la chiusura **DEVE** ripristinare esattamente lo stato
-precedente (INP-3).
+**HUD-11** — Screens **MUST** stack consistently with the input context stack (inventory above pause
+above game), and closing **MUST** restore exactly the previous state (INP-3).
 
-**HUD-12** — Le notifiche (quest avanzata, oggetto ricevuto, reputazione cambiata) **DEVONO** essere
-accodate e mostrate senza sovrapporsi né perdersi in caso di raffica.
+**HUD-12** — Notifications (quest advanced, item received, reputation changed) **MUST** be queued
+and shown without overlapping or getting lost in case of a burst.
 
-**HUD-13** — L'HUD **DEVE** supportare le opzioni di **accessibilità**: dimensione del testo,
-riduzione degli effetti, contrasto (GP-66).
+**HUD-13** — The HUD **MUST** support the **accessibility** options: text size, effect reduction,
+contrast (GP-66).
 
-**HUD-14** — L'HUD **DEVE** essere navigabile sia con puntatore sia con tastiera e gamepad, secondo
-le associazioni correnti.
+**HUD-14** — The HUD **MUST** be navigable with pointer as well as with keyboard and gamepad,
+according to the current bindings.
 
-**HUD-15** — L'interfaccia **DEVE** poter essere assente: una partita headless gira senza HUD
+**HUD-15** — The interface **MUST** be able to be absent: a headless game runs without a HUD
 (ARC-1.4).
 
-## Criteri di test
+## Test criteria
 
-- Il diario riflette lo stato delle quest dopo una sequenza di avanzamenti, senza interrogazioni
-  periodiche.
-- Un requisito non soddisfatto è mostrato con il motivo corretto proveniente da `STAT`.
-- L'apertura e la chiusura di schermate impilate ripristinano il contesto di input esatto.
-- Dieci notifiche in un frame vengono mostrate tutte, in ordine.
-- Con testi lunghi il triplo, nessun elemento esce dai propri limiti.
+- The journal reflects the state of the quests after a sequence of advancements, without periodic
+  polling.
+- An unmet requirement is shown with the correct reason coming from `STAT`.
+- Opening and closing stacked screens restores the exact input context.
+- Ten notifications in one frame are all shown, in order.
+- With texts three times as long, no element overflows its own bounds.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-49…GP-54, GP-66
 - [`input.md`](./input.md) · [`localization.md`](./localization.md) · [`quest.md`](./quest.md) ·

@@ -1,45 +1,45 @@
-# ECO — Economia e commercio
+# ECO — Economy and trading
 
-**Area:** Regole · **Natura:** di dominio · **Priorità:** 4 · **Stato:** proposto
-**Prefisso requisiti:** `ECO-*`
+**Area:** Game rules · **Nature:** domain · **Priority:** 4 · **Status:** proposed
+**Requirement prefix:** `ECO-*`
 
-## Scopo
+## Purpose
 
-Determinare i prezzi e regolare gli scambi. Un mercante ha un assortimento e una **liquidità
-finita**: non può comprare oltre il denaro che possiede, e si rifornisce dopo un certo tempo.
+Determine prices and regulate exchanges. A merchant has a stock and a **finite liquidity**: they
+cannot buy beyond the money they hold, and they restock after a certain time.
 
-Il prezzo non è una proprietà dell'oggetto ma il risultato di una relazione: chi vende, a chi, in
-quale città, con quale reputazione, con quale abilità di mercanteggiare.
+Price is not a property of the item but the result of a relationship: who sells, to whom, in which
+town, with what reputation, with what bargaining skill.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | uno stream `RND` (per la variabilità del rifornimento) |
-| NON dipende da | `excalibur`, `INV`, `FAC`, `STAT`, altri servizi |
-| Consumato da | orchestrazione, HUD (schermata di commercio) |
-| Stato dinamico | liquidità dei mercanti, assortimento, tempi di rifornimento, storico degli scambi |
-| Stato statico | prezzi base, profili di mercante, moltiplicatori, tabelle di rifornimento |
-| Dati esterni | `content/economy/prices.json`, `merchants.json`, `restock.json` |
-| Eventi emessi | `trade-completed`, `trade-refused`, `merchant-restocked`, `price-quoted` |
+| Depends on | an `RND` stream (for restocking variability) |
+| Does NOT depend on | `excalibur`, `INV`, `FAC`, `STAT`, other services |
+| Consumed by | orchestration, HUD (trading screen) |
+| Dynamic state | merchant liquidity, stock, restock timings, exchange history |
+| Static state | base prices, merchant profiles, multipliers, restock tables |
+| External data | `content/economy/prices.json`, `merchants.json`, `restock.json` |
+| Events emitted | `trade-completed`, `trade-refused`, `merchant-restocked`, `price-quoted` |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface PriceContext {
   readonly merchant: MerchantProfile;
-  readonly reputation: number;        // fornito dal chiamante, non letto da FAC
-  readonly bargainSkill: number;      // fornito dal chiamante, non letto da STAT
+  readonly reputation: number;        // supplied by the caller, not read from FAC
+  readonly bargainSkill: number;      // supplied by the caller, not read from STAT
   readonly demand: number;
   readonly itemCondition: number;
 }
 
 interface EconomyService {
-  quoteBuy(item: ItemId, ctx: PriceContext): Price;      // quanto chiede il mercante
-  quoteSell(item: ItemId, ctx: PriceContext): Price;     // quanto offre il mercante
+  quoteBuy(item: ItemId, ctx: PriceContext): Price;      // what the merchant asks
+  quoteSell(item: ItemId, ctx: PriceContext): Price;     // what the merchant offers
 
   canAfford(buyer: WalletRef, price: Price): boolean;
-  /** Restituisce l'intento di scambio; a spostare oggetti e denaro è l'orchestrazione. */
+  /** Returns the trade intent; moving items and money is up to the orchestration. */
   proposeTrade(t: TradeProposal, ctx: PriceContext): CommandResult<TradeVerdict>;
 
   liquidity(merchant: MerchantId): number;
@@ -48,63 +48,59 @@ interface EconomyService {
 }
 ```
 
-## Requisiti
+## Requirements
 
-**ECO-1** — I prezzi **DEVONO** essere modulati da reputazione, fazione del mercante, abilità di
-mercanteggiare, condizione dell'oggetto e domanda locale, secondo una formula dichiarata nei dati
-(GP-45).
+**ECO-1** — Prices **MUST** be modulated by reputation, the merchant's faction, bargaining skill,
+item condition and local demand, according to a formula declared in data (GP-45).
 
-**ECO-2** — I fattori **DEVONO** essere **forniti dal chiamante** in un contesto: il servizio **NON
-DEVE** interrogare `FAC` né `STAT` (ARC-4.1). È ciò che lo rende testabile con valori sintetici.
+**ECO-2** — The factors **MUST** be **supplied by the caller** in a context: the service **MUST NOT**
+query `FAC` or `STAT` (ARC-4.1). That is what makes it testable with synthetic values.
 
-**ECO-3** — **DEVE** esistere uno **scarto tra prezzo di acquisto e di vendita** configurabile per
-mercante: comprare e rivendere allo stesso mercante **DEVE** essere in perdita, o l'economia si
-rompe.
+**ECO-3** — There **MUST** be a **spread between buying and selling price**, configurable per
+merchant: buying and reselling to the same merchant **MUST** be a loss, or the economy breaks.
 
-**ECO-4** — Ogni mercante **DEVE** avere una **liquidità finita**: non può acquistare oltre il denaro
-posseduto. L'esito **DEVE** dirlo esplicitamente, con la possibilità di uno scambio parziale
-(GP-28, GP-46).
+**ECO-4** — Every merchant **MUST** have a **finite liquidity**: they cannot buy beyond the money
+they hold. The outcome **MUST** say so explicitly, with the possibility of a partial trade (GP-28,
+GP-46).
 
-**ECO-5** — Ogni mercante **DEVE** avere un **assortimento finito**, che si rigenera dopo un timeout
-tramite `TIME` (TIME-7), con variabilità da `RND` (GP-28).
+**ECO-5** — Every merchant **MUST** have a **finite stock**, which regenerates after a timeout via
+`TIME` (TIME-7), with variability from `RND` (GP-28).
 
-**ECO-6** — Il rifornimento **DEVE** avvenire anche mentre il giocatore è altrove, senza simulare
-tutti i mercanti a ogni tick: il calcolo **DEVE** essere **pigro**, alla prima interazione, in
-funzione del tempo trascorso.
+**ECO-6** — Restocking **MUST** happen even while the player is elsewhere, without simulating all
+merchants on every tick: the computation **MUST** be **lazy**, on first interaction, as a function
+of the elapsed time.
 
-**ECO-7** — I mercanti **DEVONO** poter rifiutare categorie di merce (un armaiolo non compra erbe) e
-merce **rubata**, secondo profilo (collegamento con `CRM`, tramite il contesto).
+**ECO-7** — Merchants **MUST** be able to refuse categories of goods (an armourer does not buy herbs)
+and **stolen** goods, according to their profile (connection with `CRM`, through the context).
 
-**ECO-8** — Il servizio **NON DEVE** spostare oggetti né denaro: emette un **verdetto** e l'intento
-di scambio; l'esecuzione, atomica, è dell'orchestrazione tramite `INV` (ARC-4.2, INV-13).
+**ECO-8** — The service **MUST NOT** move items or money: it emits a **verdict** and the trade
+intent; execution, atomically, belongs to the orchestration through `INV` (ARC-4.2, INV-13).
 
-**ECO-9** — Il prezzo **DEVE** essere una funzione deterministica del contesto: due preventivi
-consecutivi con lo stesso contesto **DEVONO** dare lo stesso valore. La variabilità appartiene al
-rifornimento, non alla trattativa.
+**ECO-9** — Price **MUST** be a deterministic function of the context: two consecutive quotes with
+the same context **MUST** give the same value. Variability belongs to restocking, not to the
+negotiation.
 
-**ECO-10** — I preventivi **DEVONO** essere ispezionabili: il servizio **DOVREBBE** poter restituire
-la scomposizione del prezzo (base, reputazione, abilità, condizione), sia per l'interfaccia sia per
-la messa a punto del bilanciamento.
+**ECO-10** — Quotes **MUST** be inspectable: the service **SHOULD** be able to return the price
+breakdown (base, reputation, skill, condition), both for the interface and for balancing work.
 
-**ECO-11** — Il servizio **DEVE** prevenire gli exploit di arbitraggio: acquisto e rivendita ripetuti
-tra due mercanti **NON DEVONO** poter generare denaro. Il vincolo **DEVE** essere verificato da un
-test dedicato, non solo affermato.
+**ECO-11** — The service **MUST** prevent arbitrage exploits: repeated buying and reselling between
+two merchants **MUST NOT** be able to generate money. The constraint **MUST** be verified by a
+dedicated test, not merely asserted.
 
-**ECO-12** — Il denaro **DEVE** essere modellato come risorsa esplicita con portafogli identificati,
-non come un numero su un componente qualsiasi.
+**ECO-12** — Money **MUST** be modelled as an explicit resource with identified wallets, not as a
+number on some arbitrary component.
 
-**ECO-13** — Lo stato **DEVE** essere serializzabile, incluse liquidità, assortimenti e prossimi
-rifornimenti.
+**ECO-13** — The state **MUST** be serializable, including liquidity, stocks and next restocks.
 
-## Criteri di test
+## Test criteria
 
-- Un ciclo di 10³ acquisti e rivendite non genera denaro (ECO-11).
-- Un mercante senza liquidità rifiuta l'acquisto o propone lo scambio parziale atteso.
-- Il rifornimento pigro dopo N ore di assenza produce lo stesso risultato del calcolo continuo.
-- La scomposizione del prezzo somma esattamente al prezzo finale.
-- Stesso contesto → stesso preventivo.
+- A cycle of 10³ purchases and resales generates no money (ECO-11).
+- A merchant with no liquidity refuses the purchase or proposes the expected partial trade.
+- Lazy restocking after N hours of absence produces the same result as the continuous computation.
+- The price breakdown sums exactly to the final price.
+- Same context → same quote.
 
-## Collegamenti
+## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-28, GP-45, GP-46, GP-48
 - [`inventory.md`](./inventory.md) · [`faction.md`](./faction.md) · [`stats.md`](./stats.md) ·

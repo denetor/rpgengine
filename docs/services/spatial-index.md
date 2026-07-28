@@ -1,31 +1,31 @@
-# SPX — Indice spaziale
+# SPX — Spatial index
 
-**Area:** Mondo · **Natura:** generico · **Priorità:** 2 · **Stato:** proposto
-**Prefisso requisiti:** `SPX-*`
+**Area:** World · **Nature:** generic · **Priority:** 2 · **Status:** proposed
+**Requirement prefix:** `SPX-*`
 
-## Scopo
+## Purpose
 
-Rispondere velocemente alle domande di prossimità: *chi c'è entro N tile? chi è il bersaglio
-ostile più vicino? quali entità sono in questo rettangolo?*
+Answer proximity questions quickly: *who is within N tiles? who is the nearest hostile target? which
+entities are inside this rectangle?*
 
-Esiste per una ragione precisa: senza indice, ogni PNG scandisce ogni tick tutte le entità della
-scena, e il costo cresce col quadrato del numero di attori. È il difetto di prestazioni più comune
-nei giochi 2D scritti in modo diretto, ed è esattamente ciò che ARC-13.1 vieta.
+It exists for a precise reason: without an index, every NPC scans every entity in the scene on every
+tick, and the cost grows with the square of the number of actors. It is the most common performance
+defect in 2D games written in a straightforward way, and it is exactly what ARC-13.1 forbids.
 
-## Contratto
+## Contract
 
-| Voce | Valore |
+| Item | Value |
 |---|---|
-| Dipende da | — |
-| NON dipende da | `excalibur`, `ENT`, altri servizi |
-| Consumato da | `AI`, `AFF`, `CRM`, `CBT` (bersagli ad area), orchestrazione |
-| Stato dinamico | posizioni indicizzate (ricostruibile: **non** serializzato) |
-| Stato statico | dimensione delle celle dell'indice |
-| Dati esterni | dimensione cella in configurazione |
-| Eventi emessi | nessuno |
-| Ordine di grandezza | ~10³ entità mobili, ~10⁴ query di prossimità/secondo |
+| Depends on | — |
+| Does NOT depend on | `excalibur`, `ENT`, other services |
+| Consumed by | `AI`, `AFF`, `CRM`, `CBT` (area targets), orchestration |
+| Dynamic state | indexed positions (rebuildable: **not** serialized) |
+| Static state | the index's cell size |
+| External data | cell size in the configuration |
+| Events emitted | none |
+| Order of magnitude | ~10³ moving entities, ~10⁴ proximity queries/second |
 
-## API pubblica (indicativa)
+## Public API (indicative)
 
 ```ts
 interface SpatialIndex {
@@ -34,69 +34,69 @@ interface SpatialIndex {
   remove(id: EntityId): void;
   updateTags(id: EntityId, tags: TagMask): void;
 
-  /** Scrive nel buffer fornito dal chiamante: nessuna allocazione per query. */
+  /** Writes into the buffer supplied by the caller: no allocation per query. */
   queryRadius(center: Vector2, radius: number, filter: TagMask, out: EntityId[]): number;
   queryRect(rect: Rect, filter: TagMask, out: EntityId[]): number;
   nearest(center: Vector2, maxRadius: number, filter: TagMask): EntityId | undefined;
 
-  /** Iterazione ordinata per distanza crescente, senza materializzare l'elenco. */
+  /** Iteration ordered by increasing distance, without materializing the list. */
   forEachInRadius(center: Vector2, radius: number, filter: TagMask,
                   visit: (id: EntityId, distSq: number) => boolean): void;
 }
 ```
 
-## Requisiti
+## Requirements
 
-**SPX-1** — Le query di prossimità **DEVONO** avere costo proporzionale al numero di entità
-**nell'area interrogata**, non al totale delle entità del mondo (ARC-13.1).
+**SPX-1** — Proximity queries **MUST** cost in proportion to the number of entities **in the queried
+area**, not to the total number of entities in the world (ARC-13.1).
 
-**SPX-2** — Il filtro per **capacità/tag DEVE** essere applicato *dentro* l'indice, non a valle: un
-PNG che cerca bersagli non **DEVE** ricevere e scartare gli elementi decorativi. Il filtro **DEVE**
-essere una maschera di bit, non un confronto di stringhe (ARC-6.3).
+**SPX-2** — The filter by **capability/tag MUST** be applied *inside* the index, not downstream: an
+NPC looking for targets **MUST NOT** receive and then discard decorative elements. The filter
+**MUST** be a bitmask, not a string comparison (ARC-6.3).
 
-**SPX-3** — Le query **NON DEVONO** allocare: il chiamante fornisce il buffer, oppure usa
-l'iterazione con callback (ARC-13.3).
+**SPX-3** — Queries **MUST NOT** allocate: the caller supplies the buffer, or uses the callback-based
+iteration (ARC-13.3).
 
-**SPX-4** — L'aggiornamento della posizione di un'entità **DEVE** essere O(1) ammortizzato e
-**NON DEVE** richiedere la rimozione e il reinserimento se la cella non cambia.
+**SPX-4** — Updating an entity's position **MUST** be amortized O(1) and **MUST NOT** require
+removal and reinsertion if the cell does not change.
 
-**SPX-5** — `nearest` **DEVE** interrompersi appena il risultato è certo, senza esaminare l'intero
-raggio massimo.
+**SPX-5** — `nearest` **MUST** stop as soon as the result is certain, without examining the whole
+maximum radius.
 
-**SPX-6** — L'indice **NON DEVE** essere serializzato: è una struttura derivata, ricostruita
-dall'insieme delle entità al caricamento (ARC-10.4).
+**SPX-6** — The index **MUST NOT** be serialized: it is a derived structure, rebuilt from the set of
+entities on load (ARC-10.4).
 
-**SPX-7** — L'indice **NON DEVE** possedere le entità né conoscerne le proprietà: conosce id,
-posizione e maschera di tag. Chiedere *cos'è* un'entità spetta a `ENT`.
+**SPX-7** — The index **MUST NOT** own the entities nor know their properties: it knows id, position
+and tag mask. Asking *what* an entity is is up to `ENT`.
 
-**SPX-8** — Il risultato di una query **DEVE** avere ordine deterministico (per distanza crescente,
-a parità di distanza per id crescente): un ordine dipendente dalla struttura interna renderebbe la
-simulazione non riproducibile (ARC-9.4).
+**SPX-8** — The result of a query **MUST** have a deterministic order (by increasing distance, and
+for equal distance by increasing id): an order that depends on the internal structure would make the
+simulation non-reproducible (ARC-9.4).
 
-**SPX-9** — La struttura **DEVE** essere adatta a entità prevalentemente mobili in uno spazio a
-densità irregolare: una **griglia uniforme** con dimensione di cella tarata è preferibile a un
-quadtree, salvo evidenza contraria misurata.
+**SPX-9** — The structure **MUST** be suited to predominantly moving entities in a space of
+irregular density: a **uniform grid** with a tuned cell size is preferable to a quadtree, absent
+measured evidence to the contrary.
 
-**SPX-10** — La dimensione della cella **DEVE** essere configurabile e **DOVREBBE** essere
-dell'ordine del raggio di query più frequente.
+**SPX-10** — The cell size **MUST** be configurable and **SHOULD** be of the order of the most
+frequent query radius.
 
-**SPX-11** — Il servizio **DOVREBBE** offrire una query di **visibilità** che combina distanza,
-angolo e ostruzione del terreno, poiché è ciò che serve davvero a percezione e crimine (GP-47).
-L'interrogazione del terreno avviene tramite una porta, non importando `MAP`.
+**SPX-11** — The service **SHOULD** offer a **visibility** query combining distance, angle and
+terrain occlusion, since that is what perception and crime actually need (GP-47). Querying the
+terrain happens through a port, not by importing `MAP`.
 
-**SPX-12** — In modalità sviluppo l'indice **DOVREBBE** poter esporre le proprie celle per la
-visualizzazione diagnostica.
+**SPX-12** — In development mode the index **SHOULD** be able to expose its own cells for diagnostic
+visualization.
 
-## Criteri di test
+## Test criteria
 
-- Equivalenza con una scansione a forza bruta su 10⁴ posizioni casuali: stessi risultati, stesso
-  ordine.
-- Prestazione: 10⁴ query di raggio su 10³ entità entro il budget dichiarato, con zero allocazioni.
-- Il filtro per maschera esclude correttamente le entità prive della capacità.
-- Spostare un'entità entro la stessa cella non provoca reinserimento.
+- Equivalence with a brute-force scan over 10⁴ random positions: same results, same order.
+- Performance: 10⁴ radius queries over 10³ entities within the declared budget, with zero
+  allocations.
+- The bitmask filter correctly excludes entities lacking the capability.
+- Moving an entity within the same cell does not cause a reinsertion.
 
-## Collegamenti
+## Links
 
-- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-6.3 (query per capacità), ARC-13 (performance)
+- [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-6.3 (queries by capability), ARC-13 (performance)
 - [`entity-registry.md`](./entity-registry.md) · [`utility-ai.md`](./utility-ai.md) ·
   [`affordance.md`](./affordance.md)
