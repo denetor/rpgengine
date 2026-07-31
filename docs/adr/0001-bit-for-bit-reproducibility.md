@@ -13,8 +13,12 @@ implementations accordingly.
 
 ## What is frozen
 
-1. **PRNG: `xoshiro128**`**, with state in a `Uint32Array` and `Math.imul`.
-2. **String hash function** that derives stream seeds from (root seed, id).
+1. **PRNG: `xoshiro128**`**, with state in a `Uint32Array` and `Math.imul`, its state expanded from
+   a single 32-bit seed with `splitmix32`.
+2. **String hash function** that derives stream seeds from (root seed, id): **FNV-1a/32 over the
+   byte stream (root seed little-endian, then the id's UTF-16 code units low byte first), finalized
+   with murmur3's `fmix32`**. The finalizer is not decoration: FNV-1a alone leaves neighbouring ids
+   with correlated low bits.
 3. **No transcendental function** on any path that produces values.
 
 Changing any of the three invalidates every save and every map generated from a seed.
