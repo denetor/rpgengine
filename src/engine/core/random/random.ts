@@ -1,5 +1,7 @@
 import { streamSeed } from './seed';
+import { assertRandomState, RANDOM_STATE_VERSION } from './state';
 import { Stream } from './stream';
+import type { RandomState, RandomStreamState } from './state';
 import type { RandomStream, StreamId } from './types';
 
 /**
@@ -49,8 +51,73 @@ export class Random {
             return existing.stream;
         }
 
-        const created = new Stream(seed ?? streamSeed(this.rootSeed, id));
+        const created = Stream.fromSeed(seed ?? streamSeed(this.rootSeed, id));
         this.streams.set(id, { stream: created, explicitSeed: seed });
         return created;
     }
+
+    /**
+     * `RND`'s portion of the save (RND-22): the version, the root seed and the
+     * position of the streams that were actually requested. A stream nobody
+     * asked for is not in here — it is rebuilt from its own name.
+     *
+     * The streams are written in order of name, so that the same game saved
+     * after the same draws produces the same bytes whatever order the streams
+     * came into existence in.
+     */
+    serialize(): RandomState {
+        const streams: RandomStreamState[] = [];
+        for (const [id, record] of this.streams) {
+            streams.push(savedStream(id, record));
+        }
+        streams.sort(byId);
+
+        return {
+            version: RANDOM_STATE_VERSION,
+            rootSeed: this.rootSeed,
+            streams,
+        };
+    }
+
+    /**
+     * Rebuilds a service from a saved state.
+     *
+     * Restore is a **factory, never an instance method** (RND-22): the service
+     * this returns is already complete, so there is no instant in which a live
+     * service holds the randomness of the wrong game and whoever rolls a die
+     * rolls from the previous one.
+     */
+    static deserialize(state: RandomState): Random {
+        assertRandomState(state);
+
+        const restored = new Random(state.rootSeed);
+        for (const saved of state.streams) {
+            restored.streams.set(saved.id, {
+                stream: Stream.fromWords(saved.words),
+                explicitSeed: saved.seed,
+            });
+        }
+        return restored;
+    }
+}
+
+/**
+ * One stream's portion of the state. The explicit seed is written only when
+ * there was one: a derived seed is `hash(root seed, id)` and recomputing it is
+ * exactly what restore does.
+ */
+function savedStream(id: StreamId, record: StreamRecord): RandomStreamState {
+    const saved: RandomStreamState = { id, words: record.stream.snapshot() };
+    if (record.explicitSeed !== undefined) {
+        saved.seed = record.explicitSeed;
+    }
+    return saved;
+}
+
+/** Orders saved streams by name, by code unit: no locale, no ambiguity. */
+function byId(one: RandomStreamState, other: RandomStreamState): number {
+    if (one.id === other.id) {
+        return 0;
+    }
+    return one.id < other.id ? -1 : 1;
 }

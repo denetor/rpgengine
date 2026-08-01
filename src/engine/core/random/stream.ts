@@ -8,12 +8,40 @@ import type { RandomStream, WeightedEntry } from './types';
  *
  * The impurity is confined to `next()` — the only method that advances the
  * state (RND-17).
+ *
+ * A stream is built either from a seed or from a saved position, never from
+ * nothing: the two factories are the only ways in, so no stream can exist
+ * without a state of its own.
  */
 export class Stream implements RandomStream {
     private readonly state: Uint32Array;
 
-    constructor(seed: number) {
-        this.state = stateFromSeed(seed);
+    private constructor(state: Uint32Array) {
+        this.state = state;
+    }
+
+    /** A stream at the start of the sequence the seed identifies. */
+    static fromSeed(seed: number): Stream {
+        return new Stream(stateFromSeed(seed));
+    }
+
+    /**
+     * A stream at the position a saved state describes (RND-22).
+     *
+     * The words are taken as they are: whoever calls this has already had them
+     * checked by `assertRandomState`, the one place that knows what a usable
+     * generator state looks like.
+     */
+    static fromWords(words: readonly number[]): Stream {
+        return new Stream(Uint32Array.from(words));
+    }
+
+    /**
+     * The current position in the sequence, as plain numbers: a copy, so that
+     * drawing afterwards does not move a state already handed out.
+     */
+    snapshot(): number[] {
+        return Array.from(this.state);
     }
 
     next(): number {

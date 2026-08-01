@@ -54,6 +54,20 @@ declare class Random implements RandomService {
   static deserialize(state: RandomState): RandomService;
 }
 
+/** `RND`'s own portion of the save: plain data, with a version of its own. */
+interface RandomState {
+  version: number;
+  rootSeed: number;
+  /** The **touched** streams only, ordered by name. */
+  streams: {
+    id: StreamId;
+    /** The generator state: four unsigned 32-bit words. */
+    words: number[];
+    /** Present only if the stream was created with an explicit seed (RND-19). */
+    seed?: number;
+  }[];
+}
+
 interface RandomStream {
   next(): number;                                   // [0, 1)
   int(minIncl: number, maxExcl: number): number;
