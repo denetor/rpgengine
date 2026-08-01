@@ -92,8 +92,34 @@ interface RandomStream {
 
   /** Coherent noise. A pure function of (stream seed, coordinates): it does not consume (RND-18). */
   noise2(x: number, y: number, options?: NoiseOptions): number;   // [-1, 1]
-  fbm2(x: number, y: number, octaves: number, options?: NoiseOptions): number;
+  fbm2(x: number, y: number, octaves: number, options?: FbmOptions): number;   // [-1, 1]
 }
+
+/** Where a sample is taken. */
+interface NoiseOptions {
+  /** Coordinate scale: the size of the features. Default 1, finite and positive. */
+  frequency?: number;
+}
+
+/**
+ * How a sum of octaves is built, on top of where it is sampled. The two extra
+ * knobs are a type of their own because `noise2` has no octaves to spread a
+ * `persistence` over: a bag that silently ignores half of what it is given is a
+ * trap, and splitting them makes the compiler say so.
+ */
+interface FbmOptions extends NoiseOptions {
+  /** How much faster each octave is than the one before. Default 2. */
+  lacunarity?: number;
+  /** How much quieter each octave is than the one before. Default 0.5. */
+  persistence?: number;
+}
+
+/**
+ * The declared continuity bound of RND-7: at frequency `f` and step `d`,
+ * neighbouring samples differ by at most `NOISE_MAX_SLOPE × f × d`. It is what
+ * a caller needs in order to choose a sampling step.
+ */
+declare const NOISE_MAX_SLOPE: number;
 ```
 
 ## Requirements
@@ -152,6 +178,15 @@ coordinates, not on the sampling order. It **MAY** offer simplex as an alternati
 The fBm octaves **MUST NOT** use `Math.pow` for lacunarity (RND-4): the frequency is obtained by
 repeated multiplication. It is an implementation detail, but it is the one on which whether GEN-2
 ("bit-for-bit identical after a browser update") is true or false depends.
+
+"Continuous" **MUST** be a number, not an adjective: the service **MUST** declare the bound within
+which two nearby samples may differ (`NOISE_MAX_SLOPE`), because that bound is what tells a caller
+how fine a sampling step has to be before the noise reads as terrain rather than as steps. It is a
+**ceiling with room to spare**, not the largest value anyone has measured: a bound that the next
+seed can step over is worse than no bound at all.
+
+The noise construction — the permutation table, the gradient set, the fade and the output scale — is
+part of the stability contract of RND-4, and is enumerated in ADR 0001.
 
 **RND-8** — The service **MUST** expose the weighted draw (`weighted`) as a primitive: loot tables
 and AI choices **MUST NOT** reimplement it.
@@ -330,9 +365,11 @@ with playing time.
   **without advancing the sequence**.
 - **Gaussian**: sample mean and standard deviation within tolerance over 10⁵ samples; truncation does
   not shift the mean beyond the declared limit; no sample beyond ±6σ (RND-6).
-- **Noise**: continuity (bounded difference between nearby samples), determinism per coordinate,
-  independence from sampling order; sampling the noise does not alter the stream's sequence
-  (RND-18).
+- **Noise**: continuity (bounded difference between nearby samples, **swept over many tables and
+  over cell interiors** — a bound measured along one walk of one seed confirms itself), determinism
+  per coordinate, independence from sampling order; sampling the noise does not alter the stream's
+  sequence (RND-18); a sum of octaves whose frequency would run past the largest representable
+  number is refused rather than returning `NaN` from inside the declared interval.
 - **Filter**: over 10⁴ draws consecutive repetitions collapse compared with the unfiltered weighted
   draw; **monotonicity** — if `w(a) > w(b)` then `freq(a) ≥ freq(b)`; and a **golden vector of the
   distribution**, compared against an expected distribution stored in the repo for a fixed

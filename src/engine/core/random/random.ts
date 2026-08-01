@@ -92,8 +92,12 @@ export class Random {
 
         const restored = new Random(state.rootSeed);
         for (const saved of state.streams) {
+            // The seed is handed back to the stream, not just its position:
+            // the noise permutation table is rebuilt from it, which is why the
+            // save does not carry the table (RND-22).
+            const seed = saved.seed ?? streamSeed(state.rootSeed, saved.id);
             restored.streams.set(saved.id, {
-                stream: Stream.fromWords(saved.words),
+                stream: Stream.fromWords(saved.words, seed),
                 explicitSeed: saved.seed,
             });
         }

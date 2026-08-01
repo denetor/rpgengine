@@ -20,8 +20,19 @@ implementations accordingly.
    with murmur3's `fmix32`**. The finalizer is not decoration: FNV-1a alone leaves neighbouring ids
    with correlated low bits.
 3. **No transcendental function** on any path that produces values.
+4. **The coherent noise construction**: Perlin in 2D over a 256-entry permutation table, shuffled by
+   Fisher–Yates from a generator started at the stream's own seed; the eight **unit** gradients (the
+   four axes and the four diagonals, the diagonal component written as the literal
+   `0.7071067811865476`); the quintic fade `6t⁵ - 15t⁴ + 10t³`; and the output scaled by the literal
+   `1.4142135623730951` to fill [-1, 1]. Every one of them decides which value a coordinate gets.
 
-Changing any of the three invalidates every save and every map generated from a seed.
+Changing any of the four invalidates every save and every map generated from a seed.
+
+Point 4 deserves a word on what is *not* in it. The permutation table is built from the stream's
+seed and never from its current position, and the noise draws nothing (RND-18) — which is what lets
+RND-22 keep the table out of the save and rebuild it on restore. Nothing salts or otherwise
+re-derives that seed: the fewer frozen constants stand between a seed and a map, the fewer ways there
+are to invalidate one by accident.
 
 ## Non-obvious consequences
 
@@ -35,6 +46,10 @@ Changing any of the three invalidates every save and every map generated from a 
   beyond 6σ.
 - **No `Math.pow` in the fBm octaves**: lacunarity is applied by repeated multiplication. Perlin and
   simplex are otherwise already exact, because they use only `*`, `+` and `floor`.
+- **No `Math.SQRT2` or `Math.SQRT1_2` in the noise**, even though they are exactly the two numbers it
+  needs: ECMAScript specifies those constants only to "approximately" the value it prints, so an
+  engine may disagree in the last bit. Decimal literals are parsed to the nearest double by a rule
+  the standard *does* pin down, and are the same number everywhere.
 
 This is the reason the ADR exists: a reader who finds a Gaussian built from a sum of uniforms will
 think it is a beginner's mistake and will "fix" it by putting Box–Muller back, silently breaking

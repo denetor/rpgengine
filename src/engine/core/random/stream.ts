@@ -1,4 +1,14 @@
 import {
+    assertFbm2,
+    assertNoise2,
+    buildPermutation,
+    DEFAULT_FREQUENCY,
+    DEFAULT_LACUNARITY,
+    DEFAULT_PERSISTENCE,
+    fbmNoise,
+    perlin2,
+} from './noise';
+import {
     assertDiceRoll,
     assertGaussian,
     GAUSSIAN_DRAWS,
@@ -10,7 +20,8 @@ import {
     toWeighted,
 } from './transforms';
 import { nextUint32, stateFromSeed, toUnitInterval } from './xoshiro128';
-import type { RandomStream, Truncation, WeightedEntry } from './types';
+import type { Permutation } from './noise';
+import type { FbmOptions, NoiseOptions, RandomStream, Truncation, WeightedEntry } from './types';
 
 /**
  * A single stream: a generator state, plus the transformations that read
@@ -21,29 +32,42 @@ import type { RandomStream, Truncation, WeightedEntry } from './types';
  *
  * A stream is built either from a seed or from a saved position, never from
  * nothing: the two factories are the only ways in, so no stream can exist
- * without a state of its own.
+ * without a state of its own. Both ways in need the **seed** as well as the
+ * position, because the noise permutation table is derived from the seed and
+ * is deliberately absent from the save (RND-22).
  */
 export class Stream implements RandomStream {
     private readonly state: Uint32Array;
 
-    private constructor(state: Uint32Array) {
+    /**
+     * Built **once, here**, when the stream comes into existence (RND-18), and
+     * read-only from then on: that is what makes `noise2` a pure function of
+     * the seed and the coordinates.
+     */
+    private readonly permutation: Permutation;
+
+    private constructor(state: Uint32Array, seed: number) {
         this.state = state;
+        this.permutation = buildPermutation(seed);
     }
 
     /** A stream at the start of the sequence the seed identifies. */
     static fromSeed(seed: number): Stream {
-        return new Stream(stateFromSeed(seed));
+        return new Stream(stateFromSeed(seed), seed);
     }
 
     /**
-     * A stream at the position a saved state describes (RND-22).
+     * A stream at the position a saved state describes (RND-22), belonging to
+     * the stream that `seed` identifies.
      *
      * The words are taken as they are: whoever calls this has already had them
      * checked by `assertRandomState`, the one place that knows what a usable
-     * generator state looks like.
+     * generator state looks like. The seed comes from the caller too — it is
+     * not in the save unless it was explicit, because it is `hash(root seed,
+     * id)` and restore recomputes it (RND-19).
      */
-    static fromWords(words: readonly number[]): Stream {
-        return new Stream(Uint32Array.from(words));
+    static fromWords(words: readonly number[], seed: number): Stream {
+        return new Stream(Uint32Array.from(words), seed);
     }
 
     /**
@@ -101,5 +125,38 @@ export class Stream implements RandomStream {
             uniforms.push(this.next());
         }
         return toShuffle(items, uniforms);
+    }
+
+    /**
+     * Note what is missing: no call to `this.next()`. Sampling reads the
+     * permutation table and the coordinates, and nothing else (RND-18).
+     *
+     * The defaults are filled in **here**, once, and settled numbers are what
+     * travel onwards: the check and the sample then read the same values, and
+     * neither re-resolves the options bag on a path the sheet sizes at 10⁶
+     * samples per generated map.
+     */
+    noise2(x: number, y: number, options?: NoiseOptions): number {
+        const frequency = options?.frequency ?? DEFAULT_FREQUENCY;
+        assertNoise2(x, y, frequency);
+
+        return perlin2(this.permutation, x, y, frequency);
+    }
+
+    fbm2(x: number, y: number, octaves: number, options?: FbmOptions): number {
+        const frequency = options?.frequency ?? DEFAULT_FREQUENCY;
+        const lacunarity = options?.lacunarity ?? DEFAULT_LACUNARITY;
+        const persistence = options?.persistence ?? DEFAULT_PERSISTENCE;
+        assertFbm2(x, y, octaves, frequency, lacunarity, persistence);
+
+        return fbmNoise(
+            this.permutation,
+            x,
+            y,
+            octaves,
+            frequency,
+            lacunarity,
+            persistence,
+        );
     }
 }
