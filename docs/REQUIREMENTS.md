@@ -55,6 +55,7 @@ Three consequences follow, and they count as project constraints:
 |---|---|
 | [`0001`](./adr/0001-bit-for-bit-reproducibility.md) | Bit-for-bit reproducibility across JavaScript engines: `xoshiro128**`, no transcendental functions, Gaussian by sum of uniforms |
 | [`0002`](./adr/0002-weight-readjustment.md) | Filtered randomness by weight readjustment, not by re-rolling |
+| [`0003`](./adr/0003-dialogues-in-ink.md) | Dialogues written in ink and run with inkjs, instead of a graph format of our own |
 
 ---
 

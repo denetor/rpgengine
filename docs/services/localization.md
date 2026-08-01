@@ -8,8 +8,9 @@
 Resolve every text shown to the player starting from a **key**, in the active language, with
 parameter interpolation and plural handling. No game string exists in the code.
 
-The same holds for content: a dialogue line in `dialogs/*.json` is not text, it is a **key** to the
-text.
+The same holds for content: what a dialogue hands over is not text, it is a **key** to the text. The
+dialogue lines are written as prose in the `.ink` sources, but reach the presentation as the stable
+ids extracted from them (DLG-9, DLG-24).
 
 ## Contract
 

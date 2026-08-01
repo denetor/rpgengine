@@ -60,7 +60,7 @@ in the hub: [`../REQUIREMENTS.md`](../REQUIREMENTS.md). The features seen by the
 | `INV` | [inventory.md](./inventory.md) | Containers, weight, stacking, equipment |
 | `LOOT` | [loot.md](./loot.md) | Weighted loot tables, anti-repetition filter, pity |
 | `QST` | [quest.md](./quest.md) | Interpreter for staged and branching quests |
-| `DLG` | [dialog.md](./dialog.md) | Interpreter for conditional dialogue graphs |
+| `DLG` | [dialog.md](./dialog.md) | Adapter over the ink runtime: conditional conversations |
 | `FAC` | [faction.md](./faction.md) | Factions, ranks, reputation, relations |
 | `ECO` | [economy.md](./economy.md) | Prices, merchant liquidity, restocking |
 | `CRM` | [crime.md](./crime.md) | Observed crimes, witnesses, bounties |
