@@ -5,4 +5,4 @@
 export { Random } from './random';
 export { RANDOM_STATE_VERSION } from './state';
 export type { RandomState, RandomStreamState } from './state';
-export type { RandomStream, StreamId, WeightedEntry } from './types';
+export type { RandomStream, StreamId, Truncation, WeightedEntry } from './types';

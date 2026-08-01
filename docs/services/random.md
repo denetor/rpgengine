@@ -80,8 +80,12 @@ interface RandomStream {
   weighted<T>(entries: readonly { value: T; weight: number }[]): T;
   shuffle<T>(items: readonly T[]): T[];
 
-  /** Normal by sum of uniforms, optionally truncated. Not Box–Muller: see RND-6. */
-  gaussian(mean: number, stdDev: number, clamp?: [number, number]): number;
+  /**
+   * Normal by sum of uniforms, optionally truncated. Not Box–Muller: see RND-6.
+   * The truncation **clamps**; it does not redraw, which would consume a
+   * variable number of values and move the rest of the sequence (RND-18).
+   */
+  gaussian(mean: number, stdDev: number, clamp?: Truncation): number;   // [low, high]
 
   /** Filtered draw on a channel: the weights of recent outcomes are reduced (RND-9). */
   filtered<T>(channel: string, entries: readonly { value: T; weight: number }[]): T;

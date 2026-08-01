@@ -8,6 +8,15 @@ export interface WeightedEntry<T> {
 }
 
 /**
+ * The interval a Gaussian may be truncated to: **low bound first**.
+ *
+ * A pair and not a `{ low, high }` object, because that is the shape the
+ * contract sheet fixes; naming the type is what keeps the order of the two
+ * numbers written down in one place instead of at every call site.
+ */
+export type Truncation = readonly [number, number];
+
+/**
  * One independent sequence of random values.
  *
  * Every primitive listed here **advances** the stream (RND-18): they are the
@@ -29,6 +38,17 @@ export interface RandomStream {
      * One die by default; a count of zero rolls nothing and sums to zero.
      */
     diceRoll(faces: number, count?: number): number;
+
+    /**
+     * A value drawn from a normal distribution of the given mean and standard
+     * deviation, optionally clamped to `[low, high]`.
+     *
+     * It is a **sum of twelve uniforms**, not Box–Muller, and it consumes
+     * twelve values of the sequence. The tails therefore stop at ±6σ, and the
+     * truncation clamps rather than redraws — both accepted, both explained in
+     * ADR 0001 and at `toGaussian`.
+     */
+    gaussian(mean: number, stdDev: number, clamp?: Truncation): number;
 
     /** One element of the list, uniformly. Throws on an empty list. */
     pick<T>(items: readonly T[]): T;

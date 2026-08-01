@@ -5,7 +5,7 @@
  * state, and none of them uses a transcendental `Math` function (ADR 0001).
  */
 
-import type { WeightedEntry } from './types';
+import type { Truncation, WeightedEntry } from './types';
 
 /** An integer in [minIncl, maxExcl), from one uniform value. */
 export function toInt(uniform: number, minIncl: number, maxExcl: number): number {
@@ -25,6 +25,87 @@ export function assertDiceRoll(faces: number, count: number): void {
     }
     if (!Number.isInteger(count) || count < 0) {
         throw new Error(`a roll must be a whole number of dice, at least zero: got ${count}`);
+    }
+}
+
+/**
+ * How many uniform values one Gaussian sample consumes (RND-18). Twelve is not
+ * a tunable number: it is what makes the sum's variance exactly one.
+ */
+export const GAUSSIAN_DRAWS = 12;
+
+/** Half of `GAUSSIAN_DRAWS`: the shift that brings the sum's mean to zero. */
+const GAUSSIAN_OFFSET = GAUSSIAN_DRAWS / 2;
+
+/**
+ * A normal value of the given mean and standard deviation, optionally clamped
+ * to `[low, high]`, from twelve uniform values.
+ *
+ * **This is the Irwin–Hall method — a sum of uniforms — and it is deliberate
+ * (ADR 0001).** Box–Muller is the textbook answer and it is forbidden here: it
+ * needs a logarithm and a cosine, which ECMAScript leaves
+ * *implementation-approximated*, so V8, SpiderMonkey and JavaScriptCore
+ * disagree in the last bits. A browser update would then change games already
+ * saved. Whoever is about to "fix" this into Box–Muller: that is the bug, and
+ * it is silent.
+ *
+ * The sum of twelve uniforms over [0, 1) has mean 6 and variance 1 exactly, so
+ * subtracting six gives a standard normal in **closed form and with additions
+ * only**. The price, accepted in ADR 0001: the tails stop at ±6σ. None of the
+ * uses RND-6 foresees — damage variation, spread, jitter, inaccuracy — means
+ * anything out there.
+ *
+ * Truncation is a **clamp**, not a redraw: a redraw loop would consume a
+ * variable number of values and move every later draw of the stream, so the
+ * same seed would produce a different game depending on how the tails fell.
+ * The bounds are therefore reached rather than avoided, and a one-sided
+ * interval shifts the mean towards itself by construction.
+ */
+export function toGaussian(
+    uniforms: readonly number[],
+    mean: number,
+    stdDev: number,
+    clamp?: Truncation,
+): number {
+    if (uniforms.length < GAUSSIAN_DRAWS) {
+        throw new Error(`a gaussian sample needs ${GAUSSIAN_DRAWS} uniform values`);
+    }
+
+    let sum = 0;
+    for (let draw = 0; draw < GAUSSIAN_DRAWS; draw += 1) {
+        sum += uniforms[draw];
+    }
+
+    const value = mean + stdDev * (sum - GAUSSIAN_OFFSET);
+    if (clamp === undefined) {
+        return value;
+    }
+    return Math.min(Math.max(value, clamp[0]), clamp[1]);
+}
+
+/**
+ * The parameters of a Gaussian draw, or an error.
+ *
+ * Checked apart from the draw and before it, like a dice roll: the draw
+ * consumes twelve values of the sequence, and a refused call must leave the
+ * stream exactly where it was (RND-18).
+ */
+export function assertGaussian(mean: number, stdDev: number, clamp?: Truncation): void {
+    if (!Number.isFinite(mean)) {
+        throw new Error(`a gaussian mean must be a finite number: got ${mean}`);
+    }
+    if (!Number.isFinite(stdDev) || stdDev < 0) {
+        throw new Error(
+            `a gaussian standard deviation must be a finite number, at least zero: got ${stdDev}`,
+        );
+    }
+    if (clamp === undefined) {
+        return;
+    }
+    if (!Number.isFinite(clamp[0]) || !Number.isFinite(clamp[1]) || clamp[0] > clamp[1]) {
+        throw new Error(
+            `a gaussian truncation must be a finite interval, low bound first: got [${clamp[0]}, ${clamp[1]}]`,
+        );
     }
 }
 

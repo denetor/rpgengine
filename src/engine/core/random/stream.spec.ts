@@ -384,3 +384,112 @@ describe('int', () => {
         expect(afterInt).toBe(reference.next());
     });
 });
+
+describe('gaussian', () => {
+    it('centres its values on the mean', () => {
+        const stream = streamOf(34);
+        let sum = 0;
+
+        for (let draw = 0; draw < 10_000; draw += 1) {
+            sum += stream.gaussian(10, 2);
+        }
+
+        expect(sum / 10_000).toBeGreaterThan(9.9);
+        expect(sum / 10_000).toBeLessThan(10.1);
+    });
+
+    it('never leaves the six standard deviations the method can reach', () => {
+        const stream = streamOf(35);
+
+        for (let draw = 0; draw < 20_000; draw += 1) {
+            const value = stream.gaussian(0, 1);
+            expect(value).toBeGreaterThanOrEqual(-6);
+            expect(value).toBeLessThanOrEqual(6);
+        }
+    });
+
+    it('returns the mean itself for a standard deviation of zero', () => {
+        const stream = streamOf(36);
+
+        expect(stream.gaussian(7, 0)).toBe(7);
+    });
+
+    it('keeps every value inside the truncation interval', () => {
+        const stream = streamOf(37);
+        let touchedLow = 0;
+        let touchedHigh = 0;
+
+        for (let draw = 0; draw < 10_000; draw += 1) {
+            const value = stream.gaussian(0, 3, [-1, 2]);
+            expect(value).toBeGreaterThanOrEqual(-1);
+            expect(value).toBeLessThanOrEqual(2);
+            if (value === -1) {
+                touchedLow += 1;
+            }
+            if (value === 2) {
+                touchedHigh += 1;
+            }
+        }
+
+        // Truncation is a clamp, so both bounds are reached rather than avoided.
+        expect(touchedLow).toBeGreaterThan(0);
+        expect(touchedHigh).toBeGreaterThan(0);
+    });
+
+    it('consumes twelve values of the sequence, truncated or not', () => {
+        const stream = streamOf(38);
+        stream.gaussian(0, 1);
+        stream.gaussian(50, 12, [40, 60]);
+        const afterGaussians = stream.next();
+
+        const reference = streamOf(38);
+        for (let draw = 0; draw < 24; draw += 1) {
+            reference.next();
+        }
+
+        expect(afterGaussians).toBe(reference.next());
+    });
+
+    it('refuses a standard deviation that is negative or not finite', () => {
+        const stream = streamOf(39);
+
+        expect(() => stream.gaussian(0, -1)).toThrow(/standard deviation/);
+        expect(() => stream.gaussian(0, Number.NaN)).toThrow(/standard deviation/);
+        expect(() => stream.gaussian(0, Number.POSITIVE_INFINITY)).toThrow(/standard deviation/);
+    });
+
+    it('refuses a mean that is not finite', () => {
+        const stream = streamOf(40);
+
+        expect(() => stream.gaussian(Number.NaN, 1)).toThrow(/mean/);
+        expect(() => stream.gaussian(Number.POSITIVE_INFINITY, 1)).toThrow(/mean/);
+    });
+
+    it('refuses a truncation interval that is empty or not finite', () => {
+        const stream = streamOf(41);
+
+        expect(() => stream.gaussian(0, 1, [2, -2])).toThrow(/truncation/);
+        expect(() => stream.gaussian(0, 1, [Number.NaN, 2])).toThrow(/truncation/);
+        expect(() => stream.gaussian(0, 1, [-2, Number.POSITIVE_INFINITY])).toThrow(/truncation/);
+    });
+
+    it('accepts a truncation interval of a single point', () => {
+        const stream = streamOf(42);
+
+        expect(stream.gaussian(0, 1, [3, 3])).toBe(3);
+    });
+
+    it('reports the value it refused', () => {
+        expect(() => streamOf(43).gaussian(0, -2)).toThrow(/got -2/);
+    });
+
+    it('leaves the sequence untouched when it refuses a call', () => {
+        const stream = streamOf(44);
+
+        expect(() => stream.gaussian(0, -1)).toThrow();
+        expect(() => stream.gaussian(Number.NaN, 1)).toThrow();
+        expect(() => stream.gaussian(0, 1, [2, -2])).toThrow();
+
+        expect(stream.next()).toBe(streamOf(44).next());
+    });
+});

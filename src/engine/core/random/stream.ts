@@ -1,6 +1,16 @@
-import { assertDiceRoll, toBool, toInt, toPick, toShuffle, toWeighted } from './transforms';
+import {
+    assertDiceRoll,
+    assertGaussian,
+    GAUSSIAN_DRAWS,
+    toBool,
+    toGaussian,
+    toInt,
+    toPick,
+    toShuffle,
+    toWeighted,
+} from './transforms';
 import { nextUint32, stateFromSeed, toUnitInterval } from './xoshiro128';
-import type { RandomStream, WeightedEntry } from './types';
+import type { RandomStream, Truncation, WeightedEntry } from './types';
 
 /**
  * A single stream: a generator state, plus the transformations that read
@@ -64,6 +74,16 @@ export class Stream implements RandomStream {
             sum += toInt(this.next(), 1, faces+1);
         }
         return sum;
+    }
+
+    gaussian(mean: number, stdDev: number, clamp?: Truncation): number {
+        assertGaussian(mean, stdDev, clamp);
+
+        const uniforms: number[] = [];
+        for (let draw = 0; draw < GAUSSIAN_DRAWS; draw += 1) {
+            uniforms.push(this.next());
+        }
+        return toGaussian(uniforms, mean, stdDev, clamp);
     }
 
     pick<T>(items: readonly T[]): T {
