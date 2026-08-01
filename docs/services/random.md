@@ -44,15 +44,55 @@ interface RandomService {
   forget(channel: string): void;
 
   /** Diagnostics: live channels and the filter profile resolved for each (RND-21). */
-  channels(): readonly { channel: string; profile: string }[];
+  channels(): readonly ChannelReport[];
 
   serialize(): RandomState;
 }
 
-/** Restore is by construction, never through an instance method (RND-22). */
+/**
+ * Restore is by construction, never through an instance method (RND-22).
+ *
+ * The filter configuration is **not** in the save: it is static data, and a
+ * rebalanced `random.json` is meant to take effect on the next load. It is
+ * passed to both the constructor and the factory, and both accept its absence,
+ * which is the absence of the filter (RND-21).
+ */
 declare class Random implements RandomService {
-  static deserialize(state: RandomState): RandomService;
+  constructor(rootSeed: number, filter?: FilterConfig);
+  static deserialize(state: RandomState, filter?: FilterConfig): RandomService;
 }
+
+/** One live channel, and the profile resolved for it (RND-21). */
+interface ChannelReport {
+  channel: string;
+  /** `UNFILTERED_PROFILE` when the service was built without a configuration. */
+  profile: string;
+}
+
+/** The filter's data (RND-10), handed over already parsed: the service reads no files. */
+interface FilterConfig {
+  /** The profile for a channel no rule claims. Mandatory, and must exist. */
+  default: string;
+  profiles: Record<string, FilterProfile>;
+  /** Matched most-specific-first; ties go to the one declared earlier. */
+  rules?: FilterRule[];
+}
+
+interface FilterProfile {
+  /** What an outcome's weight is multiplied by when it comes up. In (0, 1]. */
+  reduction: number;
+  /** Over how many draws a reduced outcome returns to its nominal weight. At least 1. */
+  recovery: number;
+}
+
+/** `'lockpick:*'` matches a prefix; `'lockpick'` matches the whole name and nothing else. */
+interface FilterRule {
+  channel: string;
+  profile: string;
+}
+
+/** The profile reported for a channel on a service built without a configuration. */
+declare const UNFILTERED_PROFILE: 'none';
 
 /** `RND`'s own portion of the save: plain data, with a version of its own. */
 interface RandomState {
@@ -65,6 +105,16 @@ interface RandomState {
     words: number[];
     /** Present only if the stream was created with an explicit seed (RND-19). */
     seed?: number;
+  }[];
+  /** The live channels that have weights to remember, ordered by name (RND-13). */
+  channels: {
+    channel: string;
+    /**
+     * The current weight of each outcome as a fraction of its nominal weight,
+     * by position in the caller's table. Each in (0, 1]. The resolved profile
+     * is **not** here: it is static data, resolved again at load time.
+     */
+    multipliers: number[];
   }[];
 }
 
@@ -243,6 +293,30 @@ prefix**, with a mandatory default profile:
 Resolution **MUST** happen exactly once, when the channel is created, and stay stored with its state:
 no per-draw cost.
 
+When several rules match, the **most specific wins** — the longest prefix, and a rule without a `*`,
+which matches the whole name, beats every prefix. Rules of equal specificity are settled by
+declaration order, the earlier one winning. The tie-break is not decoration: without a total order
+the profile a channel gets would depend on how the configuration happened to be read.
+
+The **reduction and recovery are read together**: the reduction **multiplies** an outcome's weight
+when it comes up, and the recovery sets the fixed step `(1 - reduction) / recovery` **added** on
+every draw that lands elsewhere. `recovery` is therefore a number of draws exactly for an outcome
+reduced **once from full weight**; one that has come up several times climbs back in fewer draws
+than the count of reductions suggests, which is the intended shape — lean hard on a repeat, then let
+go.
+
+A reduction of zero **MUST** be refused: it would rule an outcome out for ever, which is the re-roll
+rule ADR 0002 rejects arriving in the data instead of in the code. For the same reason the weights
+**MUST** have a positive floor, so that a run of repeats stays possible rather than becoming
+arithmetically impossible.
+
+`'none'` **MUST** be reserved: it is the profile name `channels()` reports for a channel that is not
+filtered at all, and a real profile sharing it would restore the ambiguity RND-21 exists to remove. A
+configuration that defines it is refused.
+
+`channelCap` belongs to RND-20 and is not read yet; it joins `FilterConfig` with the eviction that
+gives it meaning.
+
 **RND-11** — *Retired.* It imposed termination of the filter within a maximum number of re-rolls.
 With weight readjustment (RND-9) there is no re-roll loop, so there is no termination to guarantee,
 nor the "only one possible outcome" edge case. The identifier is not reused (see `README.md`).
@@ -252,6 +326,10 @@ was absorbed into RND-9, which now *is* weight readjustment. The identifier is n
 
 **RND-13** — Channel state **MUST** be serialized: reloading a save **MUST NOT** reset the
 anti-repetition memory, otherwise saving becomes a way of manipulating outcomes.
+
+What is serialized is the **weights only**. The resolved profile is static data and **MUST** be
+resolved again at load time, so that a rebalanced `random.json` takes effect on the next load rather
+than being shadowed by a name written months earlier.
 
 **RND-14** — The documentation of every channel **MUST** state which technique it uses and why:
 techniques must be applied **where they are needed**, not everywhere. A boss's critical damage and a
@@ -336,11 +414,12 @@ Only what cannot be rebuilt from the seed is serialized:
 
 | | In the save | Why |
 |---|---|---|
-| state version | **yes** | ARC-10.2 |
+| state version | **yes** (currently **2**) | ARC-10.2 |
 | root seed | **yes** | everything else follows from it |
 | PRNG state of every **touched** stream | **yes** | it is the position in the sequence |
 | a stream's explicit seed, if passed | **yes** | RND-19 |
 | current weights, per live channel | **yes** | RND-13 |
+| the profile resolved for a channel | no | static data; resolved again at load time (RND-13) |
 | streams never requested | no | the seed is `hash(root seed, id)` |
 | the noise's permutation table | no | rebuilt from the stream's seed |
 

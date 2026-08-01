@@ -102,6 +102,15 @@ describe('weighted', () => {
         expect(() => streamOf(12).weighted([{ value: 'x', weight: 0 }])).toThrow(/weight/);
     });
 
+    it('leaves the sequence alone when it refuses a table', () => {
+        const stream = streamOf(12);
+
+        expect(() => stream.weighted([])).toThrow();
+        expect(() => stream.weighted([{ value: 'x', weight: 0 }])).toThrow();
+
+        expect(stream.next()).toBe(streamOf(12).next());
+    });
+
     it('consumes exactly one value of the sequence', () => {
         const stream = streamOf(13);
         stream.weighted([

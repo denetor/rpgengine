@@ -1,0 +1,33 @@
+{
+  "version": 1,
+  "about": [
+    "A golden vector of the filtered draw's distribution (RND-9, ADR 0002).",
+    "It does not assert that the distribution is right — the filter shifts it away from the nominal",
+    "weights by construction, and there is nothing to compare it against. It asserts that it has not",
+    "CHANGED: every edit to the reduction, the recovery, the resolution rules or the order in which a",
+    "draw touches the stream shows up here as a diff instead of as a silently different game.",
+    "Regenerating these counts is a deliberate act. The version above is bumped when they move, and",
+    "the commit that moves them says why."
+  ],
+  "seed": 4242,
+  "stream": "loot",
+  "draws": 10000,
+  "config": {
+    "default": "neutral",
+    "profiles": {
+      "neutral": { "reduction": 0.6, "recovery": 2 },
+      "lockpick": { "reduction": 0.25, "recovery": 5 }
+    },
+    "rules": [{ "channel": "lockpick:*", "profile": "lockpick" }]
+  },
+  "table": [
+    { "value": "common", "weight": 6 },
+    { "value": "uncommon", "weight": 3 },
+    { "value": "rare", "weight": 1 }
+  ],
+  "nominal": { "common": 6000, "uncommon": 3000, "rare": 1000 },
+  "channels": {
+    "loot:goblin": { "common": 4779, "uncommon": 3580, "rare": 1641 },
+    "lockpick:door:42": { "common": 4318, "uncommon": 3459, "rare": 2223 }
+  }
+}

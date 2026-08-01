@@ -15,8 +15,16 @@
 import { STATE_WORDS } from './xoshiro128';
 import type { StreamId } from './types';
 
-/** The version of this format. Bumped whenever the shape below changes. */
-export const RANDOM_STATE_VERSION = 1;
+/**
+ * The version of this format. Bumped whenever the shape below changes.
+ *
+ * Version 2 added `channels`, the anti-repetition memory of the filtered draw
+ * (RND-13). It is a **required** field rather than an optional one, and that is
+ * the reason for the bump: a state without it is a state from before the filter
+ * existed, and reading it as "no channels" would quietly reset the very memory
+ * RND-13 exists to preserve. Migrating between versions belongs to `SAVE`.
+ */
+export const RANDOM_STATE_VERSION = 2;
 
 /** The largest value a 32-bit generator word can hold. */
 const MAX_UINT32 = 4294967295;
@@ -40,11 +48,37 @@ export interface RandomStreamState {
     seed?: number;
 }
 
+/**
+ * One saved channel: the anti-repetition memory of a filtered draw (RND-13).
+ *
+ * The **resolved profile is not here**. Profiles are static data — they live in
+ * the game's `random.json`, not in the save — and a restore resolves them again
+ * from the configuration in force at load time, so that a rebalanced profile
+ * takes effect on the next load rather than being shadowed by a name written
+ * months ago.
+ */
+export interface RandomChannelState {
+    /** The channel's name, exactly as the caller wrote it (RND-15). */
+    channel: string;
+
+    /**
+     * The current weight of each outcome, as a fraction of its nominal weight,
+     * by position in the table the caller passes. Each in (0, 1].
+     */
+    multipliers: number[];
+}
+
 /** `RND`'s portion of a save. */
 export interface RandomState {
     version: number;
     rootSeed: number;
     streams: RandomStreamState[];
+
+    /**
+     * The live channels that have weights to remember. A channel on a service
+     * built without a filter configuration has none, and does not appear.
+     */
+    channels: RandomChannelState[];
 }
 
 /**
@@ -79,6 +113,49 @@ export function assertRandomState(state: RandomState): void {
             throw new Error(`random state: stream '${stream.id}' appears twice`);
         }
         seen.add(stream.id);
+    }
+
+    if (!Array.isArray(state.channels)) {
+        throw new Error('random state: expected a list of channels');
+    }
+
+    const named = new Set<string>();
+    for (const channel of state.channels) {
+        assertChannelState(channel);
+        if (named.has(channel.channel)) {
+            throw new Error(`random state: channel '${channel.channel}' appears twice`);
+        }
+        named.add(channel.channel);
+    }
+}
+
+/**
+ * Checks one saved channel.
+ *
+ * A multiplier outside (0, 1] is refused rather than clamped: above one it
+ * would make an outcome *more* likely than the table says, which is the
+ * opposite of what the filter does, and at or below zero it would rule the
+ * outcome out for ever — the re-roll rule ADR 0002 rejects, arriving through
+ * the save file instead of through the code.
+ */
+function assertChannelState(channel: RandomChannelState): void {
+    if (
+        channel === null ||
+        typeof channel !== 'object' ||
+        typeof channel.channel !== 'string' ||
+        channel.channel.length === 0
+    ) {
+        throw new Error('random state: a channel has no name');
+    }
+    if (!Array.isArray(channel.multipliers) || channel.multipliers.length === 0) {
+        throw new Error(`random state: channel '${channel.channel}' remembers no outcomes`);
+    }
+    for (const multiplier of channel.multipliers) {
+        if (!Number.isFinite(multiplier) || multiplier <= 0 || multiplier > 1) {
+            throw new Error(
+                `random state: channel '${channel.channel}' holds the multiplier '${String(multiplier)}', which is not a fraction of a weight`,
+            );
+        }
     }
 }
 

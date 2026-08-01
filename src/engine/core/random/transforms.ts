@@ -120,13 +120,13 @@ export function toBool(uniform: number, probability: number): boolean {
 }
 
 /**
- * The entry the uniform value lands on, each entry occupying a share of
- * [0, total) proportional to its weight.
+ * The weights of a table, or an error.
  *
- * The comparison is strict on the running total, so an entry of weight zero
- * occupies no share at all and can never come up.
+ * Checked apart from the draw and before it, like a dice roll: `filtered` needs
+ * the caller's own numbers named in the message, before it has adjusted them by
+ * anything the channel remembers, and before it has consumed a value (RND-18).
  */
-export function toWeighted<T>(uniform: number, entries: readonly WeightedEntry<T>[]): T {
+export function assertWeightedTable<T>(entries: readonly WeightedEntry<T>[]): void {
     if (entries.length === 0) {
         throw new Error('cannot draw from an empty weighted table');
     }
@@ -141,20 +141,60 @@ export function toWeighted<T>(uniform: number, entries: readonly WeightedEntry<T
     if (total <= 0) {
         throw new Error('a weighted table must have at least one entry of positive weight');
     }
+}
+
+/**
+ * The position the uniform value lands on, each weight occupying a share of
+ * [0, total) proportional to itself.
+ *
+ * The comparison is strict on the running total, so a weight of zero occupies
+ * no share at all and can never come up.
+ *
+ * This is where `weighted` and `filtered` meet: one passes the caller's nominal
+ * weights, the other the same weights scaled by what its channel remembers. The
+ * weights are expected to have been checked already — by `assertWeightedTable`,
+ * on the caller's own numbers.
+ */
+export function toWeightedIndex(uniform: number, weights: readonly number[]): number {
+    let total = 0;
+    for (const weight of weights) {
+        total += weight;
+    }
 
     const target = uniform * total;
     let cumulative = 0;
-    for (const entry of entries) {
-        cumulative += entry.weight;
+    for (let index = 0; index < weights.length; index += 1) {
+        cumulative += weights[index];
         if (target < cumulative) {
-            return entry.value;
+            return index;
         }
     }
 
     // Unreachable for a uniform value in [0, 1): the last cumulative total
     // equals `total`, and `target` is strictly below it. Kept because floating
     // point addition is not exact and the loop must have an answer.
-    return entries[entries.length - 1].value;
+    return weights.length - 1;
+}
+
+/** A table's weights on their own, which is all a draw needs from it. */
+export function weightsOf<T>(entries: readonly WeightedEntry<T>[]): number[] {
+    const weights: number[] = [];
+    for (const entry of entries) {
+        weights.push(entry.weight);
+    }
+    return weights;
+}
+
+/**
+ * The entry the uniform value lands on, with probability proportional to its
+ * weight.
+ *
+ * The table is expected to have been checked already, by `assertWeightedTable`
+ * and **before** the caller drew the uniform value: a refused table must leave
+ * the sequence exactly where it was (RND-18).
+ */
+export function toWeighted<T>(uniform: number, entries: readonly WeightedEntry<T>[]): T {
+    return entries[toWeightedIndex(uniform, weightsOf(entries))].value;
 }
 
 /**

@@ -62,6 +62,10 @@ and not with playing time.
   produces them yet. The acceptance criteria above name streams only, and the format grows
   additively: a `channels` field alongside `streams`, with a version bump only if the shape written
   today changes.
+  - **Superseded by ticket 06**, which added `channels` as a **required** field and bumped the
+    version to 2. The prediction above assumed an optional field; an optional one would read a
+    pre-filter save as "no channels" and silently reset the anti-repetition memory, which is exactly
+    what RND-13 forbids. Nothing consumed the format yet, so the bump cost nothing.
 - Tests in `serialization.spec.ts`, all through the same seam as the rest: a constructed service,
   the state it produces, and the service rebuilt from it. No test reads the generator's internals;
   the "plain data" test walks the state and rejects anything that is not a number, string, boolean,

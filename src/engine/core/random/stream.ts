@@ -11,6 +11,7 @@ import {
 import {
     assertDiceRoll,
     assertGaussian,
+    assertWeightedTable,
     GAUSSIAN_DRAWS,
     toBool,
     toGaussian,
@@ -19,6 +20,7 @@ import {
     toShuffle,
     toWeighted,
 } from './transforms';
+import type { Channels } from './channels';
 import { nextUint32, stateFromSeed, toUnitInterval } from './xoshiro128';
 import type { Permutation } from './noise';
 import type { FbmOptions, NoiseOptions, RandomStream, Truncation, WeightedEntry } from './types';
@@ -46,14 +48,22 @@ export class Stream implements RandomStream {
      */
     private readonly permutation: Permutation;
 
-    private constructor(state: Uint32Array, seed: number) {
+    /**
+     * The service's channel memories, shared with every other stream: a channel
+     * is named by the caller and belongs to the service, not to whichever
+     * stream happened to draw from it (RND-15).
+     */
+    private readonly channels: Channels;
+
+    private constructor(state: Uint32Array, seed: number, channels: Channels) {
         this.state = state;
         this.permutation = buildPermutation(seed);
+        this.channels = channels;
     }
 
     /** A stream at the start of the sequence the seed identifies. */
-    static fromSeed(seed: number): Stream {
-        return new Stream(stateFromSeed(seed), seed);
+    static fromSeed(seed: number, channels: Channels): Stream {
+        return new Stream(stateFromSeed(seed), seed, channels);
     }
 
     /**
@@ -66,8 +76,8 @@ export class Stream implements RandomStream {
      * not in the save unless it was explicit, because it is `hash(root seed,
      * id)` and restore recomputes it (RND-19).
      */
-    static fromWords(words: readonly number[], seed: number): Stream {
-        return new Stream(Uint32Array.from(words), seed);
+    static fromWords(words: readonly number[], seed: number, channels: Channels): Stream {
+        return new Stream(Uint32Array.from(words), seed, channels);
     }
 
     /**
@@ -114,8 +124,30 @@ export class Stream implements RandomStream {
         return toPick(this.next(), items);
     }
 
+    /**
+     * The table is checked **before** the draw, like a dice roll's bounds: a
+     * refused table must leave the sequence exactly where it was, or the same
+     * seed would produce different games depending on whether a caller's bug
+     * was hit (RND-18).
+     */
     weighted<T>(entries: readonly WeightedEntry<T>[]): T {
+        assertWeightedTable(entries);
+
         return toWeighted(this.next(), entries);
+    }
+
+    /**
+     * Checked before the draw for the same reason as `weighted` — and, on top
+     * of that, so that the message names the caller's own weight rather than
+     * the weight after the channel's memory has scaled it.
+     *
+     * Then exactly one value, once, for the whole draw: no re-roll loop
+     * (ADR 0002).
+     */
+    filtered<T>(channel: string, entries: readonly WeightedEntry<T>[]): T {
+        assertWeightedTable(entries);
+
+        return this.channels.draw(channel, entries, this.next());
     }
 
     shuffle<T>(items: readonly T[]): T[] {
