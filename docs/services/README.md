@@ -28,6 +28,7 @@ in the hub: [`../REQUIREMENTS.md`](../REQUIREMENTS.md). The features seen by the
 | `CFG` | [config.md](./config.md) | Balancing parameters and user settings |
 | `TIME` | [time.md](./time.md) | Game time, scheduler, world clock |
 | `RND` | [random.md](./random.md) | Seedable RNG, Gaussian, Perlin, filtered randomness |
+| `EXPR` | [expr.md](./expr.md) | Conditions and effects declared in data, evaluated once for all |
 | `SAVE` | [persistence.md](./persistence.md) | Saving, slots, versioning, migrations |
 | `INP` | [input.md](./input.md) | Abstract actions, contexts, rebinding, buffering |
 | `I18N` | [localization.md](./localization.md) | Texts by key, languages, plurals |

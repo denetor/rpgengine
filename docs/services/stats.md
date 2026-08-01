@@ -18,7 +18,7 @@ must make this model natural, not emulate it on top of a level-based system.
 
 | Item | Value |
 |---|---|
-| Depends on | — |
+| Depends on | `EXPR`, injected as an evaluator, for the derived-value formulas (STAT-6, EXPR-12) |
 | Does NOT depend on | `excalibur`, other services |
 | Consumed by | orchestration; `CBT`, `INV`, `DLG`, `ECO` receive the **values**, not the service |
 | Dynamic state | base values, per-skill experience, unlocked perks, active modifiers |

@@ -31,7 +31,7 @@ all as data. The lines live in the `.ink` files, the texts in the localization c
 
 | Item | Value |
 |---|---|
-| Depends on | the **inkjs** runtime (internal detail, DLG-18) · the shared **precondition/effect interpreter** (ARC-7.3) |
+| Depends on | the **inkjs** runtime (internal detail, DLG-18) · `EXPR`, injected as an evaluator (ARC-7.3, EXPR-14) |
 | Does NOT depend on | `excalibur`, `QST`, `FAC`, `STAT`, `INV`, other services |
 | Consumed by | orchestration, HUD |
 | Dynamic state | ink narrative variables, visit counts, active-conversation flag, compiled-story fingerprint |

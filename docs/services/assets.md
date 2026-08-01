@@ -17,7 +17,7 @@ which assets exist and how they are made (grids, frames, animations) is data, no
 |---|---|
 | Depends on | a **loading port** implemented by the presentation |
 | Does NOT depend on | `excalibur` in the manifest and in the index (only the port touches it) |
-| Consumed by | `presentation`, `REN`, `AUD`, `MAP` |
+| Consumed by | `presentation`, `REN` (from step 16 of §7.2 — see REN-16), `AUD`, `MAP` |
 | Dynamic state | which bundles are loaded |
 | Static state | the asset manifest |
 | External data | `content/assets.json` — manifest: id, path, kind, grid, animations, bundle |

@@ -15,7 +15,7 @@ this one exists to contain it. If the presentation/domain separation fails, it f
 
 | Item | Value |
 |---|---|
-| Depends on | `excalibur`, `AST`; observes the bus |
+| Depends on | `excalibur`; observes the bus · `AST` **deferred**: until step 16 of §7.2 it loads through Excalibur's `Loader` (REN-16) |
 | Does NOT depend on | any domain service, except for **reading** through views |
 | Consumed by | the game loop |
 | Dynamic state | `EntityId → Actor` map, actor pool, animation state |
@@ -90,6 +90,11 @@ look smooth.
 rendering adapter, and that is how the system tests run (ARC-1.4).
 
 **REN-15** — Shake and flash effects **MUST** respect the accessibility settings (GP-66, CFG-5).
+
+**REN-16** — This service is priority 1 and `AST` is priority 3: until `AST` exists, loading **MUST**
+go through Excalibur's own `Loader`, confined to a **single module** of the presentation, so that
+adopting `AST` (step 16 of [§7.2](../REQUIREMENTS.md#72--development-order)) is a change local to
+`REN`. No other file **MUST** construct an `ImageSource` or a `Sound` directly.
 
 ## Test criteria
 

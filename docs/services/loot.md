@@ -17,7 +17,7 @@ theories about how the game works.
 
 | Item | Value |
 |---|---|
-| Depends on | an `RND` stream |
+| Depends on | an `RND` stream · `EXPR`, injected as an evaluator, for the conditions on the tables (ARC-7.3, EXPR-14) |
 | Does NOT depend on | `excalibur`, `INV`, `ENT`, other services |
 | Consumed by | orchestration (on an entity's death, on opening a container) |
 | Dynamic state | pity counters · the state of the filtered channels belongs to `RND` (RND-9) |

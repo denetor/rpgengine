@@ -176,7 +176,8 @@ errors that state file, path and value. Invalid content **MUST** fail at load ti
 through a game.
 
 **ARC-7.3** — Preconditions and effects **MUST** be modelled as **discriminated unions**
-(`{ type: 'player-in-area', area: string }`) and evaluated by a dedicated **interpreter**. The
+(`{ type: 'player-in-area', area: string }`) and evaluated by a dedicated **interpreter** — `EXPR`,
+one for the whole project (see [`services/expr.md`](./services/expr.md)). The
 repositories **read** the data: they do not contain it and do not interpret it.
 
 **ARC-7.4** — A game or narrative designer **MUST** be able to modify the content **without
@@ -303,6 +304,7 @@ entities/calls it must cope with.
 | `CFG` | Config and balancing | [config.md](./services/config.md) | G | 1 |
 | `TIME` | Game time and scheduler | [time.md](./services/time.md) | G | 1 |
 | `RND` | Random numbers | [random.md](./services/random.md) | G | 1 |
+| `EXPR` | Precondition and effect interpreter | [expr.md](./services/expr.md) | G | 2 |
 | `SAVE` | Persistence | [persistence.md](./services/persistence.md) | G | 2 |
 | `INP` | Input | [input.md](./services/input.md) | G | 2 |
 | `I18N` | Localization | [localization.md](./services/localization.md) | G | 3 |
@@ -357,7 +359,7 @@ entities/calls it must cope with.
 src/
 ├─ engine/                    Generic and reusable. No import from excalibur.
 │  ├─ core/
-│  │  ├─ event-bus/  game-context/  config/  time/  random/
+│  │  ├─ event-bus/  game-context/  config/  time/  random/  expr/
 │  │  └─ persistence/  input/  i18n/  assets/
 │  ├─ world/
 │  │  └─ map/  map-generation/  spatial-index/  entity-registry/
@@ -400,7 +402,7 @@ flowchart TB
     C[game/content + balance<br/>data]
     S[engine/systems<br/>quest, dialog, combat, inventory, loot,<br/>faction, stats, economy, crime]
     W[engine/world + agents<br/>map, spatial-index, entity-registry,<br/>utility-ai, blackboard, pathfinding, affordance]
-    K[engine/core<br/>event-bus, game-context, config, time,<br/>random, persistence, input, i18n, assets]
+    K[engine/core<br/>event-bus, game-context, config, time,<br/>random, expr, persistence, input, i18n, assets]
 
     P --> O
     P --> K
@@ -431,13 +433,222 @@ None of the services involved knows that the others exist.
 | Prio | Content | Goal |
 |---|---|---|
 | **1 — Foundations** | `BUS` `CTX` `CFG` `TIME` `RND` `ENT` `MAP` `REN` | A world that loads, draws and moves, with the correct architecture from day one |
-| **2 — Minimum game** | `SPX` `INP` `STAT` `CBT` `INV` `QST` `DLG` `SAVE` | A complete game loop: explore, fight, talk, collect, save |
+| **2 — Minimum game** | `SPX` `INP` `EXPR` `STAT` `CBT` `INV` `QST` `DLG` `SAVE` | A complete game loop: explore, fight, talk, collect, save |
 | **3 — Depth** | `AI` `BB` `PATH` `LOOT` `FAC` `GEN` `HUD` `CAM` `I18N` `AST` | Believable NPCs, a varied world, a complete interface |
 | **4 — Simulation** | `AFF` `ECO` `CRM` `AUD` | A reactive, systemic world |
 
 A cross-cutting rule: **ARC-1, ARC-2, ARC-4, ARC-8, ARC-11 and ARC-14 hold from the first commit.**
 They are structural constraints: adding them later means rewriting, as documented in
 [`previous-version/ASSESSMENT-REPORT.md`](./previous-version/ASSESSMENT-REPORT.md).
+
+### 7.1 — Dependency and priority tree
+
+Priority says *how much a service is worth*; this tree says *what it needs before it can exist*. The
+two are independent axes, and where they disagree the tree wins: building a service before its
+prerequisites means faking them twice, once in the tests and once in the game.
+
+**The arrows here are not the arrows of §6.** In §6 they are imports between layers. Here `A → B`
+means *"A must be usable before B can be written and tested honestly"*, and it covers three kinds of
+link — none of which is an import from one service to another, so ARC-4.1 stays intact:
+
+| Link | Meaning | Example |
+|---|---|---|
+| **injected value** | B receives a value produced by A, never the service itself | `RND → CBT`: a stream, not `RandomService` |
+| **port** | B declares an abstract port that only becomes implementable once A exists | `MAP + ENT → PATH`: the navigability port `(x,y) → cost` |
+| **owned data** | B operates on state that A owns and hands over | `ENT → SPX`: positions to index |
+
+```mermaid
+flowchart LR
+    subgraph L0["L0 — no prerequisites"]
+        RND["RND · p1 · done"]
+        BUS["BUS · p1"]
+        CFG["CFG · p1"]
+        TIME["TIME · p1"]
+        MAP["MAP · p1"]
+        ENT["ENT · p1"]
+        INV["INV · p2"]
+        FAC["FAC · p3"]
+        BB["BB · p3"]
+        I18N["I18N · p3"]
+        EXPR["EXPR · p2"]
+    end
+
+    subgraph L1["L1 — one injected value"]
+        SPX["SPX · p2"]
+        STAT["STAT · p2"]
+        CBT["CBT · p2"]
+        QST["QST · p2"]
+        DLG["DLG · p2"]
+        GEN["GEN · p3"]
+        AI["AI · p3"]
+        LOOT["LOOT · p3"]
+        ECO["ECO · p4"]
+    end
+
+    subgraph L2["L2 — a port over another service"]
+        PATH["PATH · p3"]
+        SAVE["SAVE · p2"]
+        AFF["AFF · p4"]
+        CRM["CRM · p4"]
+    end
+
+    subgraph L3["L3 — a port onto excalibur / the DOM"]
+        INP["INP · p2"]
+        AST["AST · p3"]
+        REN["REN · p1"]
+        CAM["CAM · p3"]
+        HUD["HUD · p3"]
+        AUD["AUD · p4"]
+    end
+
+    RND --> CBT
+    RND --> GEN
+    RND --> AI
+    RND --> LOOT
+    RND --> ECO
+    EXPR --> STAT
+    EXPR --> QST
+    EXPR --> DLG
+    EXPR --> LOOT
+    ENT --> SPX
+    ENT --> PATH
+    MAP --> PATH
+    ENT --> AFF
+    SPX --> AFF
+    SPX --> CRM
+    INV --> SAVE
+    QST --> SAVE
+    ENT --> REN
+    MAP --> REN
+    REN --> CAM
+    CFG --> CAM
+    INP --> HUD
+    I18N --> HUD
+    AST --> AUD
+    CFG --> AUD
+    AST -.deferred.-> REN
+```
+
+**L0 — start here.** Eleven services have no prerequisite at all: they receive everything they need
+as constructor parameters and are testable headless from the first line. `RND` is done; `BUS`, `CFG`,
+`TIME`, `MAP` and `ENT` are the priority-1 ones left, and they can be developed in any order, even in
+parallel. Nothing in the project is blocked on anything else at this level.
+
+**L1 — one injected value.** Each of these needs exactly one thing to already exist: an `RND` stream
+(`CBT`, `GEN`, `AI`, `LOOT`, `ECO`), the shared expression interpreter (`STAT`, `QST`, `DLG`,
+`LOOT`), or another service's data (`SPX` indexes positions that `ENT` owns). `DLG` additionally
+needs the **inkjs** runtime (ADR-0003), which is not yet in `package.json`.
+
+**L2 — a port over another service.** The prerequisite is not a value but a *seam*: the port can be
+declared early, but it can only be implemented — and therefore the service only meaningfully tested
+against the real world — once the services underneath it exist. `SAVE` is the special case: its
+prerequisite is not one service but the `serialize()`/`deserialize()` of whichever services already
+hold dynamic state (ARC-10.2), so it grows with them rather than waiting for all of them.
+
+**L3 — a port onto excalibur or the DOM.** `INP` and `AST` are engine services whose port is
+implemented by the presentation; `REN`, `CAM`, `HUD` and `AUD` are the presentation. `REN` is where
+priority and prerequisites pull hardest against each other: it is priority 1, but it has nothing to
+draw until `ENT` and `MAP` exist.
+
+**`CTX` is not in the tree, on purpose.** It is not a step but an invariant: it is built once
+(CTX-1) and gains one field per service as the services appear. It is touched at every level, and it
+is never *finished*.
+
+Two nodes in the tree needed a decision before the tree could be read at all:
+
+- **`EXPR`** — the shared precondition/effect interpreter of ARC-7.3 was a prerequisite of `QST`,
+  `DLG`, `LOOT` and `STAT-6` with no ID, no sheet and no owner. It is now a **core infrastructure
+  service** ([expr.md](./services/expr.md), priority 2), injected into its consumers' constructors
+  exactly as an `RND` stream is: that is the dependency ARC-4.1 explicitly allows, and it is why four
+  rules services can share it without importing one another.
+- **`AST -.deferred.-> REN`** — [`rendering.md`](./services/rendering.md) lists `AST` among `REN`'s
+  dependencies, but `REN` is priority 1 and `AST` is priority 3. Rather than move either priority,
+  the dependency is **deferred**: early `REN` loads through Excalibur's own `Loader` (as
+  `src/resources.ts` already does), and adopting `AST` at step 16 is a refactor local to `REN`. The
+  sheet records this; the dashed arrow is the reminder.
+
+### 7.2 — Development order
+
+§7.1 says what is *possible*; this is what is *advisable*. The order below is not a stricter reading
+of the tree: among the many sequences the tree allows, it picks the one that reaches a **playable
+Excalibur test scene** as early as possible, and that never asks for a service to be faked twice.
+
+Three rules shape it:
+
+1. **Every step ends in a testbed scene.** A service that only has headless specs is verified but not
+   *integrated*: the scene is what proves that the presentation can drive it without violating ARC-1.
+   The exception is stated explicitly in the table (`EXPR`).
+2. **The architectural constraints come before the services that would violate them.** ARC-14 (the
+   boundary check) is worth almost nothing on day 100 and almost everything on day 1: it is step 1,
+   not a later cleanup.
+3. **Priority breaks ties, it does not override prerequisites.** Where two steps are equally
+   unblocked, the lower `Prio` goes first.
+
+#### Steps
+
+| # | Content | Prio | Prerequisite | Testbed scene | What the step proves |
+|---|---|---|---|---|---|
+| **0** | `RND` + headless runner | 1 | — | *(script)* | **Done.** ARC-11.1, ARC-9.2, ADR-0001 |
+| **1** | Folder layout + boundary check | — | — | `sandbox` (the current template) | ARC-14.2 rules 1…6 fail the build |
+| **2** | `CFG` · `BUS` | 1 | — | `bus` — events published and traced on screen | ARC-5.1, ARC-5.4, ARC-12.1 |
+| **3** | `TIME` + first `CTX` | 1 | `CFG` `BUS` | `clock` — game time, scale, pause, timers firing | ARC-8.2, ARC-9.3, CTX-1, CTX-2 |
+| **4** | `ENT` | 1 | — | `entities` — spawn, components added and removed live | ARC-6.1…6.4, ARC-5.2 |
+| **5** | `MAP` | 1 | — | `map` — grid drawn, walkability overlay, cell query on click | MAP-1…MAP-9, ARC-1.2 |
+| **6** | `REN` | 1 | `ENT` `MAP` | `render` — steps 4 and 5 rebuilt through the adapter | ARC-1.3, REN-1, REN-2 |
+| **7** | `INP` | 2 | presentation port | `input` — movement by abstract actions, rebinding, contexts | ARC-1.4, INP contexts |
+| **8** | `SPX` | 2 | `ENT` | `proximity` — radius queries drawn over the entities | ARC-6.3, ARC-13.1 |
+| **9** | `EXPR` | 2 | — | *(headless only)* | ARC-7.2, ARC-7.3, ARC-3.4 |
+| **10** | `STAT` · `INV` | 2 | `EXPR` (for STAT-6) | `character` — attributes, modifiers by origin, carrying capacity | ARC-7.1, ARC-10.1 |
+| **11** | `CBT` | 2 | `RND` stream | `combat` — a fight replayed identically from the same seed | ARC-9.1, ARC-4.2 |
+| **12** | `QST` · `DLG` | 2 | `EXPR`, inkjs | `dialog` — a conversation that advances a quest | ARC-7.4, ADR-0003 |
+| **13** | `SAVE` | 2 | the state of steps 3…12 | `save` — the whole scene saved, reloaded, and identical | ARC-10.2…10.4 |
+| **14** | `PATH` · `AI` · `BB` | 3 | `MAP` `ENT` · `RND` | `agents` — NPCs that decide and move on their own | ARC-13.2 |
+| **15** | `LOOT` · `FAC` · `GEN` | 3 | `RND` · `EXPR` | `world` — a generated map, drops, reputation | ADR-0002 |
+| **16** | `HUD` · `CAM` · `I18N` · `AST` | 3 | `INP` `REN` | the game's own scenes, no longer the testbed | ARC-12.2, ARC-12.3 |
+| **17** | `AFF` · `ECO` · `CRM` · `AUD` | 4 | `SPX` `AST` | — | the systemic world of §4 |
+
+#### The three steps that are not obvious
+
+**Step 1 — the layout, before any service.** `src/` still holds the Excalibur template (`main.ts`,
+`level.ts`, `player.ts`, `resources.ts` at the root) alongside the one real service, and the RND
+testbed is a Node script outside both worlds. The step moves the template under `src/presentation/`,
+opens `src/game/bootstrap.ts`, and adds `src/presentation/testbed/` with a scene registry selected by
+query string (`?scene=map`). The cost of this move grows with every file added afterwards, and the
+boundary check of ARC-14 cannot even be configured until the folders it names exist. It is the only
+step with no service in it, and the only one that must not be postponed.
+
+**Step 3 — where the architecture stops being a document.** `TIME` is pumped by Excalibur's update
+loop: it is the first seam where the presentation drives the domain instead of being it. Together
+with a `GameContext` of four fields it makes ARC-8.3 testable — two independent games in one
+process — which is the practical check that no global state has crept in. Getting here late means
+discovering the leaks after twelve services have been built on top of them.
+
+**Step 6 — `REN` closes tier 1, it does not open it.** Steps 4 and 5 will bind entities to `Actor`s
+in the quickest way that works, inside the testbed scene. That is deliberate: the shape of the
+adapter is easier to see once there are two concrete cases to generalize than before either exists.
+Step 6 is where that ad-hoc binding is pulled into `REN` and the domain state is checked to contain
+no `Actor` (ARC-1.3). Skipping the step, and leaving the binding in the scenes, is the exact failure
+that [`previous-version/ASSESSMENT-REPORT.md`](./previous-version/ASSESSMENT-REPORT.md) documents.
+
+#### Definition of done for a step
+
+A step is closed when all four hold — the fourth is the one usually forgotten:
+
+1. Headless specs green, including the property tests where the service produces random or
+   statistical values (ARC-11.2).
+2. A testbed scene that drives the service through the presentation, with no import that the
+   boundary check forbids.
+3. The service sheet moved from `Status: proposed` to `Status: implemented`, with the API it actually
+   exposes, and a spec in [`specs/`](./specs/) if the service needed design decisions of its own.
+4. The `GameContext` extended with the new field, and `dispose()` handling it (CTX-1).
+
+#### Where the order is free
+
+Steps 0…6 are a chain: each one is the shortest path to the next. From step 7 onwards the sequence
+loosens — `INP`, `SPX`, `EXPR`, `STAT`/`INV` and `CBT` share no prerequisites and can be reordered or
+run in parallel without any of them faking the others. The single hard constraint late in the list is
+that **`SAVE` comes after the services whose state it serializes**, not before: a save format designed
+against imagined state is a migration to write twice.
 
 ---
 

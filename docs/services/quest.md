@@ -15,7 +15,7 @@ particular. "Find Aramis's sword" is a file, not a class.
 
 | Item | Value |
 |---|---|
-| Depends on | the shared **precondition/effect interpreter** (ARC-7.3) |
+| Depends on | `EXPR`, the shared precondition/effect interpreter, injected as an evaluator (ARC-7.3, EXPR-14) |
 | Does NOT depend on | `excalibur`, `INV`, `DLG`, `ENT`, other services |
 | Consumed by | orchestration, HUD (journal), `DLG` (through the evaluator) |
 | Dynamic state | state of every quest, achieved objectives, counters, timestamps |
