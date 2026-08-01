@@ -106,74 +106,77 @@ requires and that does not exist today.
 20. As a **game programmer**, I want convenience primitives (integer in a range, boolean with a
     probability, choice from a list, shuffling), so that I do not rewrite the same conversions from
     the uniform distribution every time.
+21. As a **game programmer**, I want the dice roll (`NdF`) as a primitive, so that the rules of the
+    game can be written in the notation they are designed in, and so that the sum of several dice
+    keeps the bell shape it is chosen for instead of being flattened into a range of integers.
 
 ### Filtered randomness
 
-21. As a **player**, I want not to see the same item drop seven times in a row from the same enemy,
+22. As a **player**, I want not to see the same item drop seven times in a row from the same enemy,
     so that I do not conclude that the game is buggy.
-22. As a **player**, I want the anti-repetition not to become a predictable rule, so that I cannot
+23. As a **player**, I want the anti-repetition not to become a predictable rule, so that I cannot
     know in advance that the next hit will not be a critical.
-23. As a **game programmer**, I want to declare a **channel** at draw time, so that I decide which
+24. As a **game programmer**, I want to declare a **channel** at draw time, so that I decide which
     sequences are separate and which are shared.
-24. As a **game programmer**, I want the service not to infer granularity from the entity type, so
+25. As a **game programmer**, I want the service not to infer granularity from the entity type, so
     that it is my code that establishes whether each door has its own sequence or all the doors
     share one.
-25. As a **game designer**, I want to be able to adjust how much the weight of an outcome that has
+26. As a **game designer**, I want to be able to adjust how much the weight of an outcome that has
     just come up is reduced and over how many draws it recovers, so that I can tune the feel without
     recompiling.
-26. As a **game designer**, I want to group those parameters into **filter profiles** and assign them
+27. As a **game designer**, I want to group those parameters into **filter profiles** and assign them
     by channel-name prefix, so that I can apply them to channels that come into existence at runtime
     and cannot be listed in a file.
-27. As a **game designer**, I want a mandatory default profile, so that a channel matching no rule
+28. As a **game designer**, I want a mandatory default profile, so that a channel matching no rule
     still has a defined behaviour.
-28. As a **player**, I want saving and reloading not to reset the anti-repetition memory, so that
+29. As a **player**, I want saving and reloading not to reset the anti-repetition memory, so that
     saving is not a way of manipulating outcomes.
-29. As a **game programmer**, I want channel memory not to grow without bound, so that a fifty-hour
+30. As a **game programmer**, I want channel memory not to grow without bound, so that a fifty-hour
     game does not drag the sequences of thousands of entities that no longer exist into the save.
-30. As a **game programmer**, I want to be able to declare explicitly that a channel is no longer
+31. As a **game programmer**, I want to be able to declare explicitly that a channel is no longer
     needed, so as to free its memory when I know the entity is dead.
-31. As an **engine maintainer**, I want automatic eviction to be deterministic and not depend on the
+32. As an **engine maintainer**, I want automatic eviction to be deterministic and not depend on the
     system clock, so that it does not introduce a divergence between two otherwise identical games.
-32. As a **game programmer**, I want to be able to list the live channels and the profile resolved
+33. As a **game programmer**, I want to be able to list the live channels and the profile resolved
     for each, so as to notice that a channel I thought was filtered is not.
-33. As a **game programmer**, I want the filter simply to be inactive without configuration, so that
+34. As a **game programmer**, I want the filter simply to be inactive without configuration, so that
     the service works in a project that does not use it and in the reusability tests.
 
 ### Saving
 
-34. As a **player**, I want reloading a game to resume the random sequences from the exact point, so
+35. As a **player**, I want reloading a game to resume the random sequences from the exact point, so
     that I cannot replay the same moment with different outcomes.
-35. As a **game programmer**, I want restore to happen by **construction** and not through a method
+36. As a **game programmer**, I want restore to happen by **construction** and not through a method
     called afterwards, so that there is no instant in which the service is alive but holds the
     randomness of the wrong game.
-36. As a **game programmer**, I want the serialized state to have a version number of its own, so
+37. As a **game programmer**, I want the serialized state to have a version number of its own, so
     that I can migrate it without touching the format of the other services.
-37. As a **game programmer**, I want only what cannot be rebuilt from the seed to be saved, so that
+38. As a **game programmer**, I want only what cannot be rebuilt from the seed to be saved, so that
     the save grows with actual usage and not with playing time.
 
 ### Structure and performance
 
-38. As a **game programmer**, I want `RND` neither to import nor to receive other services, so that
+39. As a **game programmer**, I want `RND` neither to import nor to receive other services, so that
     it stays testable on its own and reusable in another project.
-39. As a **game programmer**, I want the parameters to arrive already validated in the constructor
+40. As a **game programmer**, I want the parameters to arrive already validated in the constructor
     and the service not to read files, so that invalid content fails at load time and not halfway
     through a game.
-40. As a **game programmer**, I want to be able to construct two independent services in the same
+41. As a **game programmer**, I want to be able to construct two independent services in the same
     process, so that the tests do not share state and two games can coexist.
-41. As a **generation programmer**, I want to be able to sample the noise hundreds of thousands of
+42. As a **generation programmer**, I want to be able to sample the noise hundreds of thousands of
     times per map without stutters, so that generation does not freeze the game.
-42. As an **engine maintainer**, I want impurity to be confined to two operations only — advancing a
+43. As an **engine maintainer**, I want impurity to be confined to two operations only — advancing a
     stream, updating a channel's memory — so that the rest can be reasoned about as a pure
     transformation.
 
 ### Testing
 
-43. As an **engine maintainer**, I want a headless test runner separate from the integration one, so
+44. As an **engine maintainer**, I want a headless test runner separate from the integration one, so
     that I can test the services without starting a browser.
-44. As an **engine maintainer**, I want the cross-engine reproducibility promise to be verified on
+45. As an **engine maintainer**, I want the cross-engine reproducibility promise to be verified on
     several real engines, so that it does not remain a statement of intent — today "two instances
     with the same seed" runs on a single engine and always passes.
-45. As an **engine maintainer**, I want the service to be exercised with made-up channels and
+46. As an **engine maintainer**, I want the service to be exercised with made-up channels and
     distributions, foreign to this game, so as to prove that it really is generic.
 
 ## Implementation Decisions
@@ -222,7 +225,9 @@ declare function deserialize(state: RandomState): RandomService;
    order. The lacunarity of the octaves is applied by repeated multiplication, never with
    `Math.pow`.
 6. **The consumption table is part of the contract**: `next`, `int`, `bool`, `pick`, `weighted`,
-   `shuffle`, `gaussian` and `filtered` advance the stream; `noise2` and `fbm2` do not.
+   `shuffle`, `gaussian`, `diceRoll` (one draw per die) and `filtered` advance the stream; `noise2`
+   and `fbm2` do not. A call refused for invalid parameters — `diceRoll` validates its bounds before
+   rolling — consumes nothing: a caller's bug must not shift the sequence.
 7. **Filtered randomness by weight readjustment**, never by re-rolling: the channel memory holds the
    current weight of each outcome, reduced when it comes up and recovered over the following draws.
    No re-roll loop, hence no termination to guarantee (ADR 0002).
@@ -310,6 +315,7 @@ observable from a single engine. The golden vectors are therefore also run insid
 | Stream independence | consuming 1000 values from one does not alter another's sequence |
 | Independence from creation (RND-19) | creating a new stream does not alter any other; `stream(id)` twice → the same instance |
 | Uniformity | χ² on buckets for `next` and `int` |
+| Dice (RND-23) | one die flat over [1, faces], **highest face included**; the sum of N dice inside [N, faces × N], both ends reached, peak in the middle (2d6 at 7 ≈ 6/36); one draw consumed per die, none for a count of zero; invalid bounds refused with the value in the message and **without advancing the sequence** |
 | Gaussian | sample mean and σ within tolerance over 10⁵ samples; truncation does not shift the mean beyond the declared limit; no sample beyond ±6σ |
 | Noise | continuity between nearby samples, determinism per coordinate, independence from order; sampling does not alter the stream's sequence |
 | Filter | consecutive repetitions collapse compared with the unfiltered weighted draw; **monotonicity** (`w(a) > w(b)` ⇒ `freq(a) ≥ freq(b)`); a **golden vector of the distribution** measured for a fixed configuration |

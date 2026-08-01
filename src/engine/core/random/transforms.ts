@@ -13,6 +13,22 @@ export function toInt(uniform: number, minIncl: number, maxExcl: number): number
 }
 
 /**
+ * The parameters of a dice roll, or an error.
+ *
+ * It is checked apart from the roll itself, and before it, because the roll
+ * consumes one value of the sequence per die: a refused roll must leave the
+ * stream exactly where it was (RND-18).
+ */
+export function assertDiceRoll(faces: number, count: number): void {
+    if (!Number.isInteger(faces) || faces < 1) {
+        throw new Error(`a die must have a whole number of faces, at least one: got ${faces}`);
+    }
+    if (!Number.isInteger(count) || count < 0) {
+        throw new Error(`a roll must be a whole number of dice, at least zero: got ${count}`);
+    }
+}
+
+/**
  * True with the given probability, from one uniform value.
  *
  * The comparison is strict and the uniform value never reaches 1, so

@@ -184,6 +184,172 @@ describe('bool', () => {
     });
 });
 
+describe('diceRoll', () => {
+    it('stays inside [1, faces] for a single die', () => {
+        const stream = streamOf(18);
+
+        for (let roll = 0; roll < 10_000; roll += 1) {
+            const value = stream.diceRoll(6);
+            expect(Number.isInteger(value)).toBe(true);
+            expect(value).toBeGreaterThanOrEqual(1);
+            expect(value).toBeLessThanOrEqual(6);
+        }
+    });
+
+    it('reaches every face, the highest one included', () => {
+        const stream = streamOf(19);
+        const seen = new Set<number>();
+
+        for (let roll = 0; roll < 1000; roll += 1) {
+            seen.add(stream.diceRoll(6));
+        }
+
+        expect([...seen].sort((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    });
+
+    it('rolls one die when the count is left out', () => {
+        const stream = streamOf(20);
+        const afterDefault = stream.diceRoll(20);
+
+        const reference = streamOf(20);
+        expect(reference.diceRoll(20, 1)).toBe(afterDefault);
+    });
+
+    it('sums the dice it rolls, and stays inside the reachable range', () => {
+        const stream = streamOf(21);
+        const faces = 6;
+        const count = 3;
+
+        for (let roll = 0; roll < 10_000; roll += 1) {
+            const value = stream.diceRoll(faces, count);
+            expect(Number.isInteger(value)).toBe(true);
+            expect(value).toBeGreaterThanOrEqual(count);
+            expect(value).toBeLessThanOrEqual(faces * count);
+        }
+    });
+
+    it('reaches both ends of the sum of several dice', () => {
+        const stream = streamOf(22);
+        const seen = new Set<number>();
+
+        for (let roll = 0; roll < 20_000; roll += 1) {
+            seen.add(stream.diceRoll(4, 2));
+        }
+
+        expect([...seen].sort((a, b) => a - b)).toEqual([2, 3, 4, 5, 6, 7, 8]);
+    });
+
+    it('is flat over the faces of a single die', () => {
+        const stream = streamOf(23);
+        const faces = 6;
+        const rolls = 60_000;
+        const counts = new Map<number, number>();
+
+        for (let roll = 0; roll < rolls; roll += 1) {
+            const value = stream.diceRoll(faces);
+            counts.set(value, (counts.get(value) ?? 0) + 1);
+        }
+
+        const expectedCount = rolls / faces;
+        expect(counts.size).toBe(faces);
+        for (const count of counts.values()) {
+            expect(count).toBeGreaterThan(expectedCount * 0.9);
+            expect(count).toBeLessThan(expectedCount * 1.1);
+        }
+    });
+
+    it('peaks in the middle for two dice, as a sum should', () => {
+        const stream = streamOf(24);
+        const rolls = 60_000;
+        const counts = new Map<number, number>();
+
+        for (let roll = 0; roll < rolls; roll += 1) {
+            const value = stream.diceRoll(6, 2);
+            counts.set(value, (counts.get(value) ?? 0) + 1);
+        }
+
+        // Of the 36 outcomes of 2d6, one sums to 2 and six sum to 7.
+        expect((counts.get(7) ?? 0) / rolls).toBeCloseTo(6 / 36, 2);
+        expect((counts.get(2) ?? 0) / rolls).toBeCloseTo(1 / 36, 2);
+    });
+
+    it('always gives one face back for a one-faced die', () => {
+        const stream = streamOf(25);
+
+        for (let roll = 0; roll < 1000; roll += 1) {
+            expect(stream.diceRoll(1)).toBe(1);
+            expect(stream.diceRoll(1, 4)).toBe(4);
+        }
+    });
+
+    it('consumes one value of the sequence per die', () => {
+        const stream = streamOf(26);
+        stream.diceRoll(6, 3);
+        const afterRoll = stream.next();
+
+        const reference = streamOf(26);
+        reference.next();
+        reference.next();
+        reference.next();
+
+        expect(afterRoll).toBe(reference.next());
+    });
+
+    it('leaves the sequence alone for a count of zero', () => {
+        const stream = streamOf(27);
+
+        expect(stream.diceRoll(6, 0)).toBe(0);
+        expect(stream.next()).toBe(streamOf(27).next());
+    });
+
+    it('refuses a die that has no faces to land on', () => {
+        const stream = streamOf(28);
+
+        expect(() => stream.diceRoll(0)).toThrow(/faces/);
+        expect(() => stream.diceRoll(-6)).toThrow(/faces/);
+    });
+
+    it('refuses a die whose faces are not whole', () => {
+        const stream = streamOf(29);
+
+        expect(() => stream.diceRoll(6.5)).toThrow(/faces/);
+        expect(() => stream.diceRoll(Number.NaN)).toThrow(/faces/);
+        expect(() => stream.diceRoll(Number.POSITIVE_INFINITY)).toThrow(/faces/);
+    });
+
+    it('refuses a count that is negative or not whole', () => {
+        const stream = streamOf(30);
+
+        expect(() => stream.diceRoll(6, -1)).toThrow(/dice/);
+        expect(() => stream.diceRoll(6, 2.5)).toThrow(/dice/);
+        expect(() => stream.diceRoll(6, Number.NaN)).toThrow(/dice/);
+        expect(() => stream.diceRoll(6, Number.POSITIVE_INFINITY)).toThrow(/dice/);
+    });
+
+    it('reports the value it refused', () => {
+        expect(() => streamOf(31).diceRoll(0)).toThrow(/got 0/);
+        expect(() => streamOf(31).diceRoll(6, -2)).toThrow(/got -2/);
+    });
+
+    it('leaves the sequence untouched when it refuses a roll', () => {
+        const stream = streamOf(32);
+
+        expect(() => stream.diceRoll(0)).toThrow();
+        expect(() => stream.diceRoll(6, -1)).toThrow();
+        expect(() => stream.diceRoll(-1, 3)).toThrow();
+
+        expect(stream.next()).toBe(streamOf(32).next());
+    });
+
+    it('checks the faces before rolling any die at all', () => {
+        const stream = streamOf(33);
+
+        // A count of zero would consume nothing anyway: the point is that the
+        // faces are refused on their own merits, not because nothing was rolled.
+        expect(() => stream.diceRoll(0, 0)).toThrow(/faces/);
+    });
+});
+
 describe('int', () => {
     it('stays inside the half-open range', () => {
         const stream = streamOf(1);

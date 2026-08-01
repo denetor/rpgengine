@@ -24,6 +24,12 @@ export interface RandomStream {
     /** True with the given probability. */
     bool(probability: number): boolean;
 
+    /**
+     * The sum of `count` dice of `faces` faces each, every die in [1, faces].
+     * One die by default; a count of zero rolls nothing and sums to zero.
+     */
+    diceRoll(faces: number, count?: number): number;
+
     /** One element of the list, uniformly. Throws on an empty list. */
     pick<T>(items: readonly T[]): T;
 

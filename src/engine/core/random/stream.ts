@@ -1,4 +1,4 @@
-import { toBool, toInt, toPick, toShuffle, toWeighted } from './transforms';
+import { assertDiceRoll, toBool, toInt, toPick, toShuffle, toWeighted } from './transforms';
 import { nextUint32, stateFromSeed, toUnitInterval } from './xoshiro128';
 import type { RandomStream, WeightedEntry } from './types';
 
@@ -26,6 +26,16 @@ export class Stream implements RandomStream {
 
     bool(probability: number): boolean {
         return toBool(this.next(), probability);
+    }
+
+    diceRoll(faces: number, count: number = 1): number {
+        assertDiceRoll(faces, count);
+
+        let sum: number = 0;
+        for (let i = 0; i < count; i++) {
+            sum += toInt(this.next(), 1, faces+1);
+        }
+        return sum;
     }
 
     pick<T>(items: readonly T[]): T {

@@ -59,6 +59,10 @@ interface RandomStream {
   int(minIncl: number, maxExcl: number): number;
   bool(probability: number): boolean;
   pick<T>(items: readonly T[]): T;
+
+  /** The sum of `count` dice of `faces` faces, each in [1, faces] (RND-23). */
+  diceRoll(faces: number, count?: number): number;
+
   weighted<T>(entries: readonly { value: T; weight: number }[]): T;
   shuffle<T>(items: readonly T[]): T[];
 
@@ -133,6 +137,22 @@ repeated multiplication. It is an implementation detail, but it is the one on wh
 
 **RND-8** — The service **MUST** expose the weighted draw (`weighted`) as a primitive: loot tables
 and AI choices **MUST NOT** reimplement it.
+
+**RND-23** — The service **MUST** expose the **dice roll** (`diceRoll(faces, count)`) as a primitive:
+the sum of `count` dice of `faces` faces each, every die uniform over the **closed** interval
+[1, faces]. One die when the count is left out; a count of zero rolls nothing, sums to zero and
+consumes nothing.
+
+It is not a duplicate of `int` (`int(1, faces + 1)`) for two reasons. It is the shape the rules of
+the game are written in — GP-19 says `2d6`, not "twice an integer in [1, 7)" — and above all the sum
+of N dice is **not** a uniform distribution over its own range: 2d6 peaks at 7, and a system that
+reached for `int(2, 13)` would get a flat distribution with the same bounds and a different feel.
+Having the primitive means no system has to rediscover the difference.
+
+The bounds **MUST** be validated, and validated **before** the first die is rolled: a die has a whole
+number of faces, at least one, and a roll a whole number of dice, at least zero. A refused roll
+**MUST** leave the stream exactly where it was — a call that throws must not shift the sequence, or
+the same seed would produce different games depending on whether a caller's bug was hit.
 
 ### Filtered randomness (perceived randomness)
 
@@ -233,6 +253,7 @@ implementation detail:
 | Primitive | Consumes the stream | Why |
 |---|---|---|
 | `next` `int` `bool` `pick` `weighted` `shuffle` | **yes** | they *are* the sequence |
+| `diceRoll` | **yes** (one per die) | every die is a draw of its own (RND-23) |
 | `gaussian` | **yes** (12 draws) | it is a transformation of uniforms |
 | `filtered` | **yes** (one) | it draws from the current weights |
 | `noise2` `fbm2` | **no** | pure functions of (stream seed, x, y) |
@@ -284,6 +305,11 @@ with playing time.
 - **Independence from creation** (RND-19): creating a new stream does not alter the sequence of any
   other; `stream(id)` called twice returns the same instance.
 - **Uniformity**: χ² bucket test for `next()` and `int()`.
+- **Dice** (RND-23): a single die is flat over [1, faces], the **highest face included** — the test
+  that catches the off-by-one of a half-open range; the sum of N dice stays in [N, faces × N],
+  reaches both ends, and peaks in the middle (2d6 at 7, about 6/36); one draw is consumed per die,
+  none at all for a count of zero; every invalid bound is refused, with the value in the message and
+  **without advancing the sequence**.
 - **Gaussian**: sample mean and standard deviation within tolerance over 10⁵ samples; truncation does
   not shift the mean beyond the declared limit; no sample beyond ±6σ (RND-6).
 - **Noise**: continuity (bounded difference between nearby samples), determinism per coordinate,
