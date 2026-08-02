@@ -17,9 +17,11 @@ import {
     adjustedWeights,
     assertFilterConfig,
     fullMultipliers,
+    leastRecentlyUsed,
     nextMultipliers,
     resolveProfile,
 } from './filter';
+import { byName } from './order';
 import { toWeighted, toWeightedIndex, weightsOf } from './transforms';
 import type { RandomChannelState } from './state';
 import type { ChannelReport, FilterConfig, FilterProfile, WeightedEntry } from './types';
@@ -47,11 +49,31 @@ interface ChannelMemory {
     /** The name of the resolved profile: what `channels()` reports (RND-21). */
     profileName: string;
     weights: ChannelWeights | null;
+
+    /** The draw counter's value the last time this channel was drawn from. */
+    lastUsed: number;
 }
 
 export class Channels {
     private readonly config?: FilterConfig;
     private readonly memories = new Map<string, ChannelMemory>();
+
+    /**
+     * How many filtered draws this service has made: the only clock eviction
+     * is allowed to read (RND-20, ARC-9.3).
+     *
+     * It counts draws and nothing else — a diagnostic, a save, a die rolled
+     * elsewhere leave it alone — so two games that have drawn the same things in
+     * the same order hold the same value here and evict the same channel. A
+     * real clock would decide that by the speed of the machine.
+     *
+     * It is not saved as a number of its own: a restore takes it back from the
+     * largest `lastUsed` the save carries — the counter's value at the last
+     * draw whose channel is still remembered. What eviction reads is the
+     * *ordering* of the channels, and that comes back intact; the absolute
+     * number is of no interest to anyone.
+     */
+    private draws = 0;
 
     constructor(config?: FilterConfig) {
         assertFilterConfig(config);
@@ -71,7 +93,12 @@ export class Channels {
      * would have given `weighted` (RND-21).
      */
     draw<T>(channel: string, entries: readonly WeightedEntry<T>[], uniform: number): T {
-        const held = this.memoryFor(channel, entries.length).weights;
+        this.draws += 1;
+
+        const memory = this.memoryFor(channel, entries.length);
+        memory.lastUsed = this.draws;
+
+        const held = memory.weights;
         if (held === null) {
             return toWeighted(uniform, entries);
         }
@@ -80,6 +107,22 @@ export class Channels {
         const chosen = toWeightedIndex(uniform, adjusted);
         held.multipliers = nextMultipliers(held.multipliers, chosen, held.profile);
         return entries[chosen].value;
+    }
+
+    /**
+     * Drops what is remembered about `channel` (RND-20).
+     *
+     * For the caller who *knows* the entity is gone — the door has been opened
+     * for the last time, the enemy is dead — and does not want to wait for the
+     * cap to work it out. A channel that is not there is not an error: forget
+     * says what the caller wants to be true afterwards, and it is true either
+     * way.
+     *
+     * It consumes nothing and moves no counter: an entity dying must not shift
+     * anybody's sequence (RND-18).
+     */
+    forget(channel: string): void {
+        this.memories.delete(channel);
     }
 
     /** The live channels and the profile resolved for each, by name (RND-21). */
@@ -108,7 +151,11 @@ export class Channels {
         const saved: RandomChannelState[] = [];
         for (const [channel, memory] of this.memories) {
             if (memory.weights !== null) {
-                saved.push({ channel, multipliers: [...memory.weights.multipliers] });
+                saved.push({
+                    channel,
+                    multipliers: [...memory.weights.multipliers],
+                    lastUsed: memory.lastUsed,
+                });
             }
         }
         saved.sort(byChannel);
@@ -130,14 +177,22 @@ export class Channels {
      * can read or move. It is the same event as a game whose `random.json`
      * stopped shipping — the filter is gone, and its memory goes with it. The
      * channel name survives, so `channels()` still shows it as unfiltered.
+     *
+     * **The cap in force now is applied to what the save carries** (RND-20). A
+     * save written under a larger cap, or under a `random.json` that has since
+     * been rebalanced, must not be a way of holding more channels than the
+     * service allows — otherwise the bound would hold only for as long as
+     * nobody reloaded.
      */
     restore(saved: readonly RandomChannelState[]): void {
         for (const channel of saved) {
             this.memories.set(
                 channel.channel,
-                this.newMemory(channel.channel, [...channel.multipliers]),
+                this.newMemory(channel.channel, [...channel.multipliers], channel.lastUsed),
             );
+            this.draws = Math.max(this.draws, channel.lastUsed);
         }
+        this.evictDownToCap();
     }
 
     /**
@@ -153,8 +208,12 @@ export class Channels {
     private memoryFor(channel: string, outcomes: number): ChannelMemory {
         const existing = this.memories.get(channel);
         if (existing === undefined) {
-            const created = this.newMemory(channel, fullMultipliers(outcomes));
+            // Born at the current count, which the draw in progress has already
+            // advanced: the newest channel is the most recent one, and so is
+            // never the victim of the eviction its own arrival causes.
+            const created = this.newMemory(channel, fullMultipliers(outcomes), this.draws);
             this.memories.set(channel, created);
+            this.evictDownToCap();
             return created;
         }
 
@@ -168,22 +227,50 @@ export class Channels {
      * A memory for `channel`, holding `multipliers` if there is any filtering
      * to do — and this is the one place the profile is resolved (RND-10).
      */
-    private newMemory(channel: string, multipliers: number[]): ChannelMemory {
+    private newMemory(channel: string, multipliers: number[], lastUsed: number): ChannelMemory {
         const profileName = resolveProfile(channel, this.config);
         if (this.config === undefined) {
-            return { profileName, weights: null };
+            return { profileName, weights: null, lastUsed };
         }
         return {
             profileName,
             weights: { profile: this.config.profiles[profileName], multipliers },
+            lastUsed,
         };
+    }
+
+    /**
+     * Evicts channels, least recently used first, until the cap is respected
+     * (RND-20).
+     *
+     * **An eviction resets that channel's memory**, which is the very thing
+     * RND-13 warns about when it forbids a reload from doing it — and the
+     * difference is worth stating where it is read, because otherwise it looks
+     * like a contradiction. RND-13's concern is that saving and reloading would
+     * become a **lever in the player's hands**: reload, and the anti-repetition
+     * that was working against you is gone. An eviction is not a lever. It
+     * depends only on which channels the game drew from and in what order, it
+     * happens identically in two games that did the same things, and no action
+     * available to the player brings it forward or holds it off.
+     *
+     * With no configuration there is no cap: the number would have to be
+     * invented, and a generic service does not get to invent balancing numbers
+     * (ARC-3.2). Nothing is remembered about those channels either — only their
+     * names, for the diagnostic — and `forget` is what bounds them.
+     */
+    private evictDownToCap(): void {
+        const cap = this.config?.channelCap;
+        if (cap === undefined || this.memories.size <= cap) {
+            return;
+        }
+
+        for (const victim of leastRecentlyUsed(this.memories, this.memories.size - cap)) {
+            this.memories.delete(victim);
+        }
     }
 }
 
-/** Orders channels by name, by code unit: no locale, no ambiguity. */
+/** Orders channels by name. */
 function byChannel(one: { channel: string }, other: { channel: string }): number {
-    if (one.channel === other.channel) {
-        return 0;
-    }
-    return one.channel < other.channel ? -1 : 1;
+    return byName(one.channel, other.channel);
 }

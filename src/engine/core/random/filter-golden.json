@@ -13,6 +13,7 @@
   "stream": "loot",
   "draws": 10000,
   "config": {
+    "channelCap": 64,
     "default": "neutral",
     "profiles": {
       "neutral": { "reduction": 0.6, "recovery": 2 },

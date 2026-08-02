@@ -69,6 +69,22 @@ export interface FilterRule {
  * lets the reusability proof run with no configuration at all (ARC-3.4).
  */
 export interface FilterConfig {
+    /**
+     * How many channels the service keeps at most (RND-20). A whole number, at
+     * least one.
+     *
+     * Mandatory whenever there *is* a configuration: RND-15 lets the caller
+     * name a channel per door and per enemy, and nothing else would ever remove
+     * them, so a game that filters without a cap grows its save for as long as
+     * it is played. Once the cap is exceeded the least recently used channel is
+     * evicted (see `leastRecentlyUsed`).
+     *
+     * It is data, like the profiles, and for the same reason: the right number
+     * depends on how the game names its channels, which a generic service knows
+     * nothing about (ARC-3.2).
+     */
+    channelCap: number;
+
     /** The profile for a channel no rule claims. Mandatory, and must exist. */
     default: string;
 

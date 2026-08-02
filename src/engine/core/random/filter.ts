@@ -13,6 +13,7 @@
  * sequence that feels unfair with one that is predictable.
  */
 
+import { byName } from './order';
 import type { FilterConfig, FilterProfile } from './types';
 
 /**
@@ -104,6 +105,45 @@ export function nextMultipliers(
 }
 
 /**
+ * The `count` channels to evict when the cap is exceeded: the ones drawn from
+ * **least recently** (RND-20).
+ *
+ * Recency is the value the service's **draw counter** held when a channel was
+ * last drawn from — never a clock reading (ARC-9.3). A clock would have two
+ * otherwise identical games evict different channels, and produce different
+ * sequences from then on, because one of them ran on a slower machine or was
+ * left paused over lunch.
+ *
+ * The order is `(lastUsed, name)` and it is **total**: no two channels compare
+ * equal, because no two share a name. That is what the tie-break is for, and it
+ * is the whole of why the answer does not depend on the order the map hands its
+ * entries over — the least `count` are the least `count` however they are met.
+ */
+export function leastRecentlyUsed(
+    memories: ReadonlyMap<string, { lastUsed: number }>,
+    count: number,
+): string[] {
+    const ordered: { channel: string; lastUsed: number }[] = [];
+    for (const [channel, memory] of memories) {
+        ordered.push({ channel, lastUsed: memory.lastUsed });
+    }
+    ordered.sort(byRecency);
+
+    return ordered.slice(0, count).map((entry) => entry.channel);
+}
+
+/** Orders channels from the least recently used to the most, then by name. */
+function byRecency(
+    one: { channel: string; lastUsed: number },
+    other: { channel: string; lastUsed: number },
+): number {
+    if (one.lastUsed !== other.lastUsed) {
+        return one.lastUsed - other.lastUsed;
+    }
+    return byName(one.channel, other.channel);
+}
+
+/**
  * The profile that governs `channel`, resolved **by prefix** (RND-10).
  *
  * Channel names are invented by the caller at runtime (RND-15) and cannot be
@@ -170,6 +210,11 @@ export function assertFilterConfig(config: FilterConfig | undefined): void {
     }
     if (config.profiles === null || typeof config.profiles !== 'object') {
         throw new Error('filter configuration: expected a set of profiles');
+    }
+    if (!Number.isInteger(config.channelCap) || config.channelCap < 1) {
+        throw new Error(
+            `filter configuration: channelCap is '${String(config.channelCap)}'; it is a number of channels, a whole number of at least one`,
+        );
     }
 
     for (const [name, profile] of Object.entries(config.profiles)) {

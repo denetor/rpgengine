@@ -1,4 +1,5 @@
 import { Channels } from './channels';
+import { byName } from './order';
 import { streamSeed } from './seed';
 import { assertRandomState, RANDOM_STATE_VERSION } from './state';
 import { Stream } from './stream';
@@ -72,6 +73,22 @@ export class Random {
         );
         this.streams.set(id, { stream: created, explicitSeed: seed });
         return created;
+    }
+
+    /**
+     * Forgets what the service remembers about `channel` (RND-20).
+     *
+     * The cap already bounds the memories, evicting the least recently used
+     * when it is exceeded; this is for the caller who *knows* the entity has
+     * gone — the enemy is dead, the door will not be picked again — and can say
+     * so instead of leaving a memory to be crowded out later. Forgetting a
+     * channel that is not there is not an error.
+     *
+     * The next filtered draw on that name starts from an empty memory, exactly
+     * as a name never used before would.
+     */
+    forget(channel: string): void {
+        this.channelMemories.forget(channel);
     }
 
     /**
@@ -156,10 +173,7 @@ function savedStream(id: StreamId, record: StreamRecord): RandomStreamState {
     return saved;
 }
 
-/** Orders saved streams by name, by code unit: no locale, no ambiguity. */
+/** Orders saved streams by name. */
 function byId(one: RandomStreamState, other: RandomStreamState): number {
-    if (one.id === other.id) {
-        return 0;
-    }
-    return one.id < other.id ? -1 : 1;
+    return byName(one.id, other.id);
 }

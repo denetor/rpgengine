@@ -15,6 +15,7 @@ import type { FilterConfig, RandomStream, WeightedEntry } from './index';
  */
 
 const CONFIG: FilterConfig = {
+    channelCap: 64,
     default: 'neutral',
     profiles: {
         neutral: { reduction: 0.6, recovery: 2 },
@@ -301,6 +302,7 @@ describe('profiles', () => {
 
     it('prefers the longest prefix when several rules match', () => {
         const service = new Random(218, {
+            channelCap: 64,
             default: 'neutral',
             profiles: {
                 neutral: { reduction: 0.6, recovery: 2 },
@@ -325,6 +327,7 @@ describe('profiles', () => {
 
     it('matches a rule without a star as the whole name', () => {
         const service = new Random(219, {
+            channelCap: 64,
             default: 'neutral',
             profiles: {
                 neutral: { reduction: 0.6, recovery: 2 },
@@ -370,10 +373,13 @@ describe('profiles', () => {
 
 describe('the configuration', () => {
     it('insists on a default profile that exists', () => {
-        expect(() => new Random(222, { default: 'missing', profiles: {} })).toThrow(/default/);
+        expect(() => new Random(222, { channelCap: 64, default: 'missing', profiles: {} })).toThrow(
+            /default/,
+        );
         expect(
             () =>
                 new Random(223, {
+                    channelCap: 64,
                     default: 'neutral',
                     profiles: { other: { reduction: 0.5, recovery: 2 } },
                 }),
@@ -384,6 +390,7 @@ describe('the configuration', () => {
         expect(
             () =>
                 new Random(224, {
+                    channelCap: 64,
                     default: 'neutral',
                     profiles: { neutral: { reduction: 0.5, recovery: 2 } },
                     rules: [{ channel: 'lockpick:*', profile: 'absent' }],
@@ -393,6 +400,7 @@ describe('the configuration', () => {
 
     it('refuses parameters that would stop an outcome coming up at all', () => {
         const withProfile = (reduction: number, recovery: number): FilterConfig => ({
+            channelCap: 64,
             default: 'neutral',
             profiles: { neutral: { reduction, recovery } },
         });
@@ -408,6 +416,7 @@ describe('the configuration', () => {
         expect(
             () =>
                 new Random(230, {
+                    channelCap: 64,
                     default: UNFILTERED_PROFILE,
                     profiles: { [UNFILTERED_PROFILE]: { reduction: 0.5, recovery: 2 } },
                 }),
@@ -538,21 +547,30 @@ describe('saving and restoring', () => {
         const state = service.serialize();
 
         expect(() =>
-            Random.deserialize({ ...state, channels: [{ channel: '', multipliers: [1] }] }, CONFIG),
+            Random.deserialize(
+                { ...state, channels: [{ channel: '', multipliers: [1], lastUsed: 1 }] },
+                CONFIG,
+            ),
         ).toThrow(/channel/);
         expect(() =>
             Random.deserialize(
-                { ...state, channels: [{ channel: 'a', multipliers: [2] }] },
+                { ...state, channels: [{ channel: 'a', multipliers: [2], lastUsed: 1 }] },
                 CONFIG,
             ),
         ).toThrow(/multiplier/);
         expect(() =>
             Random.deserialize(
+                { ...state, channels: [{ channel: 'a', multipliers: [1], lastUsed: -1 }] },
+                CONFIG,
+            ),
+        ).toThrow(/last used/);
+        expect(() =>
+            Random.deserialize(
                 {
                     ...state,
                     channels: [
-                        { channel: 'a', multipliers: [1] },
-                        { channel: 'a', multipliers: [1] },
+                        { channel: 'a', multipliers: [1], lastUsed: 1 },
+                        { channel: 'a', multipliers: [1], lastUsed: 2 },
                     ],
                 },
                 CONFIG,

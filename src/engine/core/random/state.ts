@@ -22,9 +22,15 @@ import type { StreamId } from './types';
  * (RND-13). It is a **required** field rather than an optional one, and that is
  * the reason for the bump: a state without it is a state from before the filter
  * existed, and reading it as "no channels" would quietly reset the very memory
- * RND-13 exists to preserve. Migrating between versions belongs to `SAVE`.
+ * RND-13 exists to preserve.
+ *
+ * Version 3 added `lastUsed` to each channel, for the same kind of reason
+ * (RND-20). Eviction must not depend on saving and reloading, and it cannot
+ * avoid depending on it unless the save says how recently each channel was
+ * used; a missing value would have to be invented, and every channel would come
+ * back equally recent. Migrating between versions belongs to `SAVE`.
  */
-export const RANDOM_STATE_VERSION = 2;
+export const RANDOM_STATE_VERSION = 3;
 
 /** The largest value a 32-bit generator word can hold. */
 const MAX_UINT32 = 4294967295;
@@ -66,6 +72,16 @@ export interface RandomChannelState {
      * by position in the table the caller passes. Each in (0, 1].
      */
     multipliers: number[];
+
+    /**
+     * The value the service's draw counter held when this channel was last
+     * drawn from: what the channel cap's eviction orders by (RND-20).
+     *
+     * It is a counter, not a time. Two games that have drawn the same number of
+     * times agree on it whatever else was true of the machines they ran on, and
+     * that is the property eviction needs (ARC-9.3).
+     */
+    lastUsed: number;
 }
 
 /** `RND`'s portion of a save. */
@@ -156,6 +172,11 @@ function assertChannelState(channel: RandomChannelState): void {
                 `random state: channel '${channel.channel}' holds the multiplier '${String(multiplier)}', which is not a fraction of a weight`,
             );
         }
+    }
+    if (!Number.isInteger(channel.lastUsed) || channel.lastUsed < 0) {
+        throw new Error(
+            `random state: channel '${channel.channel}' was last used at '${String(channel.lastUsed)}', which is not a count of draws`,
+        );
     }
 }
 

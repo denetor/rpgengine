@@ -21,7 +21,7 @@ read as a bug. This service provides both and leaves the choice to each system.
 | Depends on | — · the parameters arrive **already validated in the constructor**: the service reads no files (ARC-4.1, CTX-10) |
 | Does NOT depend on | `excalibur`, `Math.random()`, `Math.log`/`Math.cos`/`Math.pow`, other services |
 | Consumed by | `CBT`, `LOOT`, `GEN`, `AI`, orchestration |
-| Dynamic state | root seed · state of the **touched** streams only, with the explicit seed if one was passed · current weights per channel |
+| Dynamic state | root seed · state of the **touched** streams only, with the explicit seed if one was passed · current weights per channel, and when each was last drawn from |
 | Static state | filter profiles and channel→profile resolution rules |
 | External data | **optional**; the game keeps them in `game/balance/random.json`: profiles, rules, channel cap |
 | Events emitted | none |
@@ -71,6 +71,8 @@ interface ChannelReport {
 
 /** The filter's data (RND-10), handed over already parsed: the service reads no files. */
 interface FilterConfig {
+  /** How many channels are kept at most (RND-20). A whole number, at least 1. */
+  channelCap: number;
   /** The profile for a channel no rule claims. Mandatory, and must exist. */
   default: string;
   profiles: Record<string, FilterProfile>;
@@ -115,6 +117,8 @@ interface RandomState {
      * is **not** here: it is static data, resolved again at load time.
      */
     multipliers: number[];
+    /** The draw counter's value when this channel was last drawn from (RND-20). */
+    lastUsed: number;
   }[];
 }
 
@@ -314,8 +318,10 @@ arithmetically impossible.
 filtered at all, and a real profile sharing it would restore the ambiguity RND-21 exists to remove. A
 configuration that defines it is refused.
 
-`channelCap` belongs to RND-20 and is not read yet; it joins `FilterConfig` with the eviction that
-gives it meaning.
+`channelCap` belongs to RND-20, and is **mandatory whenever a configuration is present**: a game that
+filters without a cap grows its save for as long as it is played. Without a configuration there is no
+cap, because there is no data to take one from — nothing is remembered about those channels either,
+and `forget` is what bounds them.
 
 **RND-11** — *Retired.* It imposed termination of the filter within a maximum number of re-rolls.
 With weight readjustment (RND-9) there is no re-roll loop, so there is no termination to guarantee,
@@ -354,10 +360,23 @@ the second hour would stay in the save until the end of the game. The service **
 2. expose **`forget(channel)`** for the caller who *knows* the entity no longer exists.
 
 The eviction order **MUST** be deterministic: the service's **draw counter** is used, never the
-system clock (ARC-9.3), and ties are broken by channel name, to obtain a total order. An eviction
-resets that channel's memory — the very thing RND-13 warns about — but the difference is that here it
-is deterministic and does not depend on saving and reloading: it is not a lever in the player's
-hands.
+system clock (ARC-9.3), and ties are broken by channel name, to obtain a total order. `(lastUsed,
+name)` being total is what makes the choice independent of the order the service's internal
+structures happen to be iterated in: two services that have seen the same draws evict the same
+channel. Of a tie, the **alphabetically first** goes.
+
+The counter counts **filtered draws**, and nothing else moves it: listing the channels, saving, or
+rolling a die elsewhere leave it where it was. `forget` does not move it either — an entity dying
+must not shift anybody's sequence (RND-18).
+
+Each channel's recency **MUST** be serialized with its weights, and the **cap in force at load time
+MUST** be applied to what the save carries. Otherwise the bound would hold only for as long as
+nobody reloaded, and which memory survived a reload would be a different answer from the one the game
+would have reached on its own.
+
+An eviction resets that channel's memory — the very thing RND-13 warns about — but the difference is
+that here it is deterministic and does not depend on saving and reloading: it is not a lever in the
+player's hands.
 
 **RND-21** — The configuration **MUST** be **optional**, and in its absence the filter **MUST** be
 inactive: `filtered()` behaves exactly like `weighted()`. This is not a balancing default in disguise
@@ -374,9 +393,14 @@ not from independent sources: this guarantees that RND-1 holds for all of them. 
 seed does not mean *consuming* the stream — see RND-18, which distinguishes the two cases.
 
 **RND-17** — Impurity **MUST** be confined to two operations only: advancing a stream's state, and
-updating a channel's weights. Every **transformation** (uniform→integer, uniform→Gaussian,
-weights→choice, coordinates→noise) **MUST** be a pure function of its own inputs, testable without a
-generator. `noise2` and `fbm2` **MUST** be pure throughout: they neither read nor write state.
+**keeping the channel memories** — their weights, how recently each was drawn from, and which of
+them exist at all (RND-20: a channel created, evicted or forgotten). The second operation is one
+because it is one piece of state with one owner, not because it is a single line of code: what
+decides *what* the memories become — the adjusted weights, the multipliers after a draw, the channel
+to evict — **MUST** stay a pure function of what it is given.
+
+Every **transformation** (uniform→integer, uniform→Gaussian, weights→choice, coordinates→noise)
+**MUST** be a pure function of its own inputs, testable without a generator. `noise2` and `fbm2` **MUST** be pure throughout: they neither read nor write state.
 
 **RND-18** — Which primitives advance a stream's state **MUST** be part of the contract, not an
 implementation detail:
@@ -414,12 +438,14 @@ Only what cannot be rebuilt from the seed is serialized:
 
 | | In the save | Why |
 |---|---|---|
-| state version | **yes** (currently **2**) | ARC-10.2 |
+| state version | **yes** (currently **3**) | ARC-10.2 |
 | root seed | **yes** | everything else follows from it |
 | PRNG state of every **touched** stream | **yes** | it is the position in the sequence |
 | a stream's explicit seed, if passed | **yes** | RND-19 |
 | current weights, per live channel | **yes** | RND-13 |
+| when each live channel was last drawn from | **yes** | eviction must survive a reload (RND-20) |
 | the profile resolved for a channel | no | static data; resolved again at load time (RND-13) |
+| the draw counter itself | no | recovered from the largest `lastUsed`; only the ordering matters |
 | streams never requested | no | the seed is `hash(root seed, id)` |
 | the noise's permutation table | no | rebuilt from the stream's seed |
 
@@ -455,7 +481,11 @@ with playing time.
   configuration. It is *not* asserted that the distribution stays within tolerance of the **nominal
   weights**: the filter shifts it by construction, and that is its job.
 - **Eviction** (RND-20): once the cap is exceeded, the least recently used channel is evicted,
-  deterministically and independently of iteration order.
+  deterministically and independently of iteration order — checked in mirrored pairs, so that
+  "whichever I met first" fails one half whichever half it gets right; work that is not a draw does
+  not touch recency; a tie goes by name; a channel evicted and used again starts from an empty
+  memory; the cap holds after a restore, and the same channel is evicted whether or not the game was
+  saved in between.
 - **Serialization**: save, draw 100 values, reload, draw again → the same 100 values.
 - **Reusability** (ARC-3.4): the service works with made-up channels and distributions, foreign to
   this game, and **with no configuration file at all** (RND-21).
