@@ -10,17 +10,53 @@ import { defineConfig, devices } from '@playwright/test';
 
 /**
  * See https://playwright.dev/docs/test-configuration.
+ *
+ * Two kinds of test live here, and they do not want the same browsers:
+ *
+ * - the **visual snapshot** of the main page, which is compared against a
+ *   committed PNG and therefore runs on **chromium alone**. A snapshot is a
+ *   picture of one renderer; running it on three would need three baselines,
+ *   and that is a decision to be taken deliberately, not a side effect of
+ *   wanting the golden vectors checked elsewhere.
+ * - the **golden vectors** (RND-4), which have to run on chromium, firefox and
+ *   webkit, because agreement between engines is the whole promise and no
+ *   single engine can observe it.
+ *
+ * Hence one project per engine per purpose, each with its own `testMatch`. The
+ * chromium project keeps its name: the snapshot files are named after it.
  */
+
+/** The visual snapshot: chromium only, deliberately. */
+const VISUAL_TESTS = /main\.spec\.ts/;
+
+/** The golden vectors: every engine. */
+const VECTOR_TESTS = /golden-vectors\.spec\.ts/;
+
 export default defineConfig({
   testDir: './tests',
-  webServer: {
-    command: 'npm run serve',
-    timeout: 240 * 1000, // linux takes a long time
-    url: 'http://localhost:4173',
-    reuseExistingServer: !process.env.CI,
-    stdout: 'ignore',
-    stderr: 'pipe',
-  },
+  webServer: [
+    {
+      // The built game, for the visual snapshot: it must be photographed as it
+      // ships, not as the dev server serves it.
+      command: 'npm run serve',
+      timeout: 240 * 1000, // linux takes a long time
+      url: 'http://localhost:4173',
+      reuseExistingServer: !process.env.CI,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+    {
+      // The vector page, from source. It cannot come from the build: `vite
+      // build` emits a single UMD bundle for the game, and UMD has no room for
+      // a second entry point. Nothing of this page ships.
+      command: 'npm run serve:vectors',
+      timeout: 240 * 1000,
+      url: 'http://localhost:5174/tests-browser/golden-vectors.html',
+      reuseExistingServer: !process.env.CI,
+      stdout: 'ignore',
+      stderr: 'pipe',
+    },
+  ],
   /* Run tests in files in parallel */
   fullyParallel: true,
   /* Fail the build on CI if you accidentally left test.only in the source code. */
@@ -44,6 +80,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
+      testMatch: VISUAL_TESTS,
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {
@@ -52,15 +89,28 @@ export default defineConfig({
       },
     },
 
-    // {
-    //   name: 'firefox',
-    //   use: { ...devices['Desktop Firefox'] },
-    // },
+    {
+      name: 'vectors-chromium',
+      testMatch: VECTOR_TESTS,
+      use: {
+        ...devices['Desktop Chrome'],
+        launchOptions: {
+          args: ["--no-sandbox"]
+        }
+      },
+    },
 
-    // {
-    //   name: 'webkit',
-    //   use: { ...devices['Desktop Safari'] },
-    // },
+    {
+      name: 'vectors-firefox',
+      testMatch: VECTOR_TESTS,
+      use: { ...devices['Desktop Firefox'] },
+    },
+
+    {
+      name: 'vectors-webkit',
+      testMatch: VECTOR_TESTS,
+      use: { ...devices['Desktop Safari'] },
+    },
 
     /* Test against mobile viewports. */
     // {
@@ -82,11 +132,4 @@ export default defineConfig({
     //   use: { ...devices['Desktop Chrome'], channel: 'chrome' },
     // },
   ],
-
-  /* Run your local dev server before starting the tests */
-  // webServer: {
-  //   command: 'npm run start',
-  //   url: 'http://127.0.0.1:3000',
-  //   reuseExistingServer: !process.env.CI,
-  // },
 });

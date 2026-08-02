@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>RND — golden vectors</title>
+  </head>
+  <body>
+    <!--
+      The page the golden vectors are checked on, inside a real browser
+      (RND-4, ADR 0001).
+
+      It exists because reproducibility across engines is not observable from
+      one engine: the headless suite proves that this machine's Node agrees with
+      the numbers in the repository, and only a browser can say whether
+      chromium, firefox and webkit agree with them too.
+
+      It is served by the Vite dev server, not by the built site: `vite build`
+      emits a single UMD bundle for the game, which cannot hold a second entry
+      point. Nothing here is part of the game, and none of it ships.
+
+      `tests/golden-vectors.spec.ts` reads the report out of the element below.
+      Until the script has run, the element says so — an empty or absent report
+      is a failure, never a pass.
+    -->
+    <h1>RND — golden vectors</h1>
+    <pre id="golden-report">{ "status": "the script has not run" }</pre>
+    <script type="module" src="./golden-vectors.ts"></script>
+  </body>
+</html>

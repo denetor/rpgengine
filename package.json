@@ -12,7 +12,9 @@
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "npm run typecheck && npx vitest run",
     "test:integration": "npm run build && npx playwright test",
-    "test:integration-update": "npx playwright test --update-snapshots"
+    "test:integration-update": "npx playwright test --update-snapshots",
+    "golden:update": "UPDATE_GOLDEN=1 npx vitest run src/engine/core/random/golden.spec.ts",
+    "serve:vectors": "vite --port 5174 --strictPort"
   },
   "repository": {},
   "keywords": [

@@ -15,5 +15,13 @@
     "noUnusedParameters": false,
     "noImplicitReturns": true
   },
-  "include": ["./src", "./tests-headless", "./vitest.config.ts", "./vitest.fixtures.config.ts"]
+  "include": [
+    "./src",
+    "./tests",
+    "./tests-browser",
+    "./tests-headless",
+    "./playwright.config.ts",
+    "./vitest.config.ts",
+    "./vitest.fixtures.config.ts"
+  ]
 }

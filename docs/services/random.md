@@ -205,6 +205,18 @@ Point 3 is not a stylistic preference. ECMAScript specifies `+ - * /`, `Math.flo
 *implementation-approximated*: different engines return different last bits. A browser update **MUST
 NOT** change games, so those functions **MUST NOT** appear on any path that produces values.
 
+The contract **MUST** be pinned by **golden vectors versioned in the repository** — the exact values
+of `next`, `int`, `gaussian`, `noise2` and `fbm2` for a fixed seed and a fixed plan — and those
+vectors **MUST** be checked on **more than one engine**. A single engine cannot observe the promise:
+"two instances with the same seed agree" passes on one engine whatever the code does. The values are
+compared for **exact equality**, never within a tolerance: a value that is nearly right is a
+different game.
+
+Regenerating the vectors **MUST** be a deliberate act, separate from running the tests, and **MUST
+NOT** be something the test suite does on its own or that CI can do at all. Every regeneration
+records a change to one of the three things above, and therefore the invalidation of every existing
+save and every map generated from a seed.
+
 **RND-5** — The service **SHOULD** be able to derive a deterministic child stream from a key
 (`derive('chunk:12,7')`), so that generating a portion of the world is reproducible independently of
 the order in which the portions are generated. **It is not implemented**: the only requester is
@@ -459,6 +471,15 @@ with playing time.
   the repo for `next`, `int`, `gaussian`, `noise2` and `fbm2`, verified on **chromium, firefox and
   webkit** with Playwright. Without this, nothing tests RND-4: "two instances with the same seed"
   runs on a single engine and always passes.
+  - The values and the plan that produced them live in `primitives-golden.json`; the measurement is
+    `measureGolden`, taken by the headless suite in Node and by `tests-browser/golden-vectors.html`
+    in each browser, so that the two halves cannot drift apart into testing different things.
+  - The browser half reports **which** vectors it measured and **how many** values: a golden vector's
+    failure mode is vacuity, and a page that reported a bare "ok" after measuring nothing would pass.
+  - The visual snapshot stays on **chromium alone**, deliberately: it is a picture of one renderer,
+    and per-engine baselines are a decision of their own rather than a side effect of this one.
+  - Regeneration is `npm run golden:update`, refused when `CI` is set, and it is a decision that
+    invalidates every save and every map from a seed.
 - **Stream independence**: consuming 1000 values from `ai` does not alter the sequence of `combat`.
 - **Independence from creation** (RND-19): creating a new stream does not alter the sequence of any
   other; `stream(id)` called twice returns the same instance.

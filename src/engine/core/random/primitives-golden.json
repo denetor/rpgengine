@@ -1,0 +1,153 @@
+{
+  "version": 1,
+  "about": [
+    "The golden vectors of RND's primitives (RND-4, ADR 0001): the exact values this service is",
+    "expected to produce, checked in Node by golden.spec.ts and inside chromium, firefox and webkit",
+    "by tests/golden-vectors.spec.ts. Reproducibility ACROSS engines is not observable from one",
+    "engine: 'two instances with the same seed' passes on a single engine whatever the code does.",
+    "Every value below is reached by integer arithmetic, Math.imul, and addition and multiplication",
+    "of doubles — all specified exactly by ECMAScript — which is why they are compared for equality",
+    "and not within a tolerance, and why ADR 0001 bans the transcendental functions that would not be.",
+    "TO REGENERATE: npm run golden:update. It is a DELIBERATE ACT, not a fix for a failing test.",
+    "These numbers change only when the generator, the seed hash, a transformation or the plan below",
+    "changes — and every one of those INVALIDATES EVERY SAVE AND EVERY MAP GENERATED FROM A SEED.",
+    "Bump the version above when they move, and say in the commit why they were allowed to."
+  ],
+  "plan": {
+    "rootSeed": 20260802,
+    "draws": 16,
+    "streams": {
+      "next": "vectors:uniform",
+      "int": "vectors:integer",
+      "gaussian": "vectors:gaussian",
+      "noise": "vectors:noise"
+    },
+    "int": {
+      "minIncl": -3,
+      "maxExcl": 97
+    },
+    "gaussian": {
+      "mean": 10,
+      "stdDev": 2.5
+    },
+    "noise2": {
+      "frequency": 0.37
+    },
+    "fbm2": {
+      "octaves": 5,
+      "frequency": 0.21,
+      "lacunarity": 2.13,
+      "persistence": 0.47
+    },
+    "points": [
+      [
+        0.0625,
+        0.3125
+      ],
+      [
+        0.5,
+        0.25
+      ],
+      [
+        1.5,
+        -2.25
+      ],
+      [
+        3.75,
+        8.125
+      ],
+      [
+        -7.5,
+        4.5
+      ],
+      [
+        12.25,
+        -3.75
+      ],
+      [
+        100.5,
+        200.25
+      ],
+      [
+        -0.125,
+        -0.0625
+      ]
+    ]
+  },
+  "vectors": {
+    "next": [
+      0.8605181800667197,
+      0.27131704962812364,
+      0.23074197536334395,
+      0.34024774678982794,
+      0.5912880639079958,
+      0.79906749073416,
+      0.018598486203700304,
+      0.815268634352833,
+      0.36196752451360226,
+      0.9421410604845732,
+      0.723101515090093,
+      0.7817860734649003,
+      0.769577567698434,
+      0.5768240399193019,
+      0.926416598726064,
+      0.15053498069755733
+    ],
+    "int": [
+      68,
+      90,
+      90,
+      83,
+      13,
+      24,
+      8,
+      48,
+      41,
+      6,
+      70,
+      66,
+      70,
+      58,
+      45,
+      19
+    ],
+    "gaussian": [
+      8.402761825127527,
+      3.306102874921635,
+      8.233653264469467,
+      10.280868077534251,
+      7.06525819376111,
+      11.525100785656832,
+      13.596983968745917,
+      8.553213762352243,
+      8.116413821699098,
+      10.376889758044854,
+      8.129375673015602,
+      13.023219114402309,
+      10.502836892264895,
+      11.329793443437666,
+      10.552265192964114,
+      10.173700238228776
+    ],
+    "noise2": [
+      0.10227455145252455,
+      -0.1255961520149691,
+      0.43499656205052945,
+      0.08517488902341944,
+      0.4000665646672987,
+      -0.11671108482307228,
+      0.29671314559883477,
+      0.02450913033250561
+    ],
+    "fbm2": [
+      0.10543741222370878,
+      -0.1449140556951064,
+      0.034864447275563704,
+      -0.06156288200023466,
+      0.14879746122830204,
+      -0.09885486514963716,
+      0.03265226437096738,
+      0.05129649258771335
+    ]
+  }
+}
