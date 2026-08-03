@@ -372,55 +372,21 @@ describe('profiles', () => {
 });
 
 describe('the configuration', () => {
-    it('insists on a default profile that exists', () => {
-        expect(() => new Random(222, { channelCap: 64, default: 'missing', profiles: {} })).toThrow(
-            /default/,
-        );
-        expect(
-            () =>
-                new Random(223, {
-                    channelCap: 64,
-                    default: 'neutral',
-                    profiles: { other: { reduction: 0.5, recovery: 2 } },
-                }),
-        ).toThrow(/default/);
-    });
-
-    it('insists that every rule names a profile that exists', () => {
-        expect(
-            () =>
-                new Random(224, {
-                    channelCap: 64,
-                    default: 'neutral',
-                    profiles: { neutral: { reduction: 0.5, recovery: 2 } },
-                    rules: [{ channel: 'lockpick:*', profile: 'absent' }],
-                }),
-        ).toThrow(/absent/);
-    });
-
-    it('refuses parameters that would stop an outcome coming up at all', () => {
-        const withProfile = (reduction: number, recovery: number): FilterConfig => ({
+    /**
+     * What a configuration must look like, and what each error says, is
+     * `config.spec.ts`: it is the loader's business, and it has one test per
+     * error case. The one thing that belongs here is that the check is not
+     * merely available to the loader — a service **built** on a configuration
+     * that does not validate does not come into existence (CTX-10).
+     */
+    it('refuses to build a service on a configuration that does not validate', () => {
+        const broken: FilterConfig = {
             channelCap: 64,
-            default: 'neutral',
-            profiles: { neutral: { reduction, recovery } },
-        });
+            default: 'missing',
+            profiles: { neutral: { reduction: 0.5, recovery: 2 } },
+        };
 
-        expect(() => new Random(225, withProfile(0, 2))).toThrow(/reduction/);
-        expect(() => new Random(226, withProfile(1.5, 2))).toThrow(/reduction/);
-        expect(() => new Random(227, withProfile(Number.NaN, 2))).toThrow(/reduction/);
-        expect(() => new Random(228, withProfile(0.5, 0))).toThrow(/recovery/);
-        expect(() => new Random(229, withProfile(0.5, Number.NaN))).toThrow(/recovery/);
-    });
-
-    it('keeps the name of the unfiltered profile for itself', () => {
-        expect(
-            () =>
-                new Random(230, {
-                    channelCap: 64,
-                    default: UNFILTERED_PROFILE,
-                    profiles: { [UNFILTERED_PROFILE]: { reduction: 0.5, recovery: 2 } },
-                }),
-        ).toThrow(new RegExp(UNFILTERED_PROFILE));
+        expect(() => new Random(222, broken)).toThrow(/default/);
     });
 });
 

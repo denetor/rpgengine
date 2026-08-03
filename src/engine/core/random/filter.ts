@@ -11,6 +11,11 @@
  * draws. There is no rejection loop here, and there must never be one: "never
  * twice in a row" is a rule a player learns and exploits, and it replaces a
  * sequence that feels unfair with one that is predictable.
+ *
+ * What a configuration must *look* like is not here but in `config.ts`
+ * (RND-24): it is what the game's loader applies to refuse a bad `random.json`
+ * before the service is built, and it has nothing to do with the arithmetic
+ * below.
  */
 
 import { byName } from './order';
@@ -26,8 +31,14 @@ import type { FilterConfig, FilterProfile } from './types';
  */
 export const UNFILTERED_PROFILE = 'none';
 
-/** The character that makes a rule's channel a prefix rather than a whole name. */
-const WILDCARD = '*';
+/**
+ * The character that makes a rule's channel a prefix rather than a whole name.
+ *
+ * Exported because `config.ts` refuses it anywhere but at the end of a pattern,
+ * and the two halves of one rule — where a star may appear, and what it means
+ * when it does — must not be able to drift apart into two different syntaxes.
+ */
+export const WILDCARD = '*';
 
 /**
  * The floor a weight multiplier never goes below.
@@ -190,73 +201,4 @@ function specificityOf(pattern: string, channel: string): number {
         return channel.startsWith(prefix) ? prefix.length : -1;
     }
     return pattern === channel ? pattern.length + 1 : -1;
-}
-
-/**
- * A filter configuration, or an error.
- *
- * It is checked in the constructor, once, because the service reads no files
- * (ARC-4.1) and because a profile that cannot be resolved must not be found out
- * about halfway through a game: by then the channel exists, some draws have
- * already happened under the wrong parameters, and the sequence cannot be
- * unwound.
- */
-export function assertFilterConfig(config: FilterConfig | undefined): void {
-    if (config === undefined) {
-        return;
-    }
-    if (config === null || typeof config !== 'object') {
-        throw new Error('filter configuration: expected an object');
-    }
-    if (config.profiles === null || typeof config.profiles !== 'object') {
-        throw new Error('filter configuration: expected a set of profiles');
-    }
-    if (!Number.isInteger(config.channelCap) || config.channelCap < 1) {
-        throw new Error(
-            `filter configuration: channelCap is '${String(config.channelCap)}'; it is a number of channels, a whole number of at least one`,
-        );
-    }
-
-    for (const [name, profile] of Object.entries(config.profiles)) {
-        assertProfile(name, profile);
-    }
-
-    if (typeof config.default !== 'string' || !(config.default in config.profiles)) {
-        throw new Error(
-            `filter configuration: the default profile '${String(config.default)}' is not one of the profiles defined`,
-        );
-    }
-
-    for (const rule of config.rules ?? []) {
-        if (typeof rule.channel !== 'string' || rule.channel.length === 0) {
-            throw new Error('filter configuration: a rule must name a channel pattern');
-        }
-        if (!(rule.profile in config.profiles)) {
-            throw new Error(
-                `filter configuration: rule '${rule.channel}' names the profile '${String(rule.profile)}', which is not defined`,
-            );
-        }
-    }
-}
-
-/** One profile's parameters, or an error naming the profile. */
-function assertProfile(name: string, profile: FilterProfile): void {
-    if (name === UNFILTERED_PROFILE) {
-        throw new Error(
-            `filter configuration: '${UNFILTERED_PROFILE}' is the name reported for a channel that is not filtered, and cannot name a profile`,
-        );
-    }
-    if (profile === null || typeof profile !== 'object') {
-        throw new Error(`filter configuration: profile '${name}' is not a set of parameters`);
-    }
-    if (!Number.isFinite(profile.reduction) || profile.reduction <= 0 || profile.reduction > 1) {
-        throw new Error(
-            `filter configuration: profile '${name}' has a reduction of ${String(profile.reduction)}; it must be greater than zero and at most one, or an outcome would stop coming up altogether`,
-        );
-    }
-    if (!Number.isFinite(profile.recovery) || profile.recovery < 1) {
-        throw new Error(
-            `filter configuration: profile '${name}' has a recovery of ${String(profile.recovery)}; it is a number of draws, at least one`,
-        );
-    }
 }

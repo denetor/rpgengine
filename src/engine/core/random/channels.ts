@@ -13,9 +13,9 @@
  * for by naming it the same.
  */
 
+import { assertFilterConfig } from './config';
 import {
     adjustedWeights,
-    assertFilterConfig,
     fullMultipliers,
     leastRecentlyUsed,
     nextMultipliers,

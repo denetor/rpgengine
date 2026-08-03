@@ -14,6 +14,48 @@ const FNV_OFFSET_BASIS = 0x811c9dc5;
 const FNV_PRIME = 0x01000193;
 const BYTE_MASK = 0xff;
 
+/**
+ * The largest value an unsigned 32-bit word can hold.
+ *
+ * Exported because `state.ts` checks the generator's own words against it, and
+ * two copies of a number this specific are two chances to write one of the
+ * digits differently.
+ */
+export const MAX_UINT32 = 4294967295;
+
+/** The smallest value a signed 32-bit word can hold. */
+const MIN_INT32 = -2147483648;
+
+/**
+ * True for a number that is a seed: a whole number that survives 32 bits read
+ * either way — the union of the signed and the unsigned range.
+ *
+ * A seed is a **bit pattern, not a quantity**. Everything below takes it
+ * through `| 0`, so `-1` and `4294967295` name the same seed and both are
+ * legitimate. What is not a seed is a number that would *change* under that
+ * coercion: `2.5` and `2` would name the same game, and nothing would ever say
+ * so.
+ */
+export function isSeed(value: number): boolean {
+    return Number.isInteger(value) && value >= MIN_INT32 && value <= MAX_UINT32;
+}
+
+/**
+ * Refuses a root seed that is not one, so that a service built on a number
+ * which is not a seed does not exist.
+ *
+ * The failure it prevents is silent by construction: `new Random(2.5)` and
+ * `new Random(2)` would play the same game, and a player reporting a bug from
+ * the first would be sent a save from the second.
+ */
+export function assertRootSeed(rootSeed: number): void {
+    if (!isSeed(rootSeed)) {
+        throw new Error(
+            `random service: the root seed '${String(rootSeed)}' is not a whole 32-bit number`,
+        );
+    }
+}
+
 /** The seed of the stream named `id` in the service rooted at `rootSeed`. */
 export function streamSeed(rootSeed: number, id: string): number {
     let hash = FNV_OFFSET_BASIS;

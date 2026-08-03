@@ -12,6 +12,7 @@
  * time.
  */
 
+import { isSeed, MAX_UINT32 } from './seed';
 import { STATE_WORDS } from './xoshiro128';
 import type { StreamId } from './types';
 
@@ -31,12 +32,6 @@ import type { StreamId } from './types';
  * back equally recent. Migrating between versions belongs to `SAVE`.
  */
 export const RANDOM_STATE_VERSION = 3;
-
-/** The largest value a 32-bit generator word can hold. */
-const MAX_UINT32 = 4294967295;
-
-/** The smallest value a signed 32-bit word can hold. */
-const MIN_INT32 = -2147483648;
 
 /** One saved stream: where it is in its sequence, and how it was seeded. */
 export interface RandomStreamState {
@@ -104,7 +99,13 @@ export interface RandomState {
  * The check is on this format's own invariants — the ones that would otherwise
  * turn into a silently wrong game, an all-zero generator state above all: it is
  * a state `xoshiro128**` can never leave, and it would hand out the same value
- * for ever. Fuller parameter validation belongs to issue 10.
+ * for ever.
+ *
+ * A save is not the same kind of data as a configuration, and the two checks
+ * are deliberately not one. This one reads bytes written by the game itself, so
+ * there is no file for a designer to fix and no reason to collect every problem
+ * before giving up: the first invariant broken means the save is corrupt.
+ * `config.ts` validates what a person edits, and answers accordingly (RND-24).
  */
 export function assertRandomState(state: RandomState): void {
     if (state === null || typeof state !== 'object') {
@@ -115,7 +116,7 @@ export function assertRandomState(state: RandomState): void {
             `random state: version ${String(state.version)} cannot be read by version ${RANDOM_STATE_VERSION}`,
         );
     }
-    if (!fitsInThirtyTwoBits(state.rootSeed)) {
+    if (!isSeed(state.rootSeed)) {
         throw new Error(`random state: root seed '${String(state.rootSeed)}' does not fit in 32 bits`);
     }
     if (!Array.isArray(state.streams)) {
@@ -200,7 +201,7 @@ function assertStreamState(stream: RandomStreamState): void {
     if (stream.words.every((word) => word === 0)) {
         throw new Error(`random state: stream '${stream.id}' holds an all-zero generator state`);
     }
-    if (stream.seed !== undefined && !fitsInThirtyTwoBits(stream.seed)) {
+    if (stream.seed !== undefined && !isSeed(stream.seed)) {
         throw new Error(
             `random state: stream '${stream.id}' has seed '${String(stream.seed)}', which does not fit in 32 bits`,
         );
@@ -210,18 +211,4 @@ function assertStreamState(stream: RandomStreamState): void {
 /** True for a whole number that fits in an unsigned 32-bit word. */
 function isUint32(value: number): boolean {
     return Number.isInteger(value) && value >= 0 && value <= MAX_UINT32;
-}
-
-/**
- * True for a whole number that fits in 32 bits read either way — the union of
- * the signed and the unsigned range.
- *
- * A seed is a bit pattern, not a quantity: `seed.ts` and `xoshiro128.ts` take
- * it through `| 0`, so `-1` and `4294967295` name the same seed and both are
- * legitimate in a save. What is refused is a number that would change under
- * that coercion, which is the one way a seed can come back different from the
- * one that was written.
- */
-function fitsInThirtyTwoBits(value: number): boolean {
-    return Number.isInteger(value) && value >= MIN_INT32 && value <= MAX_UINT32;
 }

@@ -2,6 +2,21 @@
  * `RND` — the randomness service. Public surface (ARC-2.1): nothing outside
  * this file is visible to the rest of the project.
  */
+/**
+ * The expected shape of the service's own parameters (RND-10, ARC-7.2).
+ *
+ * Exported because it is meant to be applied by **whoever loads** the game's
+ * `random.json`, before the game context is constructed (CTX-10): the service
+ * reads no files and knows none of this game's paths, so the check is here and
+ * the file name comes from the caller.
+ */
+export {
+    assertFilterConfig,
+    describeIssue,
+    FilterConfigError,
+    validateFilterConfig,
+} from './config';
+export type { FilterConfigIssue } from './config';
 export { UNFILTERED_PROFILE } from './filter';
 /**
  * The golden vectors are the one part of the test scaffolding that is exported

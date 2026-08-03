@@ -18,7 +18,7 @@ read as a bug. This service provides both and leaves the choice to each system.
 
 | Item | Value |
 |---|---|
-| Depends on | — · the parameters arrive **already validated in the constructor**: the service reads no files (ARC-4.1, CTX-10) |
+| Depends on | — · the parameters arrive **already validated in the constructor**: the service reads no files (ARC-4.1, CTX-10), and exposes the shape the loader validates them against (RND-24) |
 | Does NOT depend on | `excalibur`, `Math.random()`, `Math.log`/`Math.cos`/`Math.pow`, other services |
 | Consumed by | `CBT`, `LOOT`, `GEN`, `AI`, orchestration |
 | Dynamic state | root seed · state of the **touched** streams only, with the explicit seed if one was passed · current weights per channel, and when each was last drawn from |
@@ -91,6 +91,40 @@ interface FilterProfile {
 interface FilterRule {
   channel: string;
   profile: string;
+}
+
+/**
+ * The **expected shape** of the parameters, for whoever loads them (RND-10,
+ * ARC-7.2). The service reads no files and knows none of this game's paths: the
+ * file name is the caller's, and `undefined` — no configuration — is valid.
+ */
+declare function validateFilterConfig(
+  value: unknown,
+  file?: string,
+): readonly FilterConfigIssue[];
+
+/** The same check, as the exception a constructor needs. */
+declare function assertFilterConfig(
+  value: unknown,
+  file?: string,
+): asserts value is FilterConfig | undefined;
+
+/** One problem, in the three terms ARC-7.2 requires. */
+interface FilterConfigIssue {
+  /** Where the configuration came from, as the caller named it. */
+  file: string;
+  /** `'channelCap'`, `"profiles['lockpick'].reduction"`, `'rules[2].profile'`. */
+  path: string;
+  value: unknown;
+  message: string;
+}
+
+/** One issue as a line: `random.json: channelCap: expected …; found 0`. */
+declare function describeIssue(issue: FilterConfigIssue): string;
+
+/** Thrown by `assertFilterConfig`. Its message is every issue, one per line. */
+declare class FilterConfigError extends Error {
+  readonly issues: readonly FilterConfigIssue[];
 }
 
 /** The profile reported for a channel on a service built without a configuration. */
@@ -398,6 +432,44 @@ needed by the reusability proof (ARC-3.4), which will have no `random.json`.
 Since an unconfigured channel *looks* filtered without being so, the service **MUST** expose
 `channels()`, which lists the live channels and the profile resolved for each.
 
+**RND-24** — The service **MUST** expose the **expected shape of its own parameters**, so that the
+game's loader applies it **before** the game context is constructed (ARC-7.2, CTX-10). It **MUST NOT**
+read the file itself, and **MUST NOT** know where this game keeps it: the file name is passed in, and
+appears in the error only because the caller gave it.
+
+An invalid parameter **MUST** be refused with **file, path and value** — `random.json:
+profiles['lockpick'].reduction: expected a number greater than 0 and at most 1, …; found 1.5` — and
+**every** problem **MUST** be reported, not the first: a designer fixing a file one error per run is a
+designer running the game five times to find five typos. What must *not* be reported is a cascade: a
+`profiles` that is not a set of profiles makes every profile name unresolvable, and saying so once per
+reference buries the one line that matters.
+
+The absence of a configuration is **valid** (RND-21) and is not an error. An explicit `null` is not
+the same thing and **MUST** be refused: a key not written at all is a decision, one written as `null`
+is a mistake.
+
+A key that is not a parameter — of the configuration, of a profile, of a rule — **MUST** be refused
+rather than ignored. It is what catches a typo in `rules`, the one optional parameter, which would
+otherwise be a rule set that silently does nothing. For the same reason a `*` **MUST** be refused
+anywhere but at the end of a rule's channel: elsewhere it is a literal star, matching no channel any
+caller would name, and resolution would fall back to the default profile without a word.
+
+A service **MUST NOT** come into existence on parameters it cannot use. That includes the **root
+seed**, which **MUST** be a whole 32-bit number: everything downstream takes it through `| 0`, so
+`new Random(2.5)` and `new Random(2)` would otherwise play the same game and nothing would ever say
+so.
+
+The root seed is checked **first and on its own terms**, and deliberately not as one of the issues
+above: it does not come from a file, so there is no file, no path and no sibling problem to collect
+it with. It comes from code, or from a seed the player typed — and one wrong number there makes the
+whole service meaningless, which is a reason to stop rather than to carry on and enumerate. The same
+distinction governs the save (`assertRandomState`), for the same reason.
+
+**No schema validation library is used**, against what the spec sheet first assumed. The contract
+above says `RND` depends on nothing, and ARC-3.4 wants it liftable into another project as it stands;
+a shape of four fields is not worth that. `CFG` is free to use one for the rest of the game's content
+and to call this check for `RND`'s slice.
+
 ### Structure
 
 **RND-16** — The Gaussian, the coherent noise and the filter **MUST** derive from the **root seed**,
@@ -507,6 +579,10 @@ with playing time.
   not touch recency; a tie goes by name; a channel evicted and used again starts from an empty
   memory; the cap holds after a restore, and the same channel is evicted whether or not the game was
   saved in between.
+- **Parameter validation** (RND-24): **one test per error case**, each verifying the message and not
+  merely that something was thrown — file, path and value are the requirement, so a test that accepts
+  any error tests nothing. Plus: no configuration validates; every problem is reported at once; a
+  service built on a configuration that does not validate does not exist.
 - **Serialization**: save, draw 100 values, reload, draw again → the same 100 values.
 - **Reusability** (ARC-3.4): the service works with made-up channels and distributions, foreign to
   this game, and **with no configuration file at all** (RND-21).

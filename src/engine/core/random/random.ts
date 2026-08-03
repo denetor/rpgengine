@@ -1,6 +1,6 @@
 import { Channels } from './channels';
 import { byName } from './order';
-import { streamSeed } from './seed';
+import { assertRootSeed, streamSeed } from './seed';
 import { assertRandomState, RANDOM_STATE_VERSION } from './state';
 import { Stream } from './stream';
 import type { RandomState, RandomStreamState } from './state';
@@ -38,10 +38,18 @@ export class Random {
     /**
      * The filter configuration is **optional**, and its absence is the absence
      * of the feature, not a default in disguise: without it `filtered()` is
-     * exactly `weighted()` (RND-21, ARC-3.2). It arrives already parsed — the
-     * service reads no files (ARC-4.1).
+     * exactly `weighted()` (RND-21, ARC-3.2). It arrives already parsed and
+     * already validated — the service reads no files (ARC-4.1) and the loader
+     * is meant to have applied `validateFilterConfig` before the game context
+     * was built (CTX-10).
+     *
+     * Both parameters are checked here all the same, before anything is built
+     * from either: a service that came into existence on parameters it cannot
+     * use would produce a game that is subtly wrong rather than a load that
+     * failed, and nobody would connect the two.
      */
     constructor(rootSeed: number, filter?: FilterConfig) {
+        assertRootSeed(rootSeed);
         this.rootSeed = rootSeed;
         this.channelMemories = new Channels(filter);
     }

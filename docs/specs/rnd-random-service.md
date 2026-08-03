@@ -251,7 +251,15 @@ declare function deserialize(state: RandomState): RandomService;
    the feature.
 10. **Parameter validation.** `RND` reads no files. It exposes the **expected shape** of its own
     configuration so that the game's loader validates it before the context is constructed
-    (ARC-7.2, CTX-10). A schema validation library is needed, currently not among the dependencies.
+    (ARC-7.2, CTX-10), with errors that state file, path and value, and reports every problem at
+    once rather than one per run.
+
+    **No schema validation library**, against what this sheet first assumed. ARC-7.2 says "against a
+    schema (e.g. Zod)", and the example is not the requirement: the contract table says `RND` depends
+    on nothing and ARC-3.4 wants it liftable into another project as it stands, which a first runtime
+    dependency for a shape of four fields would cost. The check is ~270 lines of pure code, and Zod's
+    issues would need wrapping anyway — it has no notion of the file the value came from. `CFG` may
+    still use a library for the rest of the game's content and call this check for `RND`'s slice.
 11. **A channel cap with deterministic LRU eviction**, plus an explicit `forget(channel)`. Recency is
     measured with the service's **draw counter**, never with the system clock (ARC-9.3); ties are
     broken by channel name, to obtain a total order.
@@ -362,7 +370,8 @@ same `webServer`, one project more.
   tests may require per-engine snapshots. If this becomes a problem, the golden vectors can run in a
   dedicated Playwright project, with the three engines, while the visual snapshot stays on chromium
   alone.
-- **Two dependencies are missing** and must be introduced with this work: the headless runner and a
-  schema validation library.
+- **One dependency is missing** and must be introduced with this work: the headless runner. A schema
+  validation library was expected too and was **not** introduced — see the technical decision on
+  parameter validation for why, and what it would have cost the contract table's first row.
 - **`Math.sqrt` and `Math.imul` are allowed** and must be explicitly excluded from the lint rule:
   ECMAScript specifies their result exactly. The prohibition concerns transcendental functions only.
