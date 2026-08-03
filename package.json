@@ -6,11 +6,12 @@
   "scripts": {
     "dev": "vite --host",
     "start": "vite --host",
-    "build": "tsc && vite build",
+    "build": "npm run lint && tsc && vite build",
     "serve": "vite preview",
+    "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "test": "npm run test:unit && npm run test:integration",
-    "test:unit": "npm run typecheck && npx vitest run",
+    "test:unit": "npm run lint && npm run typecheck && npx vitest run",
     "test:integration": "npm run build && npx playwright test",
     "test:integration-update": "npx playwright test --update-snapshots",
     "golden:update": "UPDATE_GOLDEN=1 npx vitest run src/engine/core/random/golden.spec.ts",
@@ -33,6 +34,8 @@
   "devDependencies": {
     "@playwright/test": "^1.49.1",
     "@types/node": "^22.10.2",
+    "@typescript-eslint/parser": "^8.65.0",
+    "eslint": "^9.39.5",
     "typescript": "5.9.3",
     "vite": "6.4.3",
     "vitest": "4.1.10"

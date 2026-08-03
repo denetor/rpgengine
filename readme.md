@@ -18,11 +18,12 @@ npm create excalibur
 
 ## Tests
 
-Two separate suites:
+One linter and two separate suites:
 
 | Command | Suite | What it does |
 |---|---|---|
-| `npm run test:unit` | headless (Vitest) | Typechecks the project, then runs the `*.spec.ts` files under `src/` and `tests-headless/` in Node. No browser, no server. |
+| `npm run lint` | linter (ESLint) | Enforces the prohibitions of [ADR 0001](docs/adr/0001-bit-for-bit-reproducibility.md): no `Math.random()` outside the Random service, no transcendental `Math` function on the deterministic path. It runs as part of `npm run test:unit` and of `npm run build`, so a violation fails the build, not production. |
+| `npm run test:unit` | headless (Vitest) | Lints and typechecks the project, then runs the `*.spec.ts` files under `src/` and `tests-headless/` in Node. No browser, no server. |
 | `npm run test:integration` | integration (Playwright) | Builds the project, serves it and drives a real browser over `tests/`. |
 | `npm test` | both | Headless first, integration after. |
 
