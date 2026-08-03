@@ -305,6 +305,21 @@ exercised**: it remains a design rule, not a verified fact.
 A second entry point remains unavoidable for RND-4: reproducibility **across engines** is not
 observable from a single engine. The golden vectors are therefore also run inside the browsers.
 
+**The other exception is `isolation.spec.ts`, which reads the service's own source.** Some of what
+ARC-3.2 requires has no observable behaviour until it is violated: a service that imports `node:fs`,
+or holds a constant named after a goblin, produces exactly the same numbers as one that does not.
+Those tests are the ones the criterion above cannot cover, and they are kept apart in a file that
+says so — everything else in the suite enters through a constructed `RND`. The **balancing values**
+half of ARC-3.2 is deliberately *not* checked that way: no scan can tell a hash constant from a
+reduction factor, so it is proved by behaviour, in `reusability.spec.ts`.
+
+A source scan reports what it finds, so **its failure mode is silence**: a scan that has stopped
+reading, that walks one directory of two, or that deletes code on its way to stripping a comment
+looks exactly like a scan that found nothing wrong. Each of those is therefore itself under test —
+the walk is checked by name, and the word search is run over a sample containing the shapes a domain
+name really takes (`LOOT_CHANNEL_CAP`, `defaultCombatReduction`, `goblinFight`) before it is trusted
+to report none.
+
 ### Infrastructure to introduce
 
 - **A headless test runner** (Vitest, consistent with the Vite already in use), separate from the

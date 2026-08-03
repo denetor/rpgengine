@@ -585,7 +585,23 @@ with playing time.
   service built on a configuration that does not validate does not exist.
 - **Serialization**: save, draw 100 values, reload, draw again → the same 100 values.
 - **Reusability** (ARC-3.4): the service works with made-up channels and distributions, foreign to
-  this game, and **with no configuration file at all** (RND-21).
+  this game, and **with no configuration file at all** (RND-21). `reusability.spec.ts` runs the whole
+  surface — uniform draws, dice, weighted, Gaussian, noise, fBm, filtered, save and restore — for an
+  estate growing grapes, first with no configuration and then with profiles that estate invented. The
+  criterion is stated in the file: **if making it pass ever requires changing the service, the service
+  was not generic.**
+  - Two things that a behavioural test cannot see are checked separately, because both degrade in
+    silence. `isolation.spec.ts` reads the shipped sources, comments stripped, for this game's own
+    vocabulary (ARC-3.2) — a doc comment saying "loot from that enemy" is explanation, a constant
+    called `LOOT_CHANNEL_CAP` is not. It searches for **words wherever the code puts its boundaries**,
+    underscores and changes of case included, and proves it can still find each shape before
+    concluding there are none.
+  - The **balancing values** are checked by behaviour instead, because no scan can tell a hash
+    constant from a reduction factor: a profile that reduces nothing must leave the filtered draw
+    exactly equal to the weighted one, two profiles that differ must behave differently, and the
+    octave defaults — the service's only numbers of its own — are pinned to what the sheet says they
+    are. A floor, a nudge or a cap the service kept for itself would survive a change to the data,
+    and none of those tests would pass if one did.
 
 ## Links
 
