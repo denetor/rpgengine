@@ -61,8 +61,8 @@ no quest transition in an `onPreUpdate`.
 ### Drawing
 
 **REN-6** — The ordering of elements **MUST** follow the z-bands and the Y-ordering of the base
-defined in [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) (MAP-1, MAP-5), with the values taken
-from the configuration (CFG-1).
+defined in [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) (MAP-1, MAP-5), with the values received
+as construction parameters, never written in the code (CFG-1).
 
 **REN-7** — Terrain rendering **MUST** apply the **Dual Grid System** by reading `MAP`'s data grid,
 without owning its own copy of the truth (MAP-2, MAP-3, MAP-10).
@@ -89,7 +89,7 @@ look smooth.
 **REN-14** — The whole service **MUST** be able to be **absent**: a headless game works without a
 rendering adapter, and that is how the system tests run (ARC-1.4).
 
-**REN-15** — Shake and flash effects **MUST** respect the accessibility settings (GP-66, CFG-5).
+**REN-15** — Shake and flash effects **MUST** respect the accessibility preferences (GP-66, SET-1).
 
 **REN-16** — This service is priority 1 and `AST` is priority 3: until `AST` exists, loading **MUST**
 go through Excalibur's own `Loader`, confined to a **single module** of the presentation, so that
@@ -110,4 +110,4 @@ adopting `AST` (step 16 of [§7.2](../REQUIREMENTS.md#72--development-order)) is
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-1, ARC-13
 - [`MAP-REQUIREMENTS.md`](../MAP-REQUIREMENTS.md) — MAP-1…MAP-6
 - [`entity-registry.md`](./entity-registry.md) · [`map.md`](./map.md) · [`assets.md`](./assets.md) ·
-  [`camera.md`](./camera.md)
+  [`camera.md`](./camera.md) · [`settings.md`](./settings.md)

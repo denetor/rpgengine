@@ -58,7 +58,9 @@ content exists in all languages declared complete, and report orphan keys.
 English's singular/plural distinction.
 
 **I18N-6** — Language switching **MUST** happen at runtime, without a restart, and emit
-`locale-changed` so that the interface redraws itself.
+`locale-changed` so that the interface redraws itself. The **chosen** language is a player preference
+and is persisted as one, outside the game save (SET-1): the service holds the active language, it does
+not store it.
 
 **I18N-7** — Texts **MUST** be organized by **domain** (`ui.*`, `dialog.*`, `item.*`, `quest.*`),
 with the ability to load catalogues separately.
@@ -85,4 +87,4 @@ keys, so that partial translations can be shipped.
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-12
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-65
-- [`dialog.md`](./dialog.md) · [`hud.md`](./hud.md)
+- [`dialog.md`](./dialog.md) · [`hud.md`](./hud.md) · [`settings.md`](./settings.md)

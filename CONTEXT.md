@@ -67,9 +67,18 @@ _Avoid_: assets (those are the binary files), resources
 
 **Configuration**:
 The parameters that describe **how the system behaves** — how much a point of Strength weighs, how
-often the AI re-evaluates. Distinct from content and from the user settings, which are its only
-dynamic part and persist outside the save file.
+often the AI re-evaluates. **Fixed for the run**: composed and validated before the world exists, and
+handed to each service as construction parameters (`CFG`). There is no object in which they live
+afterwards. Distinct from content, which describes the things that exist, and from preferences, which
+the player changes while playing.
 _Avoid_: settings, constants, magic parameters
+
+**Preference**:
+A value the **player** changes from a menu — volume, language, bindings, accessibility — held by
+`SET` and persisted outside the save file, because it belongs to the person and not to the
+playthrough. A value is either a configuration parameter or a preference, never both: one with two
+homes has two answers.
+_Avoid_: user setting, option, config
 
 **Static state**:
 Definitions loaded from the content files, immutable at runtime and never serialized: in the save

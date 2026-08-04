@@ -20,7 +20,7 @@ The domain does not know that a spacebar exists: it knows that the `attack` acti
 | Consumed by | `presentation` (collection), orchestration (consumption of the actions) |
 | Dynamic state | active context, action buffer, axis state |
 | Static state | default mappings, action definitions |
-| External data | `bindings.json` (defaults) + user rebinding in `UserSettings` |
+| External data | `bindings.json` (defaults, through `CFG`) + the player's rebinding (through `SET`) |
 | Events emitted | `action-triggered`, `binding-changed` |
 
 ## Public API (indicative)
@@ -77,7 +77,8 @@ synthetic, timestamped inputs to be injected, with no browser.
 **INP-9** — A **recorded sequence of actions** replayed on the same game **MUST** produce the same
 result (ARC-9.1): it is the basis for gameplay regression tests.
 
-**INP-10** — Remapping **MUST** be persisted in the user settings, not in the game save (CFG-5).
+**INP-10** — Remapping **MUST** be persisted as a **player preference**, not in the game save
+(SET-1): a binding holds for the player, not for the playthrough.
 
 **INP-11** — The service **MUST NOT** execute actions nor know their meaning: it produces intents.
 Deciding whether the attack is possible is up to the orchestration and the rules services.
@@ -99,4 +100,4 @@ can show contextual hints with the right key for the device in use.
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-1 (separation), ARC-9 (determinism)
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-54, GP-62, GP-63, GP-64
-- [`config.md`](./config.md) · [`hud.md`](./hud.md)
+- [`settings.md`](./settings.md) · [`config.md`](./config.md) · [`hud.md`](./hud.md)

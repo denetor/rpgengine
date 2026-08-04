@@ -11,7 +11,9 @@
  *
  * The service still reads no files (ARC-4.1) and knows none of this game's
  * content paths. What it exposes is the shape and the check; the file name is
- * whatever the loader passes in, and the loading itself belongs to `CFG`.
+ * whatever the loader passes in. Reading the file belongs to the game's
+ * bootstrap, and composing the sources and running this check over the result
+ * belongs to `CFG`.
  *
  * Everything here is pure: the checks answer with a list of problems, and
  * `assertFilterConfig` is the one line of translation from that list into the

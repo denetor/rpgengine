@@ -258,8 +258,9 @@ declare function deserialize(state: RandomState): RandomService;
     schema (e.g. Zod)", and the example is not the requirement: the contract table says `RND` depends
     on nothing and ARC-3.4 wants it liftable into another project as it stands, which a first runtime
     dependency for a shape of four fields would cost. The check is ~270 lines of pure code, and Zod's
-    issues would need wrapping anyway — it has no notion of the file the value came from. `CFG` may
-    still use a library for the rest of the game's content and call this check for `RND`'s slice.
+    issues would need wrapping anyway — it has no notion of the file the value came from. The game may
+    still use a library for the rest of its content; `CFG` calls this check for `RND`'s slice and
+    validates nothing itself (CFG-13).
 11. **A channel cap with deterministic LRU eviction**, plus an explicit `forget(channel)`. Recency is
     measured with the service's **draw counter**, never with the system clock (ARC-9.3); ties are
     broken by channel name, to obtain a total order.
@@ -368,8 +369,9 @@ same `webServer`, one project more.
 - **The save file format.** `RND` produces and consumes its own portion of state with its own
   version; composing it, writing it and migrating it belongs to `SAVE`.
 - **Tuning the filter profiles and the channel cap.** They are data, and they are tuned by playing.
-- **Loading and validating `random.json`.** The service receives already-validated parameters;
-  loading and validating belongs to the game (`CFG`).
+- **Loading and validating `random.json`.** The service receives already-validated parameters:
+  reading the file belongs to the game's bootstrap, and composing the sources and running this check
+  over the result belongs to `CFG`.
 - **Any integration with `excalibur`.**
 
 ## Further Notes

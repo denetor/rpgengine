@@ -58,8 +58,8 @@ revealing a door that opens) and handed back afterwards, without jumps.
 **CAM-5** — **Shake MUST** be parametric and use noise, not pure random oscillations, for a
 continuous rather than grainy effect (RND-7).
 
-**CAM-6** — Shake **MUST** respect the accessibility settings, down to being cancelled entirely
-(GP-66).
+**CAM-6** — Shake **MUST** respect the accessibility preferences, down to being cancelled entirely
+(GP-66, SET-1).
 
 **CAM-7** — Zoom **MUST** be animatable with a duration and a curve; the camera **MUST** stay
 consistent with the bounds at variable zoom too.
@@ -88,4 +88,4 @@ the space in between.
 ## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-66
-- [`rendering.md`](./rendering.md) · [`config.md`](./config.md) · [`random.md`](./random.md)
+- [`rendering.md`](./rendering.md) · [`settings.md`](./settings.md) · [`random.md`](./random.md)

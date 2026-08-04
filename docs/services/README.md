@@ -25,12 +25,13 @@ in the hub: [`../REQUIREMENTS.md`](../REQUIREMENTS.md). The features seen by the
 |---|---|---|
 | `BUS` | [event-bus.md](./event-bus.md) | Domain event transport, deterministic delivery |
 | `CTX` | [game-context.md](./game-context.md) | Service graph composition, injection, lifecycle |
-| `CFG` | [config.md](./config.md) | Balancing parameters and user settings |
+| `CFG` | [config.md](./config.md) | Composes, validates and freezes the parameters services are built with |
 | `TIME` | [time.md](./time.md) | Game time, scheduler, world clock |
 | `RND` | [random.md](./random.md) | Seedable RNG, Gaussian, Perlin, filtered randomness |
 | `EXPR` | [expr.md](./expr.md) | Conditions and effects declared in data, evaluated once for all |
 | `SAVE` | [persistence.md](./persistence.md) | Saving, slots, versioning, migrations |
 | `INP` | [input.md](./input.md) | Abstract actions, contexts, rebinding, buffering |
+| `SET` | [settings.md](./settings.md) | Player preferences, persisted outside the save |
 | `I18N` | [localization.md](./localization.md) | Texts by key, languages, plurals |
 | `AST` | [assets.md](./assets.md) | Asset manifest, bundles, loading |
 

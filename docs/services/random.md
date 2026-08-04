@@ -467,8 +467,8 @@ distinction governs the save (`assertRandomState`), for the same reason.
 
 **No schema validation library is used**, against what the spec sheet first assumed. The contract
 above says `RND` depends on nothing, and ARC-3.4 wants it liftable into another project as it stands;
-a shape of four fields is not worth that. `CFG` is free to use one for the rest of the game's content
-and to call this check for `RND`'s slice.
+a shape of four fields is not worth that. The game is free to use one for the rest of its content;
+`CFG` calls this check for `RND`'s slice and validates nothing itself (CFG-13).
 
 ### Structure
 

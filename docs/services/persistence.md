@@ -56,7 +56,8 @@ interface SaveService {
 
 **SAVE-1** — **Only the dynamic state MUST** be saved. Static definitions (items, quests, dialogues,
 enemies, hand-drawn maps) **MUST NOT** end up in the save file: they are referenced by **stable ID**
-(ARC-10.3).
+(ARC-10.3). The **player's preferences MUST NOT** either: they hold for every slot, they have a store
+of their own, and a save that carried them would restore somebody else's volume (SET-1).
 
 **SAVE-2** — The serializable state **MUST NOT** contain references to `Actor`s, functions, `Map`,
 `Set` or derived values that can diverge from a recomputation (ARC-10.4).
@@ -114,4 +115,5 @@ breaking halfway through a game.
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-10 (serializability)
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-58, GP-59, GP-60, GP-61
-- [`game-context.md`](./game-context.md) · [`random.md`](./random.md) · [`time.md`](./time.md)
+- [`game-context.md`](./game-context.md) · [`random.md`](./random.md) · [`time.md`](./time.md) ·
+  [`settings.md`](./settings.md)

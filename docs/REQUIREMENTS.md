@@ -246,15 +246,25 @@ a seed).
 
 ### ARC-12 — Configuration, localization, assets
 
-**ARC-12.1** — Balancing parameters **MUST** be centralized and typed (see
-[`services/config.md`](./services/config.md)): no magic numbers scattered around (z-order, sprite
-grids, AI thresholds, respawn timers).
+**ARC-12.1** — Tunable parameters **MUST** live outside the code, be **validated before use** and
+reach each service as **construction parameters** (see [`services/config.md`](./services/config.md)):
+no magic numbers scattered around (z-order, sprite grids, AI thresholds, respawn timers).
+
+*Centralized* is deliberately not the word. The shape, the default and the check of a parameter
+belong to the service that uses it — a generic service cannot contain this game's constants (ARC-3.2)
+— and what is centralized is only the **mechanism** that composes the sources, validates them and
+refuses in block before a `GameContext` exists. There is no object in which the game's numbers live.
 
 **ARC-12.2** — No string shown to the player **MUST** be hardcoded: texts go through the
 localization service (see [`services/localization.md`](./services/localization.md)).
 
 **ARC-12.3** — Asset loading **MUST** be data-driven, consistent with the loading from Tiled already
 used for spatial placement.
+
+**ARC-12.4** — What the **player** can change (volume, language, bindings, accessibility) **MUST** be
+kept apart from the parameters of ARC-12.1 and persisted **outside the game save** (see
+[`services/settings.md`](./services/settings.md)): it is mutable at runtime, it holds for every game
+and every slot, and it **MUST NOT** affect the outcome of the game.
 
 ### ARC-13 — Performance
 
@@ -301,12 +311,13 @@ entities/calls it must cope with.
 |---|---|---|---|---|
 | `BUS` | EventBus | [event-bus.md](./services/event-bus.md) | G | 1 |
 | `CTX` | GameContext / DI | [game-context.md](./services/game-context.md) | G | 1 |
-| `CFG` | Config and balancing | [config.md](./services/config.md) | G | 1 |
+| `CFG` | Parameter composition and validation | [config.md](./services/config.md) | G | 1 |
 | `TIME` | Game time and scheduler | [time.md](./services/time.md) | G | 1 |
 | `RND` | Random numbers | [random.md](./services/random.md) | G | 1 |
 | `EXPR` | Precondition and effect interpreter | [expr.md](./services/expr.md) | G | 2 |
 | `SAVE` | Persistence | [persistence.md](./services/persistence.md) | G | 2 |
 | `INP` | Input | [input.md](./services/input.md) | G | 2 |
+| `SET` | Player preferences | [settings.md](./services/settings.md) | G | 2 |
 | `I18N` | Localization | [localization.md](./services/localization.md) | G | 3 |
 | `AST` | Assets and resources | [assets.md](./services/assets.md) | G | 3 |
 
@@ -360,7 +371,7 @@ src/
 ├─ engine/                    Generic and reusable. No import from excalibur.
 │  ├─ core/
 │  │  ├─ event-bus/  game-context/  config/  time/  random/  expr/
-│  │  └─ persistence/  input/  i18n/  assets/
+│  │  └─ persistence/  input/  settings/  i18n/  assets/
 │  ├─ world/
 │  │  └─ map/  map-generation/  spatial-index/  entity-registry/
 │  ├─ agents/
@@ -371,7 +382,7 @@ src/
 ├─ game/                      This specific game
 │  ├─ orchestration/          Wiring between services, by theme (ARC-4.4)
 │  ├─ content/                Data: quests, dialogs, items, npcs, loot, prices, maps + schema
-│  ├─ balance/                Balancing values (CFG)
+│  ├─ balance/                Tunable values, composed and validated at bootstrap (CFG)
 │  └─ bootstrap.ts            Construction of the GameContext
 │
 └─ presentation/              Excalibur: Scene, Actor, rendering, HUD, audio, camera, physical input
@@ -402,7 +413,7 @@ flowchart TB
     C[game/content + balance<br/>data]
     S[engine/systems<br/>quest, dialog, combat, inventory, loot,<br/>faction, stats, economy, crime]
     W[engine/world + agents<br/>map, spatial-index, entity-registry,<br/>utility-ai, blackboard, pathfinding, affordance]
-    K[engine/core<br/>event-bus, game-context, config, time,<br/>random, expr, persistence, input, i18n, assets]
+    K[engine/core<br/>event-bus, game-context, config, time,<br/>random, expr, persistence, input, settings, i18n, assets]
 
     P --> O
     P --> K
@@ -433,7 +444,7 @@ None of the services involved knows that the others exist.
 | Prio | Content | Goal |
 |---|---|---|
 | **1 — Foundations** | `BUS` `CTX` `CFG` `TIME` `RND` `ENT` `MAP` `REN` | A world that loads, draws and moves, with the correct architecture from day one |
-| **2 — Minimum game** | `SPX` `INP` `EXPR` `STAT` `CBT` `INV` `QST` `DLG` `SAVE` | A complete game loop: explore, fight, talk, collect, save |
+| **2 — Minimum game** | `SPX` `INP` `SET` `EXPR` `STAT` `CBT` `INV` `QST` `DLG` `SAVE` | A complete game loop: explore, fight, talk, collect, save |
 | **3 — Depth** | `AI` `BB` `PATH` `LOOT` `FAC` `GEN` `HUD` `CAM` `I18N` `AST` | Believable NPCs, a varied world, a complete interface |
 | **4 — Simulation** | `AFF` `ECO` `CRM` `AUD` | A reactive, systemic world |
 
@@ -494,6 +505,7 @@ flowchart LR
 
     subgraph L3["L3 — a port onto excalibur / the DOM"]
         INP["INP · p2"]
+        SET["SET · p2"]
         AST["AST · p3"]
         REN["REN · p1"]
         CAM["CAM · p3"]
@@ -521,11 +533,12 @@ flowchart LR
     ENT --> REN
     MAP --> REN
     REN --> CAM
-    CFG --> CAM
+    SET --> CAM
+    SET --> INP
     INP --> HUD
     I18N --> HUD
     AST --> AUD
-    CFG --> AUD
+    SET --> AUD
     AST -.deferred.-> REN
 ```
 
@@ -533,6 +546,11 @@ flowchart LR
 as constructor parameters and are testable headless from the first line. `RND` is done; `BUS`, `CFG`,
 `TIME`, `MAP` and `ENT` are the priority-1 ones left, and they can be developed in any order, even in
 parallel. Nothing in the project is blocked on anything else at this level.
+
+`CFG` has **no outgoing arrow either**, which is not an omission: it hands its slices to the
+constructors during bootstrap and no service depends on it existing afterwards (CFG-15). The arrows
+it used to have towards `CAM` and `AUD` were about accessibility and volume, which are preferences
+and now belong to `SET`.
 
 **L1 — one injected value.** Each of these needs exactly one thing to already exist: an `RND` stream
 (`CBT`, `GEN`, `AI`, `LOOT`, `ECO`), the shared expression interpreter (`STAT`, `QST`, `DLG`,
@@ -545,8 +563,9 @@ against the real world — once the services underneath it exist. `SAVE` is the 
 prerequisite is not one service but the `serialize()`/`deserialize()` of whichever services already
 hold dynamic state (ARC-10.2), so it grows with them rather than waiting for all of them.
 
-**L3 — a port onto excalibur or the DOM.** `INP` and `AST` are engine services whose port is
-implemented by the presentation; `REN`, `CAM`, `HUD` and `AUD` are the presentation. `REN` is where
+**L3 — a port onto excalibur or the DOM.** `INP`, `SET` and `AST` are engine services whose port is
+implemented by the presentation — the physical input, `localStorage`, the loader; `REN`, `CAM`, `HUD`
+and `AUD` are the presentation. `REN` is where
 priority and prerequisites pull hardest against each other: it is priority 1, but it has nothing to
 draw until `ENT` and `MAP` exist.
 
@@ -590,12 +609,12 @@ Three rules shape it:
 |---|---|---|---|---|---|
 | **0** | `RND` + headless runner | 1 | — | *(script)* | **Done.** ARC-11.1, ARC-9.2, ADR-0001 |
 | **1** | Folder layout + boundary check | — | — | `sandbox` (the current template) | ARC-14.2 rules 1…6 fail the build |
-| **2** | `CFG` · `BUS` | 1 | — | `bus` — events published and traced on screen | ARC-5.1, ARC-5.4, ARC-12.1 |
+| **2** | `CFG` · `BUS` | 1 | — | `bus` — events published and traced on screen, on services built from composed parameters | ARC-5.1, ARC-5.4, ARC-12.1, CFG-15 |
 | **3** | `TIME` + first `CTX` | 1 | `CFG` `BUS` | `clock` — game time, scale, pause, timers firing | ARC-8.2, ARC-9.3, CTX-1, CTX-2 |
 | **4** | `ENT` | 1 | — | `entities` — spawn, components added and removed live | ARC-6.1…6.4, ARC-5.2 |
 | **5** | `MAP` | 1 | — | `map` — grid drawn, walkability overlay, cell query on click | MAP-1…MAP-9, ARC-1.2 |
 | **6** | `REN` | 1 | `ENT` `MAP` | `render` — steps 4 and 5 rebuilt through the adapter | ARC-1.3, REN-1, REN-2 |
-| **7** | `INP` | 2 | presentation port | `input` — movement by abstract actions, rebinding, contexts | ARC-1.4, INP contexts |
+| **7** | `INP` · `SET` | 2 | presentation port | `input` — movement by abstract actions, contexts, and a rebinding that survives a reload | ARC-1.4, ARC-12.4, INP contexts |
 | **8** | `SPX` | 2 | `ENT` | `proximity` — radius queries drawn over the entities | ARC-6.3, ARC-13.1 |
 | **9** | `EXPR` | 2 | — | *(headless only)* | ARC-7.2, ARC-7.3, ARC-3.4 |
 | **10** | `STAT` · `INV` | 2 | `EXPR` (for STAT-6) | `character` — attributes, modifiers by origin, carrying capacity | ARC-7.1, ARC-10.1 |
@@ -640,7 +659,9 @@ A step is closed when all four hold — the fourth is the one usually forgotten:
    boundary check forbids.
 3. The service sheet moved from `Status: proposed` to `Status: implemented`, with the API it actually
    exposes, and a spec in [`specs/`](./specs/) if the service needed design decisions of its own.
-4. The `GameContext` extended with the new field, and `dispose()` handling it (CTX-1).
+4. The `GameContext` extended with the new field, and `dispose()` handling it (CTX-1). `CFG` is the
+   one exception, and deliberately so: it produces the parameters the context is built from and must
+   not be a field of it (CFG-15).
 
 #### Where the order is free
 
@@ -669,7 +690,7 @@ The technical requirements `TR1…TR13` of the previous version have been absorb
 | TR9 — Persistence | ARC-10 + [`persistence.md`](./services/persistence.md) |
 | TR10 — Deterministic RNG | ARC-9 + [`random.md`](./services/random.md) |
 | TR11 — Testability and quality | ARC-11 |
-| TR12 — Config, i18n, assets | ARC-12 + [`config.md`](./services/config.md), [`localization.md`](./services/localization.md), [`assets.md`](./services/assets.md) |
+| TR12 — Config, i18n, assets | ARC-12 + [`config.md`](./services/config.md), [`settings.md`](./services/settings.md), [`localization.md`](./services/localization.md), [`assets.md`](./services/assets.md) |
 | TR13 — Advanced RNG | [`random.md`](./services/random.md) |
 | Game features (Player, Map, Quests, …) | [`GAMEPLAY.md`](./GAMEPLAY.md) |
 | "To be added to the requirements" notes | ARC-2, ARC-6.2, [`blackboard.md`](./services/blackboard.md), [`utility-ai.md`](./services/utility-ai.md), [`affordance.md`](./services/affordance.md) |

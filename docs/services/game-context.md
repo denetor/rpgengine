@@ -34,14 +34,16 @@ interface GameContext {
   readonly entities: EntityRegistry;
   readonly map: MapService;
   readonly quests: QuestService;
-  // …one field per service
+  readonly settings: SettingsService;
+  // …one field per service — but no `config`: see CTX-10 and CFG-15
   dispose(): void;
 }
 
 /** The single construction point for the whole graph. */
 function createGameContext(options: {
   content: LoadedContent;
-  config: GameConfig;
+  /** The slices already composed and validated by `CFG`, consumed here and not kept. */
+  config: Config;
   seed: number;
   save?: SaveGame;
 }): GameContext;
@@ -82,6 +84,10 @@ each service, and a construction from a save file that retraces it (see `SAVE`).
 **CTX-10** — Configuration and content **MUST** be loaded and **validated before** the context is
 constructed: a context **MUST** never exist in a partially valid state.
 
+The parameters are consumed here and **MUST NOT** be kept: each service receives its own slice
+(CFG-8) and the composed result **MUST NOT** become a field of the context (CFG-15), or it would be
+the service locator CTX-2 exists to prevent.
+
 **CTX-11** — The context **MUST NOT** hold interface state (selection, active screen, focus): that
 belongs to the presentation (ARC-8.4).
 
@@ -97,4 +103,5 @@ belongs to the presentation (ARC-8.4).
 ## Links
 
 - [`REQUIREMENTS.md`](../REQUIREMENTS.md) — ARC-8 (no global state), ARC-4 (mute services)
-- [`config.md`](./config.md) · [`persistence.md`](./persistence.md) · [`event-bus.md`](./event-bus.md)
+- [`config.md`](./config.md) · [`settings.md`](./settings.md) · [`persistence.md`](./persistence.md) ·
+  [`event-bus.md`](./event-bus.md)

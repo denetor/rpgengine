@@ -37,8 +37,9 @@ data, not by calls scattered through the game logic (ARC-1.1).
 **AUD-4** — The event → sound mapping **MUST** be able to depend on context: a footstep sounds
 different on grass, on stone and in water, based on terrain properties (MAP-11).
 
-**AUD-5** — Volumes **MUST** be adjustable separately for master, music and effects, and persisted
-in the user settings (GP-57, CFG-5).
+**AUD-5** — Volumes **MUST** be adjustable separately for master, music and effects, and persisted as
+player preferences, outside the game save (GP-57, SET-1). A change **MUST** be applied on the
+`settings-changed` event (SET-4), not by re-reading the value periodically.
 
 **AUD-6** — Sounds **SHOULD** be **positional**: volume and panning as a function of the distance
 from the listener.
@@ -71,4 +72,4 @@ not (TIME-11).
 ## Links
 
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-55, GP-56, GP-57
-- [`assets.md`](./assets.md) · [`config.md`](./config.md) · [`random.md`](./random.md)
+- [`assets.md`](./assets.md) · [`settings.md`](./settings.md) · [`random.md`](./random.md)
