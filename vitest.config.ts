@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config';
+import { configDefaults, defineConfig } from 'vitest/config';
 
 /**
  * Headless test suite (ARC-11.1).
@@ -16,5 +16,12 @@ export default defineConfig({
     test: {
         environment: 'node',
         include: ['src/**/*.spec.ts', 'tests-headless/**/*.spec.ts'],
+
+        // The fixture trees are not tests, they are material the meta tests
+        // point a tool at. One of them contains a file named `*.spec.ts` on
+        // purpose — rule 2 has to let a spec import the internals it sits
+        // beside — and without this it would be collected and run for real.
+        // The defaults are kept: replacing them would let `node_modules` back in.
+        exclude: [...configDefaults.exclude, 'tests-headless/fixtures/**'],
     },
 });

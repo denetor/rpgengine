@@ -1,7 +1,9 @@
-// A service's public surface, and the shape a lawful engine file has: values
-// in, values out, nothing drawn. It is here so that the miniature project has
-// an engine worth having a frontier around.
+// A service's public surface: the one file the rest of the project may import.
+// It reaches into its own internals, which is the point of having them — and the
+// first of the lawful cases rule 2 must not break.
+
+import { drawFrom } from './stream';
 
 export function nextRoll(): number {
-    return 4;
+    return drawFrom(6);
 }

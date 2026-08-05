@@ -56,6 +56,7 @@ Three consequences follow, and they count as project constraints:
 | [`0001`](./adr/0001-bit-for-bit-reproducibility.md) | Bit-for-bit reproducibility across JavaScript engines: `xoshiro128**`, no transcendental functions, Gaussian by sum of uniforms |
 | [`0002`](./adr/0002-weight-readjustment.md) | Filtered randomness by weight readjustment, not by re-rolling |
 | [`0003`](./adr/0003-dialogues-in-ink.md) | Dialogues written in ink and run with inkjs, instead of a graph format of our own |
+| [`0004`](./adr/0004-presentation-may-reach-a-service.md) | The presentation reaches a service directly, through its public surface, without passing through `game/` |
 
 ---
 
@@ -295,6 +296,13 @@ entities/calls it must cope with.
 | 4 | No import from `engine/` towards `game/` or `presentation/` |
 | 5 | No import from `game/` towards `presentation/` |
 | 6 | No import cycle anywhere in `src/` |
+
+Rule 4 forbids the arrow that points back up. It does **not** forbid one that skips a layer: a file
+under `presentation/` **MAY** import a service in `engine/` directly, through its public surface,
+without passing through `game/`. Strict layering would oblige every testbed scene of §7.2 to have a
+module in `game/` written for no purpose but to forward calls. The permission is recorded, with the
+alternative that was rejected, in [ADR 0004](./adr/0004-presentation-may-reach-a-service.md); rule 2
+is untouched by it, so a scene still sees exactly what every other caller sees.
 
 **ARC-14.3** — Violating a boundary rule **MUST** make the build fail.
 

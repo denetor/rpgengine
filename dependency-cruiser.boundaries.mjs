@@ -38,11 +38,23 @@ const EXCALIBUR = '^node_modules/excalibur(/|$)';
  * The rules that forbid an edge of the import graph, over a project whose three
  * layers live under `root`.
  *
- * One rule today. ARC-14.2 asks for six, and the four remaining edge rules and
- * the cycle rule are the two tickets after this one; they are entries in this
- * array and fixtures in the miniature project, and nothing else.
+ * Five of the six rules of ARC-14.2. The sixth forbids cycles, which is a
+ * property of the whole graph rather than of an edge, and it is ticket 06.
  */
 function forbiddenEdges(root) {
+    // A **service** is a directory two levels below `engine/`: the family level
+    // of the catalogue (`engine/core/`) is kept, so `engine/core/random/` is a
+    // service and `engine/core/` is not. Everything below turns on that, which
+    // is why it is written once here.
+    const insideAService = `^${root}/engine/[^/]+/[^/]+/`;
+    const aPublicSurface = `^${root}/engine/[^/]+/[^/]+/index\\.ts$`;
+
+    // The same directory, captured, so that a `to` pattern can say "some other
+    // service" — the one thing no single pattern can express on its own. The
+    // whole path is captured and not just the service's name: two families may
+    // each hold a service called `random`, and they would be different services.
+    const theServiceWeCameFrom = `^(${root}/engine/[^/]+/[^/]+)/`;
+
     return [
         {
             name: 'engine-may-not-import-excalibur',
@@ -56,6 +68,61 @@ function forbiddenEdges(root) {
                 `values and let the presentation draw them. See ARC-1.2 and ARC-14.2 in ${REQUIREMENTS}.`,
             from: { path: `^${root}/engine/` },
             to: { path: EXCALIBUR },
+        },
+        {
+            name: 'service-internals-are-private',
+            severity: 'error',
+            comment:
+                "Frontier crossed: outside a service → its insides. ARC-2.1 gives every service a " +
+                'single public surface, its index.ts, and everything the index does not export is ' +
+                'private to it — not by convention but so that the service can be changed behind ' +
+                'that surface without a search of the project. Import what the index exports; if ' +
+                `what you need is not there, the question is whether it should be. See ARC-2.1 and ARC-14.2 in ${REQUIREMENTS}.`,
+            // Anything that is not itself inside a service. Files that *are*
+            // inside one are left to the rule below, which is stricter: it
+            // refuses a service the other service's index as well, so nothing
+            // falls between the two.
+            from: { pathNot: insideAService },
+            to: { path: insideAService, pathNot: aPublicSurface },
+        },
+        {
+            name: 'services-may-not-import-each-other',
+            severity: 'error',
+            comment:
+                'Frontier crossed: a service → another service. ARC-4.1 lets a service receive ' +
+                'neither another service nor an injection of one; what one service needs from ' +
+                'another it is handed as a value by the orchestration (ARC-4.2), which is what ' +
+                'keeps each service testable on its own (ARC-3.4) and the service graph acyclic ' +
+                `by construction (ARC-4.6). See ARC-4.1 and ARC-14.2 in ${REQUIREMENTS}.`,
+            from: { path: theServiceWeCameFrom },
+            // `$1` is the service directory captured on the left. Without the
+            // backreference the rule would have to name every pair of services
+            // that will ever exist.
+            to: { path: insideAService, pathNot: '^$1/' },
+        },
+        {
+            name: 'engine-may-not-import-the-layers-above',
+            severity: 'error',
+            comment:
+                'Frontier crossed: engine/ → game/ or presentation/. ARC-1.1 makes the ' +
+                'dependencies one-way, presentation → game → engine, and this is the arrow ' +
+                'pointing back up. An engine that knows this game is an engine that ships with ' +
+                'this game and no other, and one that knows the presentation cannot be run ' +
+                `headless at all (ARC-1.4). See ARC-1.1 and ARC-14.2 in ${REQUIREMENTS}.`,
+            from: { path: `^${root}/engine/` },
+            to: { path: `^${root}/(game|presentation)/` },
+        },
+        {
+            name: 'game-may-not-import-the-presentation',
+            severity: 'error',
+            comment:
+                'Frontier crossed: game/ → presentation/. ARC-1.1 again, one step further up: ' +
+                'the rules of the game are what a headless simulation runs, so a rule that ' +
+                'reaches for a scene is a rule that cannot be simulated or tested without a ' +
+                'renderer. What the presentation must show, the game reports; the presentation ' +
+                `decides how to draw it. See ARC-1.1 and ARC-14.2 in ${REQUIREMENTS}.`,
+            from: { path: `^${root}/game/` },
+            to: { path: `^${root}/presentation/` },
         },
     ];
 }
