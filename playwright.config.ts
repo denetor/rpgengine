@@ -13,11 +13,13 @@ import { defineConfig, devices } from '@playwright/test';
  *
  * Two kinds of test live here, and they do not want the same browsers:
  *
- * - the **visual snapshot** of the main page, which is compared against a
- *   committed PNG and therefore runs on **chromium alone**. A snapshot is a
- *   picture of one renderer; running it on three would need three baselines,
- *   and that is a decision to be taken deliberately, not a side effect of
- *   wanting the golden vectors checked elsewhere.
+ * - the **page tests**: the visual snapshot of the main page, which is compared
+ *   against a committed PNG, and the testbed's scene selection. They run on
+ *   **chromium alone**. A snapshot is a picture of one renderer; running it on
+ *   three would need three baselines, and that is a decision to be taken
+ *   deliberately, not a side effect of wanting the golden vectors checked
+ *   elsewhere. The testbed keeps them company because what it checks — which
+ *   scene a URL opens — is a property of the page, not of the renderer.
  * - the **golden vectors** (RND-4), which have to run on chromium, firefox and
  *   webkit, because agreement between engines is the whole promise and no
  *   single engine can observe it.
@@ -26,8 +28,11 @@ import { defineConfig, devices } from '@playwright/test';
  * chromium project keeps its name: the snapshot files are named after it.
  */
 
-/** The visual snapshot: chromium only, deliberately. */
-const VISUAL_TESTS = /main\.spec\.ts/;
+/**
+ * The page tests: chromium only, deliberately. The project keeps the name
+ * `chromium` because the committed snapshot files are named after it.
+ */
+const PAGE_TESTS = /(main|testbed)\.spec\.ts/;
 
 /** The golden vectors: every engine. */
 const VECTOR_TESTS = /golden-vectors\.spec\.ts/;
@@ -80,7 +85,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testMatch: VISUAL_TESTS,
+      testMatch: PAGE_TESTS,
       use: {
         ...devices['Desktop Chrome'],
         launchOptions: {

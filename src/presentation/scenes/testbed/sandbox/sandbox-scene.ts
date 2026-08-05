@@ -1,7 +1,18 @@
 import { DefaultLoader, Engine, ExcaliburGraphicsContext, Scene, SceneActivationContext } from "excalibur";
+import type { GameContext } from "../../../../game/bootstrap";
 import { Player } from "./player";
 
 export class SandboxScene extends Scene {
+    /**
+     * The game's state, taken as a parameter rather than reached for. Nothing
+     * here uses it yet — it is empty until step 3 — but every scene takes one,
+     * so what step 3 adds to the context reaches the scenes without touching
+     * any of their signatures.
+     */
+    constructor(readonly context: GameContext) {
+        super();
+    }
+
     override onInitialize(engine: Engine): void {
         // Scene.onInitialize is where we recommend you perform the composition for your game
         const player = new Player();

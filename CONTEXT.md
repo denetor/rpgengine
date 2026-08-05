@@ -30,6 +30,24 @@ The layer that owns Excalibur — scenes, `Actor`s, drawing, audio, camera, phys
 the domain and reacts to its events; the domain does not know it exists.
 _Avoid_: view, UI, front-end
 
+**Scene**:
+A screen the presentation can have open — the Excalibur `Scene`, with the `Actor`s, the drawing and
+the input that belong to it; one is active at a time. It **receives the `GameContext` as a
+parameter** rather than reaching for the game's state, and lives in a folder of its own holding what
+is private to it. That folder declares no `index.ts`: in this project that filename means a service's
+public surface (ARC-2.1).
+_Avoid_: level, screen, stage
+
+**Testbed**:
+The development scenes, under `presentation/scenes/testbed/`: one per step of §7.2, each driving that
+step's service through the presentation. They are listed in an **explicit registry** — a file that
+can be read and diffed, not a bundler glob — and reached by name with `?scene=<name>`; no name opens
+the sandbox, and an unregistered one says so in the page. The testbed **ships in the production
+build**: it is part of what arrives with the engine, and a scene that exists in only one of the two
+build modes is worse than a broken one. Until step 1 the word also covered a Node script driving the
+randomness service; that script is deleted, and the word now means this alone.
+_Avoid_: demo, playground, sandbox (that is one testbed scene, not the set)
+
 **Orchestration**:
 The layer that connects the services to each other by reacting to domain events and invoking their
 APIs. It encodes the rules of *this* game, which no service knows.

@@ -1,31 +1,9 @@
-import { Color, DisplayMode, Engine, FadeInOut } from "excalibur";
-import { loader } from "./presentation/resources";
-import { SandboxScene } from "./presentation/scenes/testbed/sandbox/sandbox-scene";
+import { bootstrap } from "./game/bootstrap";
+import { boot } from "./presentation/boot";
 
-// Goal is to keep main.ts small and just enough to configure the engine
+// The browser entry point, and the one file that belongs to no layer: it calls
+// the game's bootstrap and hands what it returns to the presentation's boot. It
+// is the single declared hole in the boundary check, and it stays small enough
+// that reading it is the whole audit.
 
-const game = new Engine({
-  width: 800, // Logical width and height in game pixels
-  height: 600,
-  displayMode: DisplayMode.FitScreenAndFill, // Display mode tells excalibur how to fill the window
-  pixelArt: true, // pixelArt will turn on the correct settings to render pixel art without jaggies or shimmering artifacts
-  scenes: {
-    start: SandboxScene
-  },
-  // physics: {
-  //   solver: SolverStrategy.Realistic,
-  //   substep: 5 // Sub step the physics simulation for more robust simulations
-  // },
-  // fixedUpdateTimestep: 16 // Turn on fixed update timestep when consistent physic simulation is important
-});
-
-game.start('start', { // name of the start scene 'start'
-  loader, // Optional loader (but needed for loading images/sounds)
-  inTransition: new FadeInOut({ // Optional in transition
-    duration: 1000,
-    direction: 'in',
-    color: Color.ExcaliburBlue
-  })
-}).then(() => {
-  // Do something after the game starts
-});
+void boot(bootstrap());

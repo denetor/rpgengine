@@ -31,20 +31,67 @@ The glossary gains the two words this ticket introduces — **Scene** and **Test
 
 **Blocked by:** 02 — Three-layer layout.
 
-**Status:** ready-for-agent
+**Status:** done — every criterion met; one is weaker than it reads. See the closing notes.
 
-- [ ] The game's bootstrap returns a `GameContext` with `dispose()`, and does not install global state
-- [ ] The presentation's boot takes the context, and the scene receives it as a parameter
-- [ ] The browser entry point does nothing but call the bootstrap and the boot
-- [ ] The registry lists its scenes explicitly, without bundler-side discovery
-- [ ] No `scene` parameter opens the sandbox
-- [ ] A registered name opens that scene
-- [ ] An unregistered name renders an error **in the DOM** naming the parameter and listing the
+- [x] The game's bootstrap returns a `GameContext` with `dispose()`, and does not install global state
+- [x] The presentation's boot takes the context, and the scene receives it as a parameter
+- [x] The browser entry point does nothing but call the bootstrap and the boot
+- [x] The registry lists its scenes explicitly, without bundler-side discovery
+- [x] No `scene` parameter opens the sandbox
+- [x] A registered name opens that scene
+- [x] An unregistered name renders an error **in the DOM** naming the parameter and listing the
       registered names
-- [ ] The behaviour holds in the production build, not only in development
-- [ ] Playwright tests cover the three cases above against the built page, in the existing chromium
+- [x] The behaviour holds in the production build, not only in development
+- [x] Playwright tests cover the three cases above against the built page, in the existing chromium
       project
-- [ ] Scene folders hold what is private to them, and no scene declares an `index.ts` — that filename
+- [x] Scene folders hold what is private to them, and no scene declares an `index.ts` — that filename
       means a service's public surface (ARC-2.1)
-- [ ] `CONTEXT.md` defines **Scene** and **Testbed** in its Architecture section
-- [ ] The visual snapshot still passes
+- [x] `CONTEXT.md` defines **Scene** and **Testbed** in its Architecture section
+- [x] The visual snapshot still passes
+
+## Closing notes
+
+- **What was added.**
+
+  ```
+  src/game/bootstrap.ts                              ← bootstrap() → GameContext, .gitkeep deleted
+  src/presentation/boot.ts                           ← boot(context): resolves, starts, names the tab
+  src/presentation/scenes/testbed/registry.ts        ← the explicit list, and resolveScene()
+  src/presentation/scenes/testbed/scene-error.ts     ← the in-page error
+  tests/testbed.spec.ts                              ← three cases, chromium project
+  ```
+
+  `src/main.ts` is now one statement: `void boot(bootstrap())`.
+
+- **"A registered name opens that scene" is met but barely witnessed.** `sandbox` is the only
+  registered scene *and* the default, so `?scene=sandbox` and the plain URL assert the same thing: a
+  registry that ignored the parameter for known names would pass both. What keeps the pair honest is
+  the third test — an unregistered name produces the error and starts nothing, which no
+  parameter-ignoring boot can do. Registering a throwaway second scene would close the gap and was
+  rejected: a scene that exists only to be selected is worse than a weak assertion, and step 5's
+  `map` closes it for free.
+
+- **The tab is named after the running scene, and that is production behaviour the ticket did not
+  ask for.** The spec review called it scope creep, correctly, and it was kept deliberately: with one
+  registered scene there is no other observable that distinguishes *which* scene Excalibur activated,
+  and a `data-` attribute added for the tests would be a pure test door — the thing the spec's
+  "fewest doors" argument exists to prevent. The value read is `game.currentSceneName`, so the
+  assertion is bound to what the engine activated rather than to the query string, and it is set only
+  after `start()` resolves, so it also witnesses that the scene started. `index.html` holds the stem
+  and the boot appends, so the title exists in one place.
+
+- **The error is `role="alert"`, and the tests locate it by role.** Not by class: the class is
+  styling, and a test that knows it would break on a rename that changed nothing observable.
+
+- **What the two reviews found.** No hard standards violation and no missing requirement. Applied: a
+  data clump — `renderUnknownScene` took `(requested, registered)`, the two fields of the resolution's
+  not-found branch, and now takes the branch; `unknownSceneMessage` was exported with one caller
+  twelve lines below and is now module-private; the duplicated title constant is gone; `SceneName`
+  follows the `StreamId` convention of `engine/core/random/types.ts`; the template's commented-out
+  `physics` block was not carried into a newly authored file; and the two positive tests now also
+  assert the canvas is visible. Left deliberately: `void boot(...)` discards a boot failure into the
+  console rather than the page — making boot failures visible in the DOM is real work and would put
+  logic in the entry point, which this ticket forbids in as many words.
+
+- **The visual snapshot passed unregenerated**, on the first run and on every run since: the seam
+  moved, the pixels did not.

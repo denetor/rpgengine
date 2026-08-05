@@ -3,3 +3,12 @@
     background-color: black;
   }
 }
+
+/* The testbed's message for a `?scene=` name nobody registered. It is the whole
+   page when it shows: nothing else is started. */
+.testbed-error {
+  font-family: system-ui, sans-serif;
+  padding: 1rem;
+  color: white;
+  background-color: #a4262c;
+}
