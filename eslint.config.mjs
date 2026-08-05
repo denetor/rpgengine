@@ -23,8 +23,6 @@ export default [
             'playwright-report/**',
             'test-results/**',
             'blob-report/**',
-            // Compiled output committed next to its source.
-            'src/testbed/**/*.js',
             // Broken on purpose, and linted only by eslint.fixtures.config.mjs.
             'tests-headless/fixtures/lint/**',
         ],
@@ -34,15 +32,17 @@ export default [
 
         // The deterministic path. `engine/` and `game/` produce values a save
         // or a seed must be able to reproduce, on any engine; so does the page
-        // that reads the golden vectors out of a browser, and so does the
-        // testbed, which drives the service and prints what it gets.
-        // `presentation/` and the excalibur entry points at the top of `src/`
-        // are deliberately out: a wobble drawn with `Math.sin` decides nothing
-        // and is replayed from state, not recomputed.
+        // that reads the golden vectors out of a browser.
+        //
+        // `presentation/` is deliberately out, **testbed scenes included**, and
+        // so is the browser entry point at the top of `src/`: a scene produces
+        // pixels, not values a seed has to reproduce. Why the testbed gets no
+        // nested exception, and what that gives up, is argued once in
+        // `docs/specs/layout-and-boundaries.md`, §Determinism zones. The
+        // decision is pinned by a probe in `tests-headless/lint.spec.ts`.
         deterministicPath: [
             'src/engine/**/*.ts',
             'src/game/**/*.ts',
-            'src/testbed/**/*.ts',
             'tests-browser/**/*.ts',
         ],
 

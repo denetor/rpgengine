@@ -1,6 +1,6 @@
 import { Color, DisplayMode, Engine, FadeInOut } from "excalibur";
-import { loader } from "./resources";
-import { MyLevel } from "./level";
+import { loader } from "./presentation/resources";
+import { SandboxScene } from "./presentation/scenes/testbed/sandbox/sandbox-scene";
 
 // Goal is to keep main.ts small and just enough to configure the engine
 
@@ -10,7 +10,7 @@ const game = new Engine({
   displayMode: DisplayMode.FitScreenAndFill, // Display mode tells excalibur how to fill the window
   pixelArt: true, // pixelArt will turn on the correct settings to render pixel art without jaggies or shimmering artifacts
   scenes: {
-    start: MyLevel
+    start: SandboxScene
   },
   // physics: {
   //   solver: SolverStrategy.Realistic,

@@ -583,8 +583,8 @@ Two nodes in the tree needed a decision before the tree could be read at all:
 - **`AST -.deferred.-> REN`** — [`rendering.md`](./services/rendering.md) lists `AST` among `REN`'s
   dependencies, but `REN` is priority 1 and `AST` is priority 3. Rather than move either priority,
   the dependency is **deferred**: early `REN` loads through Excalibur's own `Loader` (as
-  `src/resources.ts` already does), and adopting `AST` at step 16 is a refactor local to `REN`. The
-  sheet records this; the dashed arrow is the reminder.
+  `src/presentation/resources.ts` already does), and adopting `AST` at step 16 is a refactor local to
+  `REN`. The sheet records this; the dashed arrow is the reminder.
 
 ### 7.2 — Development order
 
@@ -607,7 +607,7 @@ Three rules shape it:
 
 | # | Content | Prio | Prerequisite | Testbed scene | What the step proves |
 |---|---|---|---|---|---|
-| **0** | `RND` + headless runner | 1 | — | *(script)* | **Done.** ARC-11.1, ARC-9.2, ADR-0001 |
+| **0** | `RND` + headless runner | 1 | — | *(headless only)* | **Done.** ARC-11.1, ARC-9.2, ADR-0001 |
 | **1** | Folder layout + boundary check | — | — | `sandbox` (the current template) | ARC-14.2 rules 1…6 fail the build |
 | **2** | `CFG` · `BUS` | 1 | — | `bus` — events published and traced on screen, on services built from composed parameters | ARC-5.1, ARC-5.4, ARC-12.1, CFG-15 |
 | **3** | `TIME` + first `CTX` | 1 | `CFG` `BUS` | `clock` — game time, scale, pause, timers firing | ARC-8.2, ARC-9.3, CTX-1, CTX-2 |
@@ -628,13 +628,16 @@ Three rules shape it:
 
 #### The three steps that are not obvious
 
-**Step 1 — the layout, before any service.** `src/` still holds the Excalibur template (`main.ts`,
-`level.ts`, `player.ts`, `resources.ts` at the root) alongside the one real service, and the RND
-testbed is a Node script outside both worlds. The step moves the template under `src/presentation/`,
-opens `src/game/bootstrap.ts`, and adds `src/presentation/testbed/` with a scene registry selected by
-query string (`?scene=map`). The cost of this move grows with every file added afterwards, and the
-boundary check of ARC-14 cannot even be configured until the folders it names exist. It is the only
-step with no service in it, and the only one that must not be postponed.
+**Step 1 — the layout, before any service.** The step starts from the Excalibur template at the root
+of `src/` (`main.ts`, `level.ts`, `player.ts`, `resources.ts`) beside the one real service, and an
+RND testbed that is a Node script outside both worlds. It moves the template under
+`src/presentation/` — the level and the player into a `sandbox` scene folder under
+`src/presentation/scenes/testbed/`, the loader into `src/presentation/resources.ts` — deletes the
+script, opens `src/game/bootstrap.ts`, and adds a scene registry selected by query string
+(`?scene=map`). The browser entry point is the only importing file left at the root. The cost of this
+move grows with every file added afterwards, and the boundary check of ARC-14 cannot even be
+configured until the folders it names exist. It is the only step with no service in it, and the only
+one that must not be postponed.
 
 **Step 3 — where the architecture stops being a document.** `TIME` is pumped by Excalibur's update
 loop: it is the first seam where the presentation drives the domain instead of being it. Together

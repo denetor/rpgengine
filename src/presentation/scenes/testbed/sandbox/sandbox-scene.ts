@@ -1,7 +1,7 @@
 import { DefaultLoader, Engine, ExcaliburGraphicsContext, Scene, SceneActivationContext } from "excalibur";
 import { Player } from "./player";
 
-export class MyLevel extends Scene {
+export class SandboxScene extends Scene {
     override onInitialize(engine: Engine): void {
         // Scene.onInitialize is where we recommend you perform the composition for your game
         const player = new Player();

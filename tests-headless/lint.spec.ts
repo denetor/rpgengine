@@ -202,9 +202,10 @@ function forbiddenPropertiesAt(path: string): string[] {
 const ENGINE = 'src/engine/core/combat/rules.ts';
 const GAME = 'src/game/loot/table.ts';
 const SERVICE = 'src/engine/core/random/stream.ts';
-const TESTBED = 'src/testbed/random/test-random.ts';
 const VECTOR_PAGE = 'tests-browser/golden-vectors.ts';
-const PRESENTATION = 'src/main.ts';
+const PRESENTATION = 'src/presentation/resources.ts';
+const TESTBED_SCENE = 'src/presentation/scenes/testbed/proximity/proximity-scene.ts';
+const ENTRY_POINT = 'src/main.ts';
 
 describe('the zones the project itself falls in', () => {
     it('holds the engine to the whole of ADR 0001', () => {
@@ -217,8 +218,7 @@ describe('the zones the project itself falls in', () => {
         expect(forbiddenPropertiesAt(GAME)).toEqual(expect.arrayContaining(['pow', 'cos']));
     });
 
-    it('holds the testbed and the vector page to it, since both report computed values', () => {
-        expect(forbiddenPropertiesAt(TESTBED)).toContain('pow');
+    it('holds the vector page to it, since it reports computed values', () => {
         expect(forbiddenPropertiesAt(VECTOR_PAGE)).toContain('pow');
     });
 
@@ -230,5 +230,22 @@ describe('the zones the project itself falls in', () => {
 
     it('does not hold the presentation code to the transcendental prohibition', () => {
         expect(forbiddenPropertiesAt(PRESENTATION)).not.toContain('cos');
+    });
+
+    it('does not hold the browser entry point to it either', () => {
+        expect(forbiddenPropertiesAt(ENTRY_POINT)).not.toContain('cos');
+    });
+
+    /**
+     * The zone decision of `docs/specs/layout-and-boundaries.md`, asserted
+     * rather than inherited: without this probe the testbed's exclusion would
+     * be a side effect of moving a folder. The path probed is step 8's scene —
+     * the first one that will draw circles — and so need not exist yet.
+     */
+    it('leaves the testbed scenes out of the deterministic path', () => {
+        const forbidden = forbiddenPropertiesAt(TESTBED_SCENE);
+
+        expect(forbidden).not.toContain('cos');
+        expect(forbidden).toContain('random');
     });
 });
