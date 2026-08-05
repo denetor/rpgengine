@@ -38,15 +38,19 @@ interface Violation {
     to: string;
     dependencyTypes: string[];
     rule: { name: string };
+    /** Present on a cycle: the ring, in the order the imports go round it. */
+    cycle?: { name: string }[];
 }
 
 /**
  * One side of a rule. A side may say what it covers, what it does not, or both;
- * a side that says neither covers everything.
+ * a side that says neither covers everything. A `to` side may instead say
+ * `circular`, which is not a place at all — see `closes` below.
  */
 interface Side {
     path?: string;
     pathNot?: string;
+    circular?: boolean;
 }
 
 interface ForbiddenRule {
@@ -175,9 +179,38 @@ const SERVICE_TO_ANOTHER_SERVICE = 'services-may-not-import-each-other';
 const ENGINE_TO_THE_LAYERS_ABOVE = 'engine-may-not-import-the-layers-above';
 const GAME_TO_PRESENTATION = 'game-may-not-import-the-presentation';
 
+/** Rule 6, which forbids no edge at all: it forbids a shape of the whole graph. */
+const NO_IMPORT_CYCLES = 'no-import-cycles';
+
 /** The frontiers a fixture was reported for, by name. */
 function frontiersCrossedBy(fixture: string): string[] {
     return violationsFor(fixture).map((violation) => violation.rule.name);
+}
+
+/**
+ * The cycles the check found, each as the sorted names of the files in it.
+ *
+ * Sorted, because a cycle is reported once against whichever of its files the
+ * tool reached first, and where a ring begins is the tool's business rather than
+ * a property worth pinning. What these assertions want from the ring is its
+ * membership; the **order** is asserted where a person meets it, in the message.
+ */
+function cyclesReported(): string[][] {
+    return fixtureReport.violations
+        .filter((violation) => violation.rule.name === NO_IMPORT_CYCLES)
+        .map((violation) => membersOf(violation));
+}
+
+/** The files of one reported cycle, named relative to the fixture root. */
+function membersOf(violation: Violation): string[] {
+    const ring = (violation.cycle ?? []).map((step) => step.name);
+    const named = [violation.from, ...ring].map((file) => file.replace(`${FIXTURES}/`, ''));
+
+    // The ring is reported closed, so its last step is back to where it began.
+    // That repeat is not a second member.
+    const members = named.slice(0, -1);
+
+    return [...members].sort();
 }
 
 describe('the boundary check, seen failing', () => {
@@ -263,7 +296,61 @@ describe('the boundary check, seen failing', () => {
         expect(frontiersCrossedBy('game/opens-a-scene.ts')).toEqual([GAME_TO_PRESENTATION]);
     });
 
-    it('says which frontier was crossed, for every rule and not only the first', () => {
+    it('catches two files that each need the other', () => {
+        expect(cyclesReported()).toContainEqual([
+            'game/cycle-of-two/first.ts',
+            'game/cycle-of-two/second.ts',
+        ]);
+    });
+
+    /**
+     * A ring through a third file, so that the rule is not merely a check on
+     * direct self-reference. It is also the shape ARC-4.6 calls the conceptual
+     * cycle of an RPG — and between modules of `game/`, where ARC-4.6's
+     * "guaranteed by construction" argument does not reach.
+     */
+    it('catches a cycle that goes round through a third file', () => {
+        expect(cyclesReported()).toContainEqual([
+            'game/cycle-of-three/dialogue.ts',
+            'game/cycle-of-three/inventory.ts',
+            'game/cycle-of-three/quest.ts',
+        ]);
+    });
+
+    /**
+     * A ring made only of `import type`, which is erased before anything runs.
+     * It is caught, and that is a decision rather than an accident: story 29 of
+     * the spec asks for type-only imports to be checked like any other, since a
+     * frontier crossable by importing a type across it is not a frontier. This
+     * pins the consequence, which is that two interfaces naming each other —
+     * routine TypeScript, with no ring at runtime — fail the build. The rule's
+     * message says so, because the fix is not obvious at 6pm.
+     */
+    it('counts a ring made only of types, which is the price of story 29', () => {
+        expect(cyclesReported()).toContainEqual([
+            'game/cycle-of-types/handler.ts',
+            'game/cycle-of-types/model.ts',
+        ]);
+    });
+
+    it('names the files of the cycle, in the order the imports go round it', () => {
+        const message = unwrapped(fixtureOutcome.message);
+        const inTheRing = (file: string): string => `${FIXTURES}/game/cycle-of-three/${file}`;
+
+        // `quest` imports `dialogue`, `dialogue` imports `inventory`,
+        // `inventory` imports `quest`. A ring has no first file and the reporter
+        // may begin at any of the three — but it prints the ring closed, back to
+        // where it began, so every one of these steps appears whichever it picks.
+        for (const [before, after] of [
+            ['quest.ts', 'dialogue.ts'],
+            ['dialogue.ts', 'inventory.ts'],
+            ['inventory.ts', 'quest.ts'],
+        ]) {
+            expect(message).toContain(`${inTheRing(before)} → ${inTheRing(after)}`);
+        }
+    });
+
+    it('says which frontier was crossed, for each of the five edge rules', () => {
         const message = unwrapped(fixtureOutcome.message);
 
         for (const frontier of [
@@ -300,11 +387,23 @@ describe('the crossings that are legal, and must stay so', () => {
         expect(violationsFor('game/loot/table.ts')).toEqual([]);
     });
 
-    it('reports the ten crossings named above and not one more', () => {
+    /**
+     * The diamond. Every route from the apex reaches the shared module, so a
+     * check that mistook "reached again" for "reached back" would fire on all
+     * four of these — and would block the project on its first real service,
+     * every one of which has a types module half its files import.
+     */
+    it('does not mistake a shared module for a cycle', () => {
+        for (const file of ['round.ts', 'blow.ts', 'guard.ts', 'measure.ts']) {
+            expect(violationsFor(`game/diamond/${file}`)).toEqual([]);
+        }
+    });
+
+    it('reports the thirteen crossings named above and not one more', () => {
         // Every violation is identified by name somewhere above; the count is
         // what turns "these fire" into "only these fire", so that a rule which
         // starts biting a lawful file fails here instead of going unread.
-        expect(fixtureReport.violations).toHaveLength(10);
+        expect(fixtureReport.violations).toHaveLength(13);
     });
 });
 
@@ -328,8 +427,28 @@ function rulesForbidding(from: string, to: string): string[] {
         .map((rule) => rule.name);
 }
 
+/** The rules of the real configuration that watch a file at `path` for cycles. */
+function watchedForCycles(path: string): string[] {
+    return projectReport.forbidden
+        .filter((rule) => isACycleRule(rule) && capturesFrom(rule.from, path) !== null)
+        .map((rule) => rule.name);
+}
+
+/** Rule 6's shape: a `to` that names no place, only the ring it refuses. */
+function isACycleRule(rule: ForbiddenRule): boolean {
+    return rule.to.circular === true;
+}
+
 /** Whether one rule of the real configuration closes one crossing. */
 function closes(rule: ForbiddenRule, from: string, to: string): boolean {
+    // Rule 6 forbids no crossing. It forbids a *shape of the whole graph*, and
+    // no pair of paths is inside or outside it — every edge of a cycle is an
+    // edge the other five rules would wave through. It is asserted on its own,
+    // by `watchedForCycles`.
+    if (isACycleRule(rule)) {
+        return false;
+    }
+
     const captured = capturesFrom(rule.from, from);
 
     if (captured === null) {
@@ -472,6 +591,17 @@ describe('the frontiers the project itself falls inside', () => {
      */
     it('lets a scene reach a service directly, through its public surface', () => {
         expect(rulesForbidding(PRESENTATION, SERVICE_SURFACE)).toEqual([]);
+    });
+
+    /**
+     * Rule 6 is the one rule that is not about a layer, and the assertion has to
+     * say so: ARC-14.2 asks for no cycle *anywhere in `src/`*. A rule scoped to
+     * one layer would still catch a cycle and would still look like it worked.
+     */
+    it('watches the whole of src/ for cycles, and not one layer of it', () => {
+        for (const path of [ENGINE, GAME, PRESENTATION, ENTRY_POINT, SERVICE_INTERNALS]) {
+            expect(watchedForCycles(path)).toContain(NO_IMPORT_CYCLES);
+        }
     });
 
     it('reads type-only imports in the real project too, not only in the fixtures', () => {

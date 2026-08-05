@@ -20,9 +20,17 @@
  * can watch the check fail. A rule copied into both would drift, and the test
  * would then certify rules that are no longer the ones applied.
  *
- * Every message names **the frontier that was crossed** and says why it is
- * there: a rule that looks arbitrary gets switched off by the next person who
- * trips over it at 6pm.
+ * Each of the five edge rules names **the frontier that was crossed**; rule 6
+ * names the ring instead, since a cycle crosses nothing. Every message says what
+ * to do about it: a rule that looks arbitrary gets switched off by the next
+ * person who trips over it at 6pm. The reasoning belongs here rather than in the
+ * messages, which are read by someone who wants to get on with their afternoon.
+ *
+ * **What rule 6 is left to catch.** ARC-4.6 guarantees the *service* graph is
+ * acyclic by construction, because ARC-4.1 forbids services to import each other
+ * — which rule 3 above now enforces. So the cycles still possible are the ones
+ * that argument never covered: inside a single service, or between modules of
+ * `game/`.
  */
 
 const REQUIREMENTS = 'docs/REQUIREMENTS.md';
@@ -35,13 +43,14 @@ const REQUIREMENTS = 'docs/REQUIREMENTS.md';
 const EXCALIBUR = '^node_modules/excalibur(/|$)';
 
 /**
- * The rules that forbid an edge of the import graph, over a project whose three
- * layers live under `root`.
+ * The six rules of ARC-14.2, over a project whose three layers live under
+ * `root`.
  *
- * Five of the six rules of ARC-14.2. The sixth forbids cycles, which is a
- * property of the whole graph rather than of an edge, and it is ticket 06.
+ * Five of them forbid an *edge* of the import graph and can be decided one
+ * import at a time. The sixth forbids a *cycle*, which is a property of the
+ * whole graph: every edge of a cycle is an edge the other five wave through.
  */
-function forbiddenEdges(root) {
+function boundaryRules(root) {
     // A **service** is a directory two levels below `engine/`: the family level
     // of the catalogue (`engine/core/`) is kept, so `engine/core/random/` is a
     // service and `engine/core/` is not. Everything below turns on that, which
@@ -124,6 +133,25 @@ function forbiddenEdges(root) {
             from: { path: `^${root}/game/` },
             to: { path: `^${root}/presentation/` },
         },
+        {
+            name: 'no-import-cycles',
+            severity: 'error',
+            comment:
+                'Import cycle: the files named above depend on one another in a ring. A ring has ' +
+                'no order of initialisation, so which half is half-built when the other runs ' +
+                'depends on who imported first, and no part of it can be tested or reasoned ' +
+                'about without the rest. Break it by moving what both ends need into a third ' +
+                'module, or by having the lower one report and the higher one decide (ARC-4.2). ' +
+                'Note that `import type` counts: two files whose types name each other are a ' +
+                'ring here, even though nothing goes round at runtime. See ARC-4.6 and ARC-14.2 ' +
+                `in ${REQUIREMENTS}.`,
+            // Everything under the root: ARC-14.2 asks for no cycle *anywhere in
+            // `src/`*, and a cycle confined to one layer is the likely kind.
+            from: { path: `^${root}/` },
+            // Not a place. `circular` is why the tool had to be a graph tool:
+            // the answer for one file depends on every other file.
+            to: { circular: true },
+        },
     ];
 }
 
@@ -154,7 +182,7 @@ const OPTIONS = {
 /** The whole configuration, for a project whose layers live under `root`. */
 export function boundaryConfiguration(root) {
     return {
-        forbidden: forbiddenEdges(root),
+        forbidden: boundaryRules(root),
         options: OPTIONS,
     };
 }
