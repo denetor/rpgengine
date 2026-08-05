@@ -1,0 +1,50 @@
+# The unit lane, run on a machine that is not the author's.
+#
+# ARC-14.1 requires the boundaries between services to be "enforced by a tool
+# (ESLint `no-restricted-imports`, `dependency-cruiser` or equivalent) run in
+# CI, not by discipline alone". A tool run in CI is what this file is. The
+# boundary rules themselves do not exist yet — they arrive with a later ticket,
+# in `npm run test:unit`, and this workflow will pick them up without being
+# edited — so ARC-14.1 is met **in part** today: the lane below runs the checks
+# the project already has, on a machine nobody can forget to use.
+#
+# It invokes the very scripts a developer invokes, unchanged, so a green tick
+# here means what a green run there means, and the two cannot drift apart.
+#
+# WHAT IS NOT RUN: the Playwright suite (`npm run test:integration`, the specs
+# under `tests/`). It would need browsers provisioned on the runner, a separate
+# decision with a separate cost, deliberately not taken here. A green tick below
+# therefore says nothing at all about the integration tests; those still run on
+# demand, locally. This exclusion is declared, not forgotten.
+
+name: CI
+
+on:
+    push:
+        branches: [master]
+    pull_request:
+
+permissions:
+    contents: read
+
+jobs:
+    unit:
+        name: unit lane — lint, typecheck, headless tests
+        runs-on: ubuntu-latest
+        steps:
+            - uses: actions/checkout@v5
+
+            - uses: actions/setup-node@v5
+              with:
+                  # The version the project already declares, read from the file
+                  # that declares it. CI does not get to pick a second one.
+                  node-version-file: .nvmrc
+                  cache: npm
+
+            # `ci`, not `install`: the lockfile decides what is installed, not a
+            # resolution made at this moment on this machine.
+            - run: npm ci
+
+            # The unit lane, whole: `test:unit` is lint, typecheck and the
+            # headless suite. Whatever that script grows to cover, CI covers.
+            - run: npm run test:unit

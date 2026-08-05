@@ -28,3 +28,13 @@ One linter and two separate suites:
 | `npm test` | both | Headless first, integration after. |
 
 Snapshots of the integration suite are updated with `npm run test:integration-update`.
+
+### Continuous integration
+
+Every push to `master` and every pull request runs `npm ci && npm run test:unit` on GitHub Actions
+([`.github/workflows/ci.yml`](.github/workflows/ci.yml)), on the Node version declared in `.nvmrc`.
+CI runs the same scripts a developer runs — it adds none of its own.
+
+The integration suite is **not** run there: it would need browsers provisioned on the runner. A green
+tick on a pull request therefore says nothing about Playwright; that suite still runs on demand,
+locally.
