@@ -5,6 +5,27 @@ ENV NODE_ENV=development
 
 WORKDIR /code
 RUN apt update && apt install git -y
+
+# Playwright's browsers, baked into the image.
+#
+# They cannot come from `npm install` at container start: the cache lives in
+# /root/.cache, in the container's writable layer, which a recreation throws
+# away. The integration suite then fails with "Executable doesn't exist"
+# halfway through a run, on a machine where it passed the day before.
+#
+# The version is read from the lockfile instead of being written here, because
+# Playwright pins one set of browser builds per release: a hand-copied number
+# goes stale the first time the dependency is bumped, and fails in exactly the
+# way this is meant to prevent. Only the manifests are copied — the volume
+# mount shadows /code at run time, so nothing else from the image is used.
+#
+# All three engines, because `npm run test:integration` wants all three: the
+# visual snapshot runs on chromium, the golden vectors of ADR 0001 on chromium,
+# firefox and webkit, since agreement between engines is the whole promise.
+COPY package.json package-lock.json ./
+RUN npx --yes playwright@"$(node -p "require('/code/package-lock.json').packages['node_modules/playwright'].version")" \
+    install --with-deps chromium firefox webkit
+
 CMD npm install && npm run dev
 #CMD tail -f /etc/hosts
 
