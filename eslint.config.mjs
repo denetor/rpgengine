@@ -13,8 +13,9 @@ import { determinismZones } from './eslint.determinism.mjs';
  * The rules and the shape of the three zones live in `eslint.determinism.mjs`,
  * shared with `eslint.fixtures.config.mjs`. Only the globs are decided here.
  *
- * The boundary rules of ARC-14 are not here yet: they belong to a later
- * ticket, and this configuration is where they will go.
+ * The boundary rules of ARC-14 are deliberately **not** here: they live in
+ * `dependency-cruiser.boundaries.mjs`, run by `npm run boundaries`, for the
+ * reasons written at the head of that file. ESLint keeps its single concern.
  */
 export default [
     {
@@ -25,6 +26,9 @@ export default [
             'blob-report/**',
             // Broken on purpose, and linted only by eslint.fixtures.config.mjs.
             'tests-headless/fixtures/lint/**',
+            // A miniature project that crosses the boundaries on purpose, and
+            // is looked at only by dependency-cruiser.fixtures.config.mjs.
+            'tests-headless/fixtures/boundaries/**',
         ],
     },
     ...determinismZones({

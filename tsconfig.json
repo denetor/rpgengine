@@ -23,5 +23,15 @@
     "./playwright.config.ts",
     "./vitest.config.ts",
     "./vitest.fixtures.config.ts"
+  ],
+  "exclude": [
+    // A miniature project whose imports cross the boundaries on purpose. It is
+    // a second project that happens to sit in this one's tree, with its own
+    // layers and its own root, so compiling it as part of this project would be
+    // a category error — and only the boundary check ever looks at it, through
+    // `dependency-cruiser.fixtures.config.mjs`. The linter's fixtures next door
+    // stay compiled deliberately: they are single files that break a rule about
+    // arithmetic, and they are valid TypeScript.
+    "./tests-headless/fixtures/boundaries"
   ]
 }

@@ -2,11 +2,16 @@
 #
 # ARC-14.1 requires the boundaries between services to be "enforced by a tool
 # (ESLint `no-restricted-imports`, `dependency-cruiser` or equivalent) run in
-# CI, not by discipline alone". A tool run in CI is what this file is. The
-# boundary rules themselves do not exist yet — they arrive with a later ticket,
-# in `npm run test:unit`, and this workflow will pick them up without being
-# edited — so ARC-14.1 is met **in part** today: the lane below runs the checks
-# the project already has, on a machine nobody can forget to use.
+# CI, not by discipline alone". A tool run in CI is what this file is, and
+# `dependency-cruiser` is now the tool: `npm run boundaries` is part of
+# `npm run test:unit`, which is the whole of the lane below, so it arrived here
+# without this file being edited, and will pick up rules 2…6 the same way.
+#
+# ARC-14.1 is still met only **in part**, for a reason that has nothing to do
+# with the rules: the push trigger below names `master_disabled`, so nothing
+# runs on `master` and only pull requests reach this lane. That was a deliberate
+# change and it is left alone here; pointing the trigger back at `master` is
+# what would finish the job.
 #
 # It invokes the very scripts a developer invokes, unchanged, so a green tick
 # here means what a green run there means, and the two cannot drift apart.
@@ -29,7 +34,7 @@ permissions:
 
 jobs:
     unit:
-        name: unit lane — lint, typecheck, headless tests
+        name: unit lane — lint, typecheck, boundaries, headless tests
         runs-on: ubuntu-latest
         steps:
             - uses: actions/checkout@v5
@@ -45,6 +50,7 @@ jobs:
             # resolution made at this moment on this machine.
             - run: npm ci
 
-            # The unit lane, whole: `test:unit` is lint, typecheck and the
-            # headless suite. Whatever that script grows to cover, CI covers.
+            # The unit lane, whole: `test:unit` is lint, typecheck, the boundary
+            # check and the headless suite. Whatever that script grows to cover,
+            # CI covers.
             - run: npm run test:unit
