@@ -26,8 +26,7 @@ Nothing about the project's own scripts changes: CI runs what a developer runs.
 - [x] It runs the unit lane: lint, typecheck and the headless suite
 - [x] It uses the Node version the project already declares, rather than a second one chosen here
 - [x] The Playwright suite is not run, and the workflow says why in a comment
-- [ ] A deliberately broken commit on a branch makes the pull-request check fail — see the closing
-      note: the branch exists, the observation is on GitHub
+- [x] A deliberately broken commit on a branch makes the pull-request check fail
 - [x] The workflow adds no npm script that a developer cannot run locally
 
 ## Closing notes
@@ -47,11 +46,16 @@ Nothing about the project's own scripts changes: CI runs what a developer runs.
   The same run on `node:22.23.1` is also green, which is what made the version split a decision
   rather than a forced move. Adding a `Math.random()` under `src/engine/` to that export turns the
   lane red at the lint step, with the ADR 0001 message, exit 1.
-- **The one box left open is the one that cannot be observed from here.** A red pull-request check
-  is a fact about GitHub, not about this tree, and it is not ticked on the strength of a local
-  rehearsal. The branch `ci/prove-red` carries this workflow plus the `Math.random()` commit above;
-  opening a pull request from it against `master` is the observation, and the check must go red at
-  the lint step. Tick the box then, and delete the branch.
+- **The red check was observed, not deduced.** A red pull-request check is a fact about GitHub, not
+  about this tree, so it was not ticked on the strength of the local rehearsal. The branch
+  `ci/prove-red` carried this workflow plus the `Math.random()` commit; the pull request opened from
+  it against `master` reported "All checks have failed" at the merge box. The branch was then
+  deleted — it must never reach `master`.
+- **A failed check does not block the merge.** GitHub showed the red check and left the merge button
+  live: by default a failing check informs, it does not gate. Turning the lane into a gate is
+  branch protection on `master` with `unit lane — lint, typecheck, headless tests` as a required
+  status check — a decision about how the repository is worked, which none of the criteria above
+  asks for, and which is deliberately left untaken here.
 - **The exclusion is stated twice, on purpose.** The workflow header says what it does not run and
   why; `readme.md` repeats it under a *Continuous integration* heading next to the table of suites.
   A reader who wonders what a green tick covers is in one place or the other, not reliably in both.
