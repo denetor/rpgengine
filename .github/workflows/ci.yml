@@ -21,7 +21,7 @@ name: CI
 
 on:
     push:
-        branches: [master]
+        branches: [master_disabled]
     pull_request:
 
 permissions:
