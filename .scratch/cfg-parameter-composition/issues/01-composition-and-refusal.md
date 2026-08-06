@@ -40,27 +40,72 @@ spec is [`docs/specs/cfg-parameter-composition.md`](../../../docs/specs/cfg-para
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A section with no source mentioning it composes to the shape's fallback
-- [ ] Sources apply **in the order given**, each overriding the previous
-- [ ] A partial source leaves the keys it does not mention at their previous value
-- [ ] Below a section's key a value is replaced **whole**: a list of rules or a map of profiles from a
+- [x] A section with no source mentioning it composes to the shape's fallback
+- [x] Sources apply **in the order given**, each overriding the previous
+- [x] A partial source leaves the keys it does not mention at their previous value
+- [x] Below a section's key a value is replaced **whole**: a list of rules or a map of profiles from a
       source does not merge into the one it replaces
-- [ ] A value that is not an object replaces whatever was there
-- [ ] Each section's check runs on the **merged result**, never on a single source
-- [ ] Every problem of every section is reported by one call; a section that is not an object does not
+- [x] A value that is not an object replaces whatever was there
+- [x] Each section's check runs on the **merged result**, never on a single source
+- [x] Every problem of every section is reported by one call; a section that is not an object does not
       produce one issue per key it should have had
-- [ ] Each issue carries **source, path, value and message**; the source is the names of the sources
+- [x] Each issue carries **source, path, value and message**; the source is the names of the sources
       that composed the section, joined, and `defaults` when none mentioned it
-- [ ] One issue anywhere means nothing is returned: `ConfigError` carries all of them, and a shape
+- [x] One issue anywhere means nothing is returned: `ConfigError` carries all of them, and a shape
       whose check records its calls proves every section was still validated
-- [ ] `describeIssue` renders one issue as one line, with the source, the path, what was expected and
+- [x] `describeIssue` renders one issue as one line, with the source, the path, what was expected and
       what was found
-- [ ] The destructured slices are typed **one by one and in order**: a type-level spec compiles, and
+- [x] The destructured slices are typed **one by one and in order**: a type-level spec compiles, and
       assigning one service's slice to another's type is rejected
-- [ ] The type-level spec also records that a bare `undefined` fallback types its slice `undefined`
-- [ ] The service reads nothing, parses nothing and consults neither clock nor environment: the whole
+- [x] The type-level spec also records that a bare `undefined` fallback types its slice `undefined`
+- [x] The service reads nothing, parses nothing and consults neither clock nor environment: the whole
       suite composes configurations without touching a file system (CFG-14)
-- [ ] Every test enters through the service's public door; no test names an internal module
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] Every test enters through the service's public door; no test names an internal module
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite
+
+## Closing notes
+
+- **The service is four files and one door.** `types.ts` (the vocabulary the caller speaks),
+  `compose.ts` (the loop over the shapes, the loop over the sources, the three-line overlay),
+  `errors.ts` (`ConfigError` and `describeIssue`) and `index.ts`. The composition itself is 60 lines
+  of code under 70 lines of comment, which is the size the sheet asks for.
+
+- **The `const` type parameter was verified rather than believed.** Removing it from
+  `composeConfig` and running `npm run typecheck` produces two errors in `types.spec.ts` —
+  `Type 'OvenParameters | DeliveryParameters' is not assignable to type 'OvenParameters'`, once per
+  slice. The tuple is what CFG-8 is checked by, and the type-level spec is what would notice it
+  going away. The `@ts-expect-error` lines are load-bearing in the same way: `tsc` fails on an
+  unused one, so a directive that stopped catching anything fails the build rather than passing
+  quietly.
+
+- **The provenance is stamped last, and that turned out to matter.** The first version wrote
+  `{ source, ...problem }`, copying the idiom of `random/config.ts`. There the problem type cannot
+  carry a file; here a shape is matched **structurally**, so a service whose own problems already
+  carry a source — the shape `RND`'s `FilterConfigIssue` has — would have silently replaced the one
+  fact `CFG` owns. It is now `{ ...problem, source }`, with a test that hands the composition a
+  check naming a file it invented and asserts the source is still the one the composition saw. The
+  test was confirmed red against the old order.
+
+- **A section written as `undefined` is a value, not a silence.** `mentions` asks
+  `Object.hasOwn`, so a source that writes `delivery: undefined` overlays `undefined` over the
+  fallback and lets the section's own check have an opinion about it, where a source that says
+  nothing leaves the fallback alone. The distinction is what makes a partial source legitimate, and
+  it is now pinned by a test rather than only by a comment.
+
+- **`describeValue` is a deliberate copy of `RND`'s.** Its length cap, its `NaN` handling and its
+  `try`/`catch` are the same thirty lines that already sit in `random/config.ts`. No service may
+  import another (ARC-4.1), so the shared module that would remove the copy is exactly the
+  dependency `CFG` exists without; the copy is recorded at the head of `errors.ts` so that a later
+  reader does not read it as an oversight. `VALUE_LIMIT = 80` is a limit on how much of a message is
+  printed, not a parameter of anybody's game, so CFG-12 has no subject in it.
+
+- **What is deliberately still missing.** CFG-16 (a source key no shape claims) and the throw for
+  two shapes claiming one key belong to ticket 02; the estate that proves the service generic
+  belongs to ticket 04. A review pass flagged all three as unmet requirements of the sheet, which
+  they are — they are simply not this ticket's.
+
+- **The suite touches no file system.** The sources are object literals written in the spec files,
+  and nothing under `engine/core/config/` imports `node:fs` or anything else (CFG-14). The unit lane
+  — lint, typecheck, boundaries, 304 tests — is green.
