@@ -6,6 +6,12 @@
  * and becomes garbage (CFG-15). There is no object holding all of them, so
  * there is nothing to keep, nothing to inject, and nowhere to look a value up
  * at runtime (CFG-8).
+ *
+ * Two of the checks below are `CFG`'s own, and neither could belong anywhere
+ * else: a key that no shape claims (CFG-16) and a key that two shapes claim.
+ * Both are facts about the **set** of sections, and no service ever sees more
+ * than its own. Everything said about a *value* is the owning service's, which
+ * is why nothing here knows what any of them mean (CFG-13).
  */
 
 import { ConfigError } from './errors';
@@ -37,23 +43,95 @@ interface Section {
  * every slice comes back typed as every service's parameters at once — which
  * defeats CFG-8 at the only level where it can be checked.
  *
- * Throws `ConfigError` with **every** problem found: one issue anywhere means
- * nothing comes back, and no service is constructed on a configuration that did
- * not validate (CFG-3, CTX-10). Every section is composed and checked first, so
- * that a bad value in the first does not hide a bad value in the last.
+ * It throws two different things, and the difference is the point:
+ *
+ * - `ConfigError`, with **every** problem found — a key no shape claims
+ *   (CFG-16) and a section its own check refused, together. One issue anywhere
+ *   means nothing comes back and no service is constructed on a configuration
+ *   that did not validate (CFG-3, CTX-10), and everything is composed and
+ *   checked before anything is thrown, so that a bad value in the first section
+ *   does not hide a bad value in the last.
+ * - A plain `Error`, immediately and before a single source is looked at, when
+ *   two shapes claim one key. That is a bug in the caller's own code rather
+ *   than a fact about the game's data, and reporting it among the issues would
+ *   send somebody looking through a file that is perfectly fine.
+ *
+ * The unclaimed keys are listed first among the issues because they are the
+ * reason the rest may look untouched: a designer reading `randmo is not a
+ * section` learns why every value below it stayed at its default.
  */
 export function composeConfig<const S extends readonly SectionShape<unknown>[]>(
     shapes: S,
     sources: readonly ConfigSource[],
 ): Composed<S> {
+    assertOneShapePerKey(shapes);
+
+    const claimed = shapes.map((shape) => shape.key);
+    const unclaimed = unclaimedIssues(claimed, sources);
     const sections = shapes.map((shape) => composeSection(shape, sources));
-    const issues = sections.flatMap((section) => section.issues);
+
+    const issues = [...unclaimed, ...sections.flatMap((section) => section.issues)];
 
     if (issues.length > 0) {
         throw new ConfigError(issues);
     }
 
     return sections.map((section) => section.value) as unknown as Composed<S>;
+}
+
+/**
+ * Refuses a key claimed by two shapes, before a single source is looked at.
+ *
+ * It throws rather than reporting an issue because it has no source, no path
+ * and no value to report one with: nothing was read yet, and nothing that was
+ * read is at fault.
+ */
+function assertOneShapePerKey(shapes: readonly SectionShape<unknown>[]): void {
+    const seen: string[] = [];
+
+    for (const shape of shapes) {
+        if (seen.includes(shape.key)) {
+            throw new Error(
+                `two shapes claim the section '${shape.key}': a section belongs to one service`,
+            );
+        }
+        seen.push(shape.key);
+    }
+}
+
+/**
+ * Every key of every source that no shape claims (CFG-16).
+ *
+ * It is the one check no service can perform, because no service sees the set
+ * of sections — and without it a misspelt section name is the quietest failure
+ * the engine can have: the file parses, nothing refuses it, the game starts
+ * with every default in place, and the designer discovers months later that the
+ * file was never read.
+ *
+ * The sections in the message are listed in the order the shapes were given.
+ * That is the caller's own order, so the same call produces the same message
+ * every time — nothing here depends on how a source happened to be written.
+ */
+function unclaimedIssues(
+    claimed: readonly string[],
+    sources: readonly ConfigSource[],
+): readonly ConfigIssue[] {
+    const issues: ConfigIssue[] = [];
+
+    for (const source of sources) {
+        for (const key of Object.keys(source.values)) {
+            if (!claimed.includes(key)) {
+                issues.push({
+                    source: source.name,
+                    path: key,
+                    value: source.values[key],
+                    message: `is not a section of this configuration (expected ${claimed.join(', ')})`,
+                });
+            }
+        }
+    }
+
+    return issues;
 }
 
 /**
