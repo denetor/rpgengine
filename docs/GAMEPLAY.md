@@ -208,7 +208,7 @@ guards, worse prices, foreclosed dialogues. → `CRM` `FAC` `ECO`
 **GP-49** *(essential)* — There **MUST** be a HUD with health and energy bars, active statuses, and
 the selected weapon or skill. → `HUD`
 
-**GP-50** *(essential)* — There **MUST** be a **quest journal** with objectives and status.
+**GP-50** *(essential)* — There **MUST** be a **quest log** with objectives and status.
 → `HUD` `QST`
 
 **GP-51** *(essential)* — There **MUST** be an inventory and equipment screen. → `HUD` `INV`

@@ -117,8 +117,10 @@ instead of publishing them itself. Publishing is the caller's responsibility.
 type CommandResult<T> = { value: T; events: DomainEvent[] };
 ```
 
-**ARC-4.3** — No service **MUST** subscribe to events. The permitted subscribers are the
-orchestration layer and the presentation.
+**ARC-4.3** — A service **MUST NOT** subscribe to events. The permitted subscribers are the
+orchestration layer and the presentation; the only publisher is the orchestration, which publishes
+what the commands return (ARC-4.2). See [`services/event-bus.md`](./services/event-bus.md), BUS-3
+and BUS-16.
 
 **ARC-4.4** — The wiring between services **MUST** live in `game/orchestration/`, split by theme
 (quest rules, crime rules, economy rules…), not in a single file.
@@ -617,7 +619,7 @@ Three rules shape it:
 |---|---|---|---|---|---|
 | **0** | `RND` + headless runner | 1 | — | *(headless only)* | **Done.** ARC-11.1, ARC-9.2, ADR-0001 |
 | **1** | Folder layout + boundary check | — | — | `sandbox` (the current template) | ARC-14.2 rules 1…6 fail the build |
-| **2** | `CFG` · `BUS` | 1 | — | `bus` — events published and traced on screen, on services built from composed parameters | ARC-5.1, ARC-5.4, ARC-12.1, CFG-15 |
+| **2** | `CFG` · `BUS` | 1 | — | `bus` — a cascade published and traced on screen, beside an `RND` built from composed parameters | ARC-5.1, ARC-5.4, ARC-12.1, CFG-15 |
 | **3** | `TIME` + first `CTX` | 1 | `CFG` `BUS` | `clock` — game time, scale, pause, timers firing | ARC-8.2, ARC-9.3, CTX-1, CTX-2 |
 | **4** | `ENT` | 1 | — | `entities` — spawn, components added and removed live | ARC-6.1…6.4, ARC-5.2 |
 | **5** | `MAP` | 1 | — | `map` — grid drawn, walkability overlay, cell query on click | MAP-1…MAP-9, ARC-1.2 |

@@ -5,7 +5,7 @@
 
 ## Purpose
 
-Show the player the state of the game and let them act on it: health and energy bars, quest journal,
+Show the player the state of the game and let them act on it: health and energy bars, quest log,
 inventory, map, pause menu, dialogue and trading screens, contextual interaction.
 
 The HUD **reads** the domain and **sends actions**; it contains no rules. If a screen has to decide
@@ -22,14 +22,14 @@ panel.
 | Dynamic state | active screen, selection, scrolling, queued notifications |
 | Static state | layouts, themes, screen definitions |
 | External data | `content/ui/*.json` + `I18N` catalogues |
-| Events emitted | interface intents (`ui-equip-requested`, `ui-trade-requested`, …) |
+| Events emitted | none — it **MUST NOT** publish (BUS-3). Intents go through the orchestration's command API |
 
 ## Requirements
 
 **HUD-1** — The HUD **MUST** show health and energy bars, active statuses and the selected weapon or
 skill (GP-49).
 
-**HUD-2** — There **MUST** be a **quest journal** built from `QST`'s data (QST-11), with objectives,
+**HUD-2** — There **MUST** be a **quest log** built from `QST`'s data (QST-11), with objectives,
 status and a distinction between active, completed and failed (GP-50).
 
 **HUD-3** — There **MUST** be an **inventory and equipment** screen that shows weight, encumbrance,
@@ -72,9 +72,20 @@ according to the current bindings.
 **HUD-15** — The interface **MUST** be able to be absent: a headless game runs without a HUD
 (ARC-1.4).
 
+**HUD-16** — The HUD **MUST NOT** publish on the bus (BUS-3, BUS-16). It sends its intents through a
+**named, typed command API exposed by the orchestration** — `equip(itemId, slot)`,
+`requestTrade(merchantId)` — injected into the panels, which **enqueues**; the orchestration drains
+the queue at a fixed point in the tick, beside `INP`'s. A click handler that reached the domain
+directly would mutate it mid-frame, possibly during a `flush()`, at a moment chosen by the browser.
+
+A named API rather than a union of intent events: the arguments are typed, a typo is a compile
+error, it is discoverable from the call site, and it cannot be mistaken for the bus by a later
+reader. `INP`'s abstract actions cannot carry these — they are a closed set with no payload,
+deliberately generic (ARC-3.2), and `ui-equip-requested` names an item, a slot and a target.
+
 ## Test criteria
 
-- The journal reflects the state of the quests after a sequence of advancements, without periodic
+- The quest log reflects the state of the quests after a sequence of advancements, without periodic
   polling.
 - An unmet requirement is shown with the correct reason coming from `STAT`.
 - Opening and closing stacked screens restores the exact input context.

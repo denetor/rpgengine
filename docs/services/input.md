@@ -21,7 +21,7 @@ The domain does not know that a spacebar exists: it knows that the `attack` acti
 | Dynamic state | active context, action buffer, axis state |
 | Static state | default mappings, action definitions |
 | External data | `bindings.json` (defaults, through `CFG`) + the player's rebinding (through `SET`) |
-| Events emitted | `action-triggered`, `binding-changed` |
+| Events emitted | none — it **returns** intents from `consume()`; the orchestration publishes what it decides to (BUS-3) |
 
 ## Public API (indicative)
 
@@ -74,8 +74,11 @@ be provided.
 **INP-8** — The service **MUST** be **headless testable**: the input port allows a sequence of
 synthetic, timestamped inputs to be injected, with no browser.
 
-**INP-9** — A **recorded sequence of actions** replayed on the same game **MUST** produce the same
-result (ARC-9.1): it is the basis for gameplay regression tests.
+**INP-9** — A **scripted sequence of actions**, fed into two games with the same seed, **MUST**
+produce the same result (ARC-9.1): it is the basis for gameplay regression tests. This is why
+`consume()` is given the current time rather than reading a clock, and why the orchestration pulls
+the intents at a fixed point in the tick: an intent delivered when a DOM event happens to fire would
+take its position in the order from the browser's scheduler.
 
 **INP-10** — Remapping **MUST** be persisted as a **player preference**, not in the game save
 (SET-1): a binding holds for the player, not for the playthrough.

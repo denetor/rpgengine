@@ -72,7 +72,7 @@ in the hub: [`../REQUIREMENTS.md`](../REQUIREMENTS.md). The features seen by the
 | ID | Sheet | What it does |
 |---|---|---|
 | `REN` | [rendering.md](./rendering.md) | Boundary with Excalibur, `EntityId → Actor`, drawing |
-| `HUD` | [hud.md](./hud.md) | HUD, journal, inventory, menus, contextual interaction |
+| `HUD` | [hud.md](./hud.md) | HUD, quest log, inventory, menus, contextual interaction |
 | `AUD` | [audio.md](./audio.md) | Music by situation, effects from events, mixing |
 | `CAM` | [camera.md](./camera.md) | Following, bounds, zoom, shake |
 

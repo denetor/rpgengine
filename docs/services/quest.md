@@ -17,7 +17,7 @@ particular. "Find Aramis's sword" is a file, not a class.
 |---|---|
 | Depends on | `EXPR`, the shared precondition/effect interpreter, injected as an evaluator (ARC-7.3, EXPR-14) |
 | Does NOT depend on | `excalibur`, `INV`, `DLG`, `ENT`, other services |
-| Consumed by | orchestration, HUD (journal), `DLG` (through the evaluator) |
+| Consumed by | orchestration, HUD (quest log), `DLG` (through the evaluator) |
 | Dynamic state | state of every quest, achieved objectives, counters, timestamps |
 | Static state | quest definitions |
 | External data | `content/quests/*.json` |
@@ -53,7 +53,7 @@ interface QuestService {
   status(id: QuestId): QuestStatus;
   isObjectiveComplete(id: QuestId, obj: ObjectiveId): boolean;
   active(): readonly QuestId[];
-  journal(): readonly JournalEntry[];      // for the HUD: keys, not text
+  questLog(): readonly QuestLogEntry[];    // for the HUD: keys, not text
 }
 ```
 
@@ -96,10 +96,10 @@ them is the orchestration's job, talking to `INV`, `STAT` and `ECO` (ARC-4.1).
 **QST-10** — The state of every quest **MUST** be cheaply queryable by dialogues, AI and the world
 (GP-34): it is a very frequent read, and **MUST** be O(1).
 
-**QST-11** — The service **MUST** produce the **journal** as data (text keys, status, visible and
+**QST-11** — The service **MUST** produce the **quest log** as data (text keys, status, visible and
 hidden objectives), never as formatted text (I18N-8, GP-50).
 
-**QST-12** — Objectives **MUST** be hideable until they are discovered, without the journal
+**QST-12** — Objectives **MUST** be hideable until they are discovered, without the quest log
 revealing their existence.
 
 **QST-13** — Quests **MUST** be able to be repeatable, with controlled state reset and a completion
@@ -121,7 +121,7 @@ objective types are an extensible set, registered from the outside (ARC-3.4).
 - The same fact delivered twice does not produce double progress.
 - A failure condition closes the quest with the expected outcome and allows no further progress.
 - Serialization round trip with half-done quests, counters included.
-- The journal exposes keys, never text.
+- The quest log exposes keys, never text.
 - A definition that names a non-existent id is rejected at validation time.
 
 ## Links

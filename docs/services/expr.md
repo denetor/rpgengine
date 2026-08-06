@@ -105,7 +105,7 @@ given at each call. It **MUST NOT** hold a reference to any service, nor to the 
 
 **EXPR-7** — `explain` **MUST** return, for a false condition, the **leaves that failed**, as
 localizable keys with their parameters: `DLG` needs them to show *why* an option is locked
-(`# req:`, DLG dialogue tags), and the journal needs them for unmet objectives.
+(`# req:`, DLG dialogue tags), and the quest log needs them for unmet objectives.
 
 **EXPR-8** — The interpreter **MUST NOT** read the clock nor produce randomness (ARC-9.2, ARC-9.3).
 A condition on time or chance receives the value **already in the facts**, decided by the caller.

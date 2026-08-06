@@ -102,7 +102,7 @@ margin, critical) instead of a boolean.
 and verdicts. Deciding what to do with them is the orchestration's job (ARC-4.1).
 
 **STAT-14** — Every permanent change **MUST** emit the corresponding event, so that HUD, audio and
-journal react without polling the state.
+quest log react without polling the state.
 
 **STAT-15** — The set of attributes, skills and perks **MUST** be defined as **data**: adding an
 attribute **MUST NOT** require changes to the code. It is also what makes the service reusable in a

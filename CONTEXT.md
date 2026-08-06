@@ -58,10 +58,19 @@ The declaration, in every sheet, of whether a service is *generic* (no knowledge
 *domain* (accepts this project's domain model).
 
 **Domain event**:
-An immutable, serializable notification of a fact that has **already happened** (`entity-died`,
-`item-picked`), always in the past tense. It is not a command, has no return value and waits for no
-answer.
+An immutable notification of a fact that has **already happened** (`entity-died`, `item-picked`),
+always in the past tense and made of **plain data**, carrying no live reference to anything. It is
+not a command, has no return value and waits for no answer: whoever announces it does not depend on
+anyone reacting to it.
 _Avoid_: message, signal, notification
+
+**Delivery phase**:
+One of the two stages in which a tick's domain events reach those who react to them. In the
+**orchestration phase** they are handed to the game's rules, and the chain of consequences they set
+off is followed to its end; in the **presentation phase** everything delivered is handed, once and
+in the same order, to the interface. The interface therefore only ever observes a world that has
+finished changing, and cannot add to it.
+_Avoid_: pass, stage, round, tick (that is the unit of time, not of delivery)
 
 **Command**:
 A direct call to a service that returns the outcome **and** the domain events produced, without
