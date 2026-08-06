@@ -197,10 +197,16 @@ declare function describeIssue(issue: ConfigIssue): string;
   service's parameters at once — which defeats CFG-8 at the only level where it can be checked. The
   variadic-tuple constraint (`readonly [...SectionShape<unknown>[]]`) does **not** fix it; the `const`
   type parameter does. This was verified by typechecking both variants.
+- **`const S` holds for a literal at the call site, and not for a list with a name.** A caller that
+  keeps its sections in a `const` of its own — a bootstrap composing a dozen of them will — widens it
+  to an array of the union before `composeConfig` is reached, and has to write `as const` on that
+  list. The reusability proof, the first caller to name its list, is where this turned up.
 - **`T` is inferred from `fallback`, not from `validate`.** A shape written with a bare
   `fallback: undefined` types its slice `undefined`, not "the service's parameters or nothing". A
   service whose absent configuration is legitimate must therefore declare the fallback's type
-  explicitly — `const NO_FILTER: FilterConfig | undefined = undefined` — and that is what `RND` does.
+  explicitly. It must declare it **on the section**: a `const NO_FILTER: FilterConfig | undefined =
+  undefined` is narrowed back to `undefined` wherever it is read, so the constant that was supposed
+  to carry the type does not. That is what `RND` does, and what the estate does with its tasting.
 
 ### The composition, in order
 

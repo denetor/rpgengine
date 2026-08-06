@@ -123,6 +123,11 @@ before writing it down rather than by reasoning about it:
 - **`const S`.** Without the `const` type parameter the array literal is inferred as an *array of the
   union* of the shapes rather than as a tuple, and every slice comes back typed as every service's
   parameters at once. The tuple is the whole point of CFG-8; `const` is what makes it one.
+
+  It preserves a tuple for a literal **written at the call site**. A caller that keeps its sections
+  in a list of its own — which a bootstrap composing a dozen of them will want to — has to write
+  `as const` on that list, or the widening happens before `composeConfig` is ever reached. The
+  reusability proof found this the way everything else here was found, by compiling it.
 - **The fallback's type is the slice's type.** `T` is inferred from `fallback`, not from `validate`,
   which says nothing about what a valid value is.
 
