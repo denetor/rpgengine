@@ -95,9 +95,30 @@ interface FilterRule {
 
 /**
  * The **expected shape** of the parameters, for whoever loads them (RND-10,
- * ARC-7.2). The service reads no files and knows none of this game's paths: the
- * file name is the caller's, and `undefined` — no configuration — is valid.
+ * ARC-7.2): everything wrong with `value`, in the service's own terms. It says
+ * nothing about **where** the value came from, because it cannot know — that is
+ * the one thing `CFG` adds to what it is told (CFG-3).
+ *
+ * `undefined` — no configuration — is valid and yields no problems (RND-21).
  */
+declare function filterConfigProblems(value: unknown): readonly FilterConfigProblem[];
+
+/**
+ * The section `CFG` composes for this service, declared here because the key,
+ * the default and the check belong to whoever uses them (CFG-13).
+ *
+ * It imports nothing from `CFG`: the object matches `SectionShape`
+ * structurally, which is what keeps this service liftable into a project that
+ * composes its parameters some other way (ARC-3.4, ARC-4.1).
+ */
+declare const FILTER_SECTION: {
+  key: 'random';
+  /** Typed, not a bare `undefined`: it is what tells `CFG` the slice's type. */
+  fallback: FilterConfig | undefined;
+  validate: typeof filterConfigProblems;
+};
+
+/** The same check with a source stamped on it, for a caller that has one to name. */
 declare function validateFilterConfig(
   value: unknown,
   file?: string,
@@ -109,14 +130,18 @@ declare function assertFilterConfig(
   file?: string,
 ): asserts value is FilterConfig | undefined;
 
-/** One problem, in the three terms ARC-7.2 requires. */
-interface FilterConfigIssue {
-  /** Where the configuration came from, as the caller named it. */
-  file: string;
+/** One problem, in the two terms the service can speak: where, and what was expected. */
+interface FilterConfigProblem {
   /** `'channelCap'`, `"profiles['lockpick'].reduction"`, `'rules[2].profile'`. */
   path: string;
   value: unknown;
   message: string;
+}
+
+/** A problem the caller has named a source for (ARC-7.2). */
+interface FilterConfigIssue extends FilterConfigProblem {
+  /** Where the configuration came from, as the caller named it. */
+  file: string;
 }
 
 /** One issue as a line: `random.json: channelCap: expected …; found 0`. */
@@ -469,6 +494,17 @@ distinction governs the save (`assertRandomState`), for the same reason.
 above says `RND` depends on nothing, and ARC-3.4 wants it liftable into another project as it stands;
 a shape of four fields is not worth that. The game is free to use one for the rest of its content;
 `CFG` calls this check for `RND`'s slice and validates nothing itself (CFG-13).
+
+The check the composition uses is `filterConfigProblems`, which takes **no source**: a service
+validating its own slice has nothing true to say about where the value came from, and `CFG` — the
+only thing that saw it arrive — stamps that on afterwards (CFG-3). `validateFilterConfig` and
+`assertFilterConfig` keep their `file` parameter because they serve the other caller: the
+constructor, which is handed a value by somebody who may well know what to call it, and which
+refuses rather than reports (RND-17).
+
+The section itself is declared here as `FILTER_SECTION` — key, fallback and check in one object —
+and **imports nothing from `CFG`**: the match is structural. A generic service that had to depend on
+the mechanism configuring it could not be lifted out of this project (ARC-3.4, ARC-4.1).
 
 ### Structure
 
