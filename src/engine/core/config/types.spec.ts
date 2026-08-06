@@ -39,6 +39,22 @@ const OVEN_SECTION = { key: 'oven', fallback: OVEN_FALLBACK, validate: accepts }
 
 const DELIVERY_SECTION = { key: 'delivery', fallback: DELIVERY_FALLBACK, validate: accepts };
 
+/**
+ * A section whose parameters are legitimately absent, written the way a service
+ * has to write one.
+ *
+ * The type goes on **the section**, not on a constant holding the fallback: a
+ * `const NO_FLOUR: string | undefined = undefined` is narrowed back to
+ * `undefined` wherever it is read, and the slice would be typed `undefined`
+ * after all. Which is why the test below assigns a value to the slice's type
+ * rather than the slice to a type.
+ */
+const NO_FLOUR_SECTION: {
+    key: string;
+    fallback: string | undefined;
+    validate: typeof accepts;
+} = { key: 'flour', fallback: undefined, validate: accepts };
+
 describe('the slices', () => {
     it('are typed one by one, in the order the shapes were given', () => {
         const [oven, delivery] = composeConfig([OVEN_SECTION, DELIVERY_SECTION], []);
@@ -71,14 +87,17 @@ describe('where a slice’s type comes from', () => {
     });
 
     it('keeps the service’s own type when the fallback declares one', () => {
-        const NO_FLOUR: string | undefined = undefined;
-
-        const [flour] = composeConfig([{ key: 'flour', fallback: NO_FLOUR, validate: accepts }], [
+        const [flour] = composeConfig([NO_FLOUR_SECTION], [
             { name: 'bakery.json', values: { flour: 'type 00' } },
         ]);
 
-        const kindOfFlour: string | undefined = flour;
+        // Assigned **to** the slice, and not from it. The other direction is
+        // the one a reader writes first, and it cannot fail: a slice typed
+        // `undefined` is assignable to `string | undefined` just as happily as
+        // the right answer is, so the test would pass on a service that had
+        // stopped working.
+        const kindOfFlour: typeof flour = 'type 00';
 
-        expect(kindOfFlour).toBe('type 00');
+        expect([flour, kindOfFlour]).toEqual(['type 00', 'type 00']);
     });
 });

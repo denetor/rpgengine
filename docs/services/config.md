@@ -133,14 +133,19 @@ write out, since a bare `undefined` would type the composed slice `undefined`:
 
 ```ts
 /** The absence of a configuration is the absence of the filter (RND-21). */
-const NO_FILTER: FilterConfig | undefined = undefined;
-
-export const FILTER_SECTION = {
-  key: 'random',
-  fallback: NO_FILTER,          // …and not a bare `undefined`, which would type the slice `undefined`
-  validate: filterConfigProblems,
-};
+export const FILTER_SECTION: {
+  key: 'random';
+  fallback: FilterConfig | undefined;   // …the type on the section, for the reason below
+  validate: typeof filterConfigProblems;
+} = { key: 'random', fallback: undefined, validate: filterConfigProblems };
 ```
+
+The type goes on **the section** and not on a constant holding the fallback. A
+`const NO_FILTER: FilterConfig | undefined = undefined` — the shorter thing to write, and what this
+sheet asked for until somebody compiled it — is narrowed back to `undefined` wherever it is read, so
+the slice ends up typed `undefined` after all. Nothing says so: a test that assigns the slice *to*
+`FilterConfig | undefined` passes either way, and only one that assigns a real configuration *to the
+slice's type* fails.
 
 The whole of a game's bootstrap, for the one service that exists today:
 

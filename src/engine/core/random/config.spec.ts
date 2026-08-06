@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import {
     assertFilterConfig,
     describeIssue,
+    FILTER_SECTION,
+    filterConfigProblems,
     FilterConfigError,
     Random,
     UNFILTERED_PROFILE,
@@ -408,5 +410,74 @@ describe('validation before construction', () => {
         // either way are seeds, and `-1` names the same game as `4294967295`.
         expect(() => new Random(-1)).not.toThrow();
         expect(() => new Random(4294967295)).not.toThrow();
+    });
+});
+
+/**
+ * What a composition asks of a section, restated here rather than imported.
+ *
+ * The restatement **is** the test. `RND` declares its section without importing
+ * anything from `CFG` (CFG-13, ARC-4.1), so a spec that reached for
+ * `SectionShape` in order to check the match would prove the opposite of what
+ * it claims — and boundary rule 3 would refuse the import besides. What is
+ * asserted below is that the object fits a shape written in this file, by
+ * somebody who has never seen the mechanism: which is what structural matching
+ * means, and what keeps the service liftable into a project that composes its
+ * parameters some other way (ARC-3.4).
+ */
+interface SectionOfSomeConfiguration<T> {
+    readonly key: string;
+    readonly fallback: T;
+    validate(value: unknown): readonly { path: string; value: unknown; message: string }[];
+}
+
+describe('the check a composition is handed', () => {
+    it('accepts the absence of a configuration, which is the absence of the filter', () => {
+        // RND-21: no configuration is a decision, and a composition that saw no
+        // source mentioning this section hands the fallback straight to it.
+        expect(filterConfigProblems(undefined)).toEqual([]);
+    });
+
+    it('reports every problem, and says nothing about where the value came from', () => {
+        // A service validating its own slice has nothing true to say about a
+        // source: only whoever saw the value arrive does (CFG-3).
+        const problems = filterConfigProblems({ ...VALID, channelCap: 0, default: 'missing' });
+
+        expect(problems.map((problem) => problem.path)).toEqual(['channelCap', 'default']);
+        expect(problems.some((problem) => 'file' in problem)).toBe(false);
+    });
+
+    it('finds the same problem the constructor’s caller is told, minus the source', () => {
+        // One definition of what a problem is, two doors onto it: the issue is
+        // that problem plus the file the caller named.
+        const bad = { ...VALID, channelCap: 0, default: 'missing' };
+
+        expect(validateFilterConfig(bad, FILE)).toEqual(
+            filterConfigProblems(bad).map((problem) => ({ file: FILE, ...problem })),
+        );
+    });
+});
+
+describe('the section this service declares', () => {
+    it('carries the key it is written under, its fallback and its own check', () => {
+        expect(FILTER_SECTION.key).toBe('random');
+        expect(FILTER_SECTION.fallback).toBeUndefined();
+        expect(FILTER_SECTION.validate).toBe(filterConfigProblems);
+    });
+
+    it('fits what a composition asks of a section, without importing one', () => {
+        const section: SectionOfSomeConfiguration<FilterConfig | undefined> = FILTER_SECTION;
+
+        expect(section.validate(VALID)).toEqual([]);
+        expect(section.validate(withKey('channelCap', 0))).toHaveLength(1);
+    });
+
+    it('writes the fallback’s type out, so that a slice is not typed `undefined`', () => {
+        // The composed slice's type is inferred from the fallback, so a bare
+        // `undefined` here would type it `undefined` rather than "a filter
+        // configuration or none" (RND-21). This line is what notices.
+        const stillAConfiguration: typeof FILTER_SECTION.fallback = VALID;
+
+        expect(stillAConfiguration).toBe(VALID);
     });
 });

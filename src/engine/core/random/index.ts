@@ -9,14 +9,24 @@
  * `random.json`, before the game context is constructed (CTX-10): the service
  * reads no files and knows none of this game's paths, so the check is here and
  * the file name comes from the caller.
+ *
+ * There are two doors onto one check, because there are two callers. Whoever
+ * **composes** the parameters is handed `filterConfigProblems` — or the whole
+ * of `FILTER_SECTION`, which carries the key and the fallback with it — and
+ * stamps the source on itself, being the only thing that saw the value arrive
+ * (CFG-3). The **constructor's** caller gets `validateFilterConfig` and
+ * `assertFilterConfig`, which take a file name because that caller may well
+ * know one, and which refuse rather than report (RND-17).
  */
 export {
     assertFilterConfig,
     describeIssue,
+    FILTER_SECTION,
+    filterConfigProblems,
     FilterConfigError,
     validateFilterConfig,
 } from './config';
-export type { FilterConfigIssue } from './config';
+export type { FilterConfigIssue, FilterConfigProblem } from './config';
 export { UNFILTERED_PROFILE } from './filter';
 /**
  * The golden vectors are the one part of the test scaffolding that is exported

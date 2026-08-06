@@ -46,21 +46,19 @@ const RULE_KEYS = ['channel', 'profile'];
 const VALUE_LIMIT = 80;
 
 /**
- * One thing wrong with a configuration, in the three terms ARC-7.2 requires.
+ * One thing wrong with a configuration, in the two terms the service can speak:
+ * where, and what was expected there.
  *
- * It is data rather than a thrown exception because a loader validating several
+ * It is data rather than a thrown exception because a caller validating several
  * files wants to report everything wrong with all of them, not to stop at the
  * first — and because a message is for reading, while `path` and `value` are
  * for a tool that wants to point at a line.
+ *
+ * What it deliberately does **not** carry is where the value came from: a
+ * service validating its own parameters has nothing true to say about that, and
+ * whoever handed them over is the only thing that knows (CFG-3).
  */
-export interface FilterConfigIssue {
-    /**
-     * Where the configuration came from, as the caller named it — and only as
-     * the caller named it. With no name given it is a label rather than a path,
-     * because the service has no file to name (ARC-4.1).
-     */
-    file: string;
-
+export interface FilterConfigProblem {
     /**
      * Where in the configuration, from its root: `'channelCap'`,
      * `"profiles['lockpick'].reduction"`, `'rules[2].profile'`. Empty when the
@@ -76,13 +74,23 @@ export interface FilterConfigIssue {
 }
 
 /**
- * One problem, before it is told where the configuration came from.
+ * A problem, told where the configuration came from — the three terms ARC-7.2
+ * requires.
  *
  * The file is stamped on once, at the end, rather than threaded through every
  * check below: none of them do anything with it but copy it, and a parameter
  * that is only ever copied is one more thing to get wrong in each new check.
+ * That there is one definition of a problem and one of what is added to it is
+ * why the two doors below cannot drift apart.
  */
-type Problem = Omit<FilterConfigIssue, 'file'>;
+export interface FilterConfigIssue extends FilterConfigProblem {
+    /**
+     * Where the configuration came from, as the caller named it — and only as
+     * the caller named it. With no name given it is a label rather than a path,
+     * because the service has no file to name (ARC-4.1).
+     */
+    file: string;
+}
 
 /**
  * A configuration that cannot be used, and everything that is wrong with it.
@@ -110,22 +118,96 @@ export function describeIssue(issue: FilterConfigIssue): string {
 /**
  * Everything wrong with `value` as a filter configuration, or an empty list.
  *
- * **The absence of a configuration is valid** and returns no issues: it is the
- * absence of the filter, not a missing file (RND-21). An explicit `null` is
+ * **The absence of a configuration is valid** and returns no problems: it is
+ * the absence of the filter, not a missing file (RND-21). An explicit `null` is
  * not the same thing and is refused — a key written as `null` is a mistake,
  * where a key not written at all is a decision.
  *
- * Every issue is reported, not merely the first: a designer fixing a file one
+ * Every problem is reported, not merely the first: a designer fixing a file one
  * error per run is a designer running the game five times to find five typos.
  * What is *not* reported is a cascade — a `profiles` that is not a set of
  * profiles makes every profile name unresolvable, and saying so once per
  * reference would bury the one line that matters.
+ *
+ * This is the door for whoever **composes** the parameters: it takes no source,
+ * because a service has nothing true to say about one, and whoever saw the
+ * value arrive stamps that on afterwards (CFG-3). The door for a caller that
+ * does know what to call the value is `validateFilterConfig` below.
+ */
+export function filterConfigProblems(value: unknown): readonly FilterConfigProblem[] {
+    if (value === undefined) {
+        return [];
+    }
+    if (!isRecord(value)) {
+        return [{ path: '', value, message: 'expected an object' }];
+    }
+
+    const declared = declaredProfiles(value);
+
+    return [
+        ...unknownKeyProblems(value, CONFIG_KEYS, '', 'the filter configuration'),
+        ...channelCapProblems(value),
+        ...profileProblems(value),
+        ...defaultProblems(value, declared),
+        ...ruleProblems(value, declared),
+    ];
+}
+
+/**
+ * What this service says about its own parameters, in the three terms a
+ * composition asks for.
+ *
+ * The type is written here, on the declaration, and **not** on a constant
+ * holding the fallback. It is the same trap from the other side: a
+ * `const NO_FILTER: FilterConfig | undefined = undefined` is narrowed back to
+ * `undefined` wherever it is read, so a section built out of one would type its
+ * slice `undefined` after all, and only a test assigning a real configuration
+ * *to* the slice would ever notice.
+ */
+interface FilterSection {
+    /** The key the parameters are written under in a source. */
+    readonly key: 'random';
+
+    /**
+     * The parameters in the absence of every source: none at all, which is the
+     * absence of the filter (RND-21).
+     *
+     * Its type is spelled out because a composition infers a slice's type from
+     * the fallback it was given: bare, the slice would be typed `undefined`,
+     * and a game that does have a `random.json` could not hand what it composed
+     * to anything.
+     */
+    readonly fallback: FilterConfig | undefined;
+
+    /** The service's own check, which reports every problem and names no source. */
+    validate(value: unknown): readonly FilterConfigProblem[];
+}
+
+/**
+ * The section a composition writes this service's parameters under: the key,
+ * what they are when nobody mentions them, and the check above.
+ *
+ * All three belong here rather than to whatever composes them (CFG-13), and
+ * this file **imports nothing from that mechanism**: the object matches what a
+ * composition asks for structurally, which is what keeps the service liftable
+ * into a project that composes its parameters some other way (ARC-3.4,
+ * ARC-4.1).
+ */
+export const FILTER_SECTION: FilterSection = {
+    key: 'random',
+    fallback: undefined,
+    validate: filterConfigProblems,
+};
+
+/**
+ * The same check with a source stamped on it, for a caller that has one to
+ * name.
  */
 export function validateFilterConfig(
     value: unknown,
     file: string = DEFAULT_SOURCE,
 ): readonly FilterConfigIssue[] {
-    return problemsWith(value).map((problem) => ({ file, ...problem }));
+    return filterConfigProblems(value).map((problem) => ({ file, ...problem }));
 }
 
 /**
@@ -147,26 +229,6 @@ export function assertFilterConfig(
     }
 }
 
-/** Everything wrong with a configuration, in the order a reader meets it. */
-function problemsWith(value: unknown): readonly Problem[] {
-    if (value === undefined) {
-        return [];
-    }
-    if (!isRecord(value)) {
-        return [{ path: '', value, message: 'expected an object' }];
-    }
-
-    const declared = declaredProfiles(value);
-
-    return [
-        ...unknownKeyProblems(value, CONFIG_KEYS, '', 'the filter configuration'),
-        ...channelCapProblems(value),
-        ...profileProblems(value),
-        ...defaultProblems(value, declared),
-        ...ruleProblems(value, declared),
-    ];
-}
-
 /**
  * The profile names a configuration declares, or null when it declares no
  * usable set of them and every reference to one is therefore unanswerable.
@@ -184,7 +246,7 @@ function declaredProfiles(config: Record<string, unknown>): string[] | null {
 }
 
 /** The channel cap: a whole number of channels the service can actually hold. */
-function channelCapProblems(config: Record<string, unknown>): readonly Problem[] {
+function channelCapProblems(config: Record<string, unknown>): readonly FilterConfigProblem[] {
     const cap = config.channelCap;
     if (isWholeNumber(cap) && cap >= 1) {
         return [];
@@ -206,7 +268,7 @@ function channelCapProblems(config: Record<string, unknown>): readonly Problem[]
  * downwards. Only the *list* of names inside a message is sorted, and for the
  * opposite reason — see `declaredProfiles`.
  */
-function profileProblems(config: Record<string, unknown>): readonly Problem[] {
+function profileProblems(config: Record<string, unknown>): readonly FilterConfigProblem[] {
     const profiles = config.profiles;
     if (!isRecord(profiles)) {
         return [
@@ -223,7 +285,7 @@ function profileProblems(config: Record<string, unknown>): readonly Problem[] {
         ];
     }
 
-    const problems: Problem[] = [];
+    const problems: FilterConfigProblem[] = [];
     for (const [name, profile] of Object.entries(profiles)) {
         problems.push(...oneProfileProblems(name, profile));
     }
@@ -231,7 +293,7 @@ function profileProblems(config: Record<string, unknown>): readonly Problem[] {
 }
 
 /** One profile's name and parameters. */
-function oneProfileProblems(name: string, profile: unknown): readonly Problem[] {
+function oneProfileProblems(name: string, profile: unknown): readonly FilterConfigProblem[] {
     const path = `profiles['${name}']`;
 
     if (!isRecord(profile)) {
@@ -244,7 +306,7 @@ function oneProfileProblems(name: string, profile: unknown): readonly Problem[] 
         ];
     }
 
-    const problems: Problem[] = [];
+    const problems: FilterConfigProblem[] = [];
 
     if (name === UNFILTERED_PROFILE) {
         problems.push({
@@ -285,7 +347,7 @@ function oneProfileProblems(name: string, profile: unknown): readonly Problem[] 
 function defaultProblems(
     config: Record<string, unknown>,
     declared: string[] | null,
-): readonly Problem[] {
+): readonly FilterConfigProblem[] {
     if (declared === null) {
         return [];
     }
@@ -296,7 +358,7 @@ function defaultProblems(
 function ruleProblems(
     config: Record<string, unknown>,
     declared: string[] | null,
-): readonly Problem[] {
+): readonly FilterConfigProblem[] {
     const rules = config.rules;
     if (rules === undefined) {
         return [];
@@ -305,7 +367,7 @@ function ruleProblems(
         return [{ path: 'rules', value: rules, message: 'expected a list of rules' }];
     }
 
-    const problems: Problem[] = [];
+    const problems: FilterConfigProblem[] = [];
     for (let index = 0; index < rules.length; index += 1) {
         problems.push(...oneRuleProblems(rules[index], index, declared));
     }
@@ -317,14 +379,14 @@ function oneRuleProblems(
     rule: unknown,
     index: number,
     declared: string[] | null,
-): readonly Problem[] {
+): readonly FilterConfigProblem[] {
     const path = `rules[${index}]`;
 
     if (!isRecord(rule)) {
         return [{ path, value: rule, message: 'expected an object with a channel and a profile' }];
     }
 
-    const problems: Problem[] = [
+    const problems: FilterConfigProblem[] = [
         ...unknownKeyProblems(rule, RULE_KEYS, path, 'a rule'),
         ...channelPatternProblems(rule.channel, `${path}.channel`),
     ];
@@ -344,7 +406,7 @@ function oneRuleProblems(
  * resolution would fall back to the default profile without a word. It is the
  * one malformed pattern that is quietly wrong rather than loudly wrong.
  */
-function channelPatternProblems(channel: unknown, path: string): readonly Problem[] {
+function channelPatternProblems(channel: unknown, path: string): readonly FilterConfigProblem[] {
     if (typeof channel !== 'string' || channel.length === 0) {
         return [{ path, value: channel, message: 'expected a channel pattern' }];
     }
@@ -370,7 +432,7 @@ function namedProfileProblems(
     name: unknown,
     declared: readonly string[],
     path: string,
-): readonly Problem[] {
+): readonly FilterConfigProblem[] {
     if (typeof name === 'string' && declared.includes(name)) {
         return [];
     }
@@ -396,8 +458,8 @@ function unknownKeyProblems(
     known: readonly string[],
     path: string,
     what: string,
-): readonly Problem[] {
-    const problems: Problem[] = [];
+): readonly FilterConfigProblem[] {
+    const problems: FilterConfigProblem[] = [];
     for (const key of Object.keys(record)) {
         if (!known.includes(key)) {
             problems.push({

@@ -113,7 +113,11 @@ declare function filterConfigProblems(value: unknown): readonly FilterConfigProb
  */
 declare const FILTER_SECTION: {
   key: 'random';
-  /** Typed, not a bare `undefined`: it is what tells `CFG` the slice's type. */
+  /**
+   * Typed, and typed **here** rather than on a constant holding it: it is what
+   * tells `CFG` the slice's type, and a `const x: FilterConfig | undefined =
+   * undefined` is narrowed back to `undefined` wherever it is read.
+   */
   fallback: FilterConfig | undefined;
   validate: typeof filterConfigProblems;
 };

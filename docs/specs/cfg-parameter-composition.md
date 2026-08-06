@@ -293,6 +293,15 @@ through it.
 No test reaches into `compose.ts` or any other internal module, and no new seam is opened in
 `game/` or in `tests-headless/`.
 
+**One test does live in `tests-headless/`, and had to.** The circle-closing one — a section composed
+by `CFG` and handed to a real `Random` — names both services, and boundary rule 3 refuses a spec
+inside either one importing the other's door (ARC-4.1); this was verified by writing the import and
+watching `npm run boundaries` fail. `tests-headless/composed-parameters.spec.ts` enters through the
+two existing public doors and opens no seam of its own. The refusal is right: the fit between the two
+is not a fact about either service, it is the fact a bootstrap depends on, and `game/bootstrap.ts`
+constructs nothing yet. Everything that is about `RND` alone — the section's contents, the structural
+match, the equivalence of its two checks — stays in `random/config.spec.ts`, as below.
+
 ### What gets tested
 
 Under `engine/core/config/`:
@@ -321,8 +330,10 @@ Under `engine/core/config/`:
 
 Under `engine/core/random/`, added to the existing parameter tests: `FILTER_SECTION` carries the key,
 the typed fallback and the check; `filterConfigProblems` reports the same problems as
-`validateFilterConfig` minus the source; a configuration composed through `CFG` and handed to
-`new Random(...)` is accepted by the constructor.
+`validateFilterConfig` minus the source; and the section fits a shape written out in the spec file
+itself, which is what "matched structurally" means. Under `tests-headless/`, for the reason given
+above: a configuration composed through `CFG` and handed to `new Random(...)` is accepted by the
+constructor, and one that does not validate stops the program before a `Random` exists.
 
 ### Prior art
 
