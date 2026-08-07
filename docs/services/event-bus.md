@@ -165,7 +165,11 @@ Otherwise *who received this event* would depend on what earlier handlers happen
 cannot be reasoned about at a subscription site.
 
 **BUS-11** — `dispose()` **MUST** drop every subscription and discard the queue, and **MUST** be
-called outside a `flush()`. It is the bus's half of CTX-6.
+called outside a `flush()` — called inside one it **MUST throw**, off the same flag that refuses a
+reentrant `flush()`. The breach is otherwise invisible: `dispose()` swaps the queue the drain is
+reading, so a context tearing itself down in reaction to an event would end the cascade mid-sentence,
+drop every consequence queued behind it, and leave a tick indistinguishable from one that finished.
+It is the bus's half of CTX-6.
 
 **BUS-12** — Outside a `flush()` the queue **MUST** be empty. BUS-5 drains to quiescence and the game
 loop owns the only call site, so a save taken at a tick boundary cannot lose an event in flight —
@@ -227,7 +231,8 @@ subscription registries.
 - `onAny` sees each event once, in its own phase, in delivery order.
 - The BUS-10 rules: unsubscribed mid-delivery still receives the current event; subscribed
   mid-delivery misses it; reentrant `flush()` throws; double unsubscribe is a no-op.
-- The queue is empty when `flush()` returns; after `dispose()` nothing is registered.
+- The queue is empty when `flush()` returns; after `dispose()` nothing is registered, and `dispose()`
+  called from inside a flush throws.
 - Two buses do not observe each other (the bus's half of ARC-8.3).
 - The bus works with a made-up event union, foreign to this game (ARC-3.4).
 - **The compile-time claims, via `@ts-expect-error`**: an unknown type at `on`; a payload carrying a

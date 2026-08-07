@@ -44,6 +44,23 @@ const CLOCK_READINGS = ['new Date', 'Date.now', 'Date.parse', 'Date.UTC', 'perfo
  */
 const RANDOMNESS = ['Math.random', 'crypto.'];
 
+/**
+ * Everything that would let the bus behave one way under test and another way
+ * in the shipped build (BUS-9).
+ *
+ * This is the one prohibition no behavioural test can reach, by construction: a
+ * suite runs in one build, and a branch taken only in the other is invisible to
+ * it — the tests go green on a bus nobody has ever run. Control flow that
+ * differs between the two builds is not a diagnostic nicety under ARC-9.1, it is
+ * two different games, and the interesting one is the one nobody tested.
+ *
+ * The failure policy is where the temptation lives: rethrow in development so
+ * the error is loud, report in production so the player keeps playing. The
+ * answer is that the phase already decides that — a rule propagates, a panel is
+ * reported — and the phase is the same in both builds.
+ */
+const BUILD_MODES = ['import.meta.env', 'import.meta.hot', 'process.env', 'NODE_ENV', '__DEV__'];
+
 interface Source {
     readonly file: string;
     readonly text: string;
@@ -106,6 +123,10 @@ describe('the bus', () => {
 
     it('never reads a clock and never produces randomness', () => {
         expect(occurrencesOfAny([...CLOCK_READINGS, ...RANDOMNESS])).toEqual([]);
+    });
+
+    it('has no branch that exists in only one build', () => {
+        expect(occurrencesOfAny(BUILD_MODES)).toEqual([]);
     });
 
     it('imports nothing but its own files', () => {
