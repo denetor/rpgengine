@@ -41,6 +41,45 @@ test('a registered scene name opens that scene', async ({ page }) => {
   await expect(page.locator('canvas')).toBeVisible();
 });
 
+test('the bus scene traces a cascade it published', async ({ page }) => {
+  await open(page, '?scene=bus');
+
+  await expect(page).toHaveTitle(/bus/);
+  await page.getByRole('button', { name: 'Drop a pebble' }).click();
+
+  // What is checked is that the scene is wired to a real bus and shows what came
+  // back: the fact that was published, and the fact at the far end of the
+  // cascade it caused. How the bus ordered them in between is proved at the
+  // bus's own surface, and asserting it again from here would be testing the
+  // overlay.
+  const trace = page.getByLabel('trace');
+  await expect(trace).toContainText('demo/pebble-dropped');
+  await expect(trace).toContainText('demo/shore-reached');
+
+  // The other half of step 2, in the same scene: parameters composed by `CFG`,
+  // resolved by the service that declared the section.
+  await expect(page.getByText(/composed by CFG/)).toContainText('demo:ripple → patient');
+});
+
+test('the bus scene shows the diagnostic instead of freezing on a cycle', async ({ page }) => {
+  await open(page, '?scene=bus');
+
+  await page.getByRole('button', { name: 'Ring the echo (a cycle)' }).click();
+
+  // The test that would **hang** rather than fail if the rail were not there.
+  // The message has to name the types, because a person looking at a frozen
+  // game has nothing else to go on.
+  const refusal = page.getByRole('alert');
+  await expect(refusal).toContainText('generations');
+  await expect(refusal).toContainText('demo/echo-heard');
+  await expect(refusal).toContainText('demo/echo-returned');
+
+  // And the scene is still usable: the refused tick took its queue with it
+  // rather than leaving the next flush to redeliver it (BUS-12).
+  await page.getByRole('button', { name: 'Drop a pebble' }).click();
+  await expect(page.getByLabel('trace')).toContainText('demo/shore-reached');
+});
+
 test('an unregistered scene name is reported in the page', async ({ page }) => {
   await page.goto(`${PAGE}?scene=nonexistent`);
 

@@ -1,5 +1,6 @@
 import type { Scene } from "excalibur";
 import type { GameContext } from "../../../game/bootstrap";
+import { BusScene } from "./bus/bus-scene";
 import { SandboxScene } from "./sandbox/sandbox-scene";
 
 /** The query string parameter that selects a testbed scene: `?scene=<name>`. */
@@ -29,6 +30,7 @@ export type SceneFactory = (context: GameContext) => Scene;
  */
 const scenes: Record<SceneName, SceneFactory> = {
   [DEFAULT_SCENE]: (context) => new SandboxScene(context),
+  bus: (context) => new BusScene(context),
 };
 
 /** A name nobody registered, and what would have worked instead. */
