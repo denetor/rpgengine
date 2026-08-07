@@ -16,7 +16,9 @@ inherits from `Character`.
 
 It is not a full ECS engine with a system scheduler: it is the **domain data registry**. The
 presentation counterpart (Excalibur's ECS, the `Actor`s) is a different thing and lives on the other
-side (ARC-1.3).
+side (ARC-1.3). Which fact belongs to which of the two stores is decided once, in
+[`rendering.md`](./rendering.md) (REN-17): what changes the outcome of the simulation lives here,
+what only changes the picture lives on the `Actor`.
 
 ## Contract
 
@@ -88,7 +90,9 @@ whom. It stores and returns data. The logic lives in the rules services, which r
 components as arguments.
 
 **ENT-10** — No component **MUST** contain references to `Actor`s or to rendering objects (ARC-1.3).
-The `EntityId → Actor` binding is maintained by the presentation.
+The `EntityId → Actor` binding is maintained by the presentation. Nor **MUST** a component duplicate
+a fact the presentation owns — an interpolated position, a visual offset, an animation frame — which
+belongs to the `Actor` alone (REN-17, REN-18).
 
 **ENT-11** — Every component **MUST** be serializable; the registry serializes the live entities with
 their components and their originating archetype, by difference from the initial values where that
@@ -122,4 +126,4 @@ references are detectable.
   (references)
 - [`GAMEPLAY.md`](../GAMEPLAY.md) — GP-11 (interactive objects), GP-27 (quest NPCs)
 - [`spatial-index.md`](./spatial-index.md) · [`affordance.md`](./affordance.md) ·
-  [`rendering.md`](./rendering.md)
+  [`rendering.md`](./rendering.md) — REN-17, the split between this registry and Excalibur's ECS

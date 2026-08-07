@@ -100,6 +100,47 @@ go through Excalibur's own `Loader`, confined to a **single module** of the pres
 adopting `AST` (step 16 of [§7.2](../REQUIREMENTS.md#72--development-order)) is a change local to
 `REN`. No other file **MUST** construct an `ImageSource` or a `Sound` directly.
 
+### Which components live on which side
+
+Excalibur has its own ECS (`World`, `Entity`, `Component`, `Query`), and `ENT` is a second store of
+entities and components. Two stores are a real cost: the same fact can end up written in both and
+they drift apart. These requirements say where each fact lives, and the answer is never "in both".
+
+**REN-17** — Every piece of state **MUST** have **one owner**, and the boundary is the test of
+outcome: if losing it would change what the simulation produces, it belongs to `ENT`; if losing it
+would only change the picture, it belongs to the `Actor`. Presentation state **MUST** be derivable:
+destroying every `Actor` and rebuilding it from the domain **MUST** give the same game back
+(REN-14).
+
+| Fact | Owner | Note |
+|---|---|---|
+| Health, combat, faction, inventory, dialog, loot, quest flags | `ENT` | rules read it, `PER` serializes it |
+| Authoritative position, facing, movement intent | `ENT` | the truth of *where* an entity is (REN-18) |
+| Walkability, terrain, area topology | `MAP` | the truth of *where it may go* (REN-19) |
+| `TransformComponent`, `GraphicsComponent`, `ColliderComponent`, `ActionsComponent` | `Actor` | derived every frame, thrown away with the scene |
+| Interpolated position, visual offsets: bob, shake, hit recoil | `Actor` | never written back (REN-18) |
+| Sprite, animation frame, tint, z-band | `Actor` | driven by domain state (REN-8, REN-9) |
+| Pooled effects: particles, floating numbers | `Actor` | no domain entity behind them (REN-10) |
+
+**REN-18** — The synchronization of position **MUST** be one-way: `sync` writes domain → `Actor`,
+never the reverse. An `Actor`'s `pos` is a **derived value**, made of the domain position plus the
+interpolation over the driver's lag (REN-12) plus purely visual offsets. Those offsets **MUST NOT**
+re-enter the domain: an entity shaken by a hit has not moved.
+
+**REN-19** — Excalibur's physics **MUST NOT** decide the outcome of anything. Colliders **MAY**
+exist for pointer picking and visual effects; movement legality is `MAP`'s walkability and the rules
+services. A headless run has no `BodyComponent` and **MUST** produce the same results (ARC-1.4).
+
+**REN-20** — Excalibur components and tags **MUST NOT** be used as **capability markers**. Queries by
+capability go through `ENT`'s mask (ARC-6.2, ARC-6.3, ENT-5), never through `world.query([...])` or
+`entity.tags`. Two reasons: the iteration order of an Excalibur `Query` follows insertion into the
+query and would break determinism (ARC-9.4, ENT-4), and the query would not exist at all in a
+headless run.
+
+**REN-21** — No `Actor` **MUST** be the origin of a domain entity: a visual element with no `EntityId`
+behind it **MUST** be purely decorative. If it takes part in an interaction, it is spawned in `ENT`
+first and the `Actor` follows (REN-4, ENT-13).
+
 ## Test criteria
 
 - A boundary test verifies that no file outside the presentation imports `excalibur` (ARC-14.2).
@@ -108,6 +149,10 @@ adopting `AST` (step 16 of [§7.2](../REQUIREMENTS.md#72--development-order)) is
   leaks after 10³ cycles.
 - Y-ordering produces the correct overlapping on known cases.
 - No reference to an `Actor` appears in a save document.
+- Destroying every `Actor` and rebuilding the scene from the domain leaves the simulation identical
+  (REN-17).
+- The same scripted run, headless and rendered, produces the same domain state frame by frame: a
+  shake or an interpolation does not move anything (REN-18, REN-19).
 
 ## Links
 
