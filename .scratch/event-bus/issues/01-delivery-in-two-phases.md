@@ -50,27 +50,27 @@ the spec is [`docs/specs/bus-event-bus.md`](../../../docs/specs/bus-event-bus.md
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `publish` and `publishAll` run no handler: nothing happens until `flush()`
-- [ ] A subscriber receives the events of its own type, narrowed, with no cast at the call site
-- [ ] Events are delivered in the order they were published
-- [ ] An event published by a handler is delivered **in the same flush**, after those already queued
-- [ ] That holds to arbitrary depth: everything at depth 2 is delivered before anything at depth 3
-- [ ] **The phase boundary**: A publishes, an orchestration handler publishes B, and the presentation
+- [x] `publish` and `publishAll` run no handler: nothing happens until `flush()`
+- [x] A subscriber receives the events of its own type, narrowed, with no cast at the call site
+- [x] Events are delivered in the order they were published
+- [x] An event published by a handler is delivered **in the same flush**, after those already queued
+- [x] That holds to arbitrary depth: everything at depth 2 is delivered before anything at depth 3
+- [x] **The phase boundary**: A publishes, an orchestration handler publishes B, and the presentation
       phase receives `[A, B]` only after **both** orchestration handlers have run
-- [ ] The presentation phase receives every event of the tick, once, in the order they were delivered
-- [ ] Within a phase, `onAny` handlers run before the typed handlers for the same event
-- [ ] Typed handlers for one event run in subscription order
-- [ ] An `onAny` registered in one phase sees each event exactly once, and sees nothing of the other
+- [x] The presentation phase receives every event of the tick, once, in the order they were delivered
+- [x] Within a phase, `onAny` handlers run before the typed handlers for the same event
+- [x] Typed handlers for one event run in subscription order
+- [x] An `onAny` registered in one phase sees each event exactly once, and sees nothing of the other
       phase
-- [ ] `on` and `onAny` return an unsubscribe function, and a handler that has unsubscribed stops
+- [x] `on` and `onAny` return an unsubscribe function, and a handler that has unsubscribed stops
       receiving events
-- [ ] The queue is empty when `flush()` returns
-- [ ] A flush with nothing queued, and a flush with no subscribers, are both no-ops
-- [ ] The bus never reads a clock, never produces randomness, and imports nothing from `game/` or
+- [x] The queue is empty when `flush()` returns
+- [x] A flush with nothing queued, and a flush with no subscribers, are both no-ops
+- [x] The bus never reads a clock, never produces randomness, and imports nothing from `game/` or
       `presentation/`
-- [ ] A type-level spec compiles: `@ts-expect-error` on subscribing to a type outside the union, and
+- [x] A type-level spec compiles: `@ts-expect-error` on subscribing to a type outside the union, and
       on payloads carrying a `Date`, a `Map`, a `Set` and a function
-- [ ] Every test enters through the service's public door; no test names an internal module
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] Every test enters through the service's public door; no test names an internal module
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite
