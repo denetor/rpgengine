@@ -17,6 +17,17 @@
 export { createEventBus } from './bus';
 
 /**
+ * The one thing the bus throws on its own account (BUS-8): a cascade that went
+ * deeper than the fixed limit, which is a cycle between two rules and not a
+ * game that got complicated.
+ *
+ * Exported so that a caller can recognise it — the testbed scene shows the
+ * diagnostic rather than freezing, and a `catch` that had to match on a message
+ * would be a `catch` that stopped matching the first time the wording improved.
+ */
+export { CausalDepthError } from './errors';
+
+/**
  * `JsonValue` and `DomainEvent` are exported because whoever assembles the
  * game's union writes against them: a service declares its own event types as
  * `type` aliases, `game/` unions them, and the constraint is what refuses a

@@ -25,22 +25,33 @@ is enough for a person to read a ping-pong off the error as `[a] [b] [a]`. No cy
 algorithm and no bookkeeping outside the failure path: the generation boundaries already exist in the
 drain, and nothing is recorded until the limit trips.
 
+**What the throw leaves behind, decided here:** the bus **discards the queue** before throwing, so a
+subsequent `flush()` finds nothing and is a no-op. The alternative — leaving the queue as it was —
+was refused twice over: the next `flush()` would redeliver from generation 0 every event the failed
+tick had already delivered once, doubling every consequence that did land before throwing again on
+the same cycle; and it would leave the bus sitting outside a flush with a non-empty queue, which is
+the one thing BUS-12 says cannot happen. Discarding costs the tick, which the exception has already
+cost; keeping it would cost the tick *and* corrupt the next one.
+
+This is the depth throw only. What an exception **from a handler** leaves behind is ticket 03's, and
+it is the same question asked of a different failure.
+
 **Blocked by:** 01 — the delivery contract.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] A cycle of two events throws instead of running forever
-- [ ] A cycle of three events throws, and so does a self-publishing handler
-- [ ] The error names the event types of each of the last three generations, in order, so the loop is
+- [x] A cycle of two events throws instead of running forever
+- [x] A cycle of three events throws, and so does a self-publishing handler
+- [x] The error names the event types of each of the last three generations, in order, so the loop is
       readable from the message alone
-- [ ] A legitimate cascade of ten generations completes without throwing
-- [ ] A cascade of exactly 32 generations completes; 33 throws
-- [ ] The limit counts **depth**, not events: a generation fanning out to hundreds of events at the
+- [x] A legitimate cascade of ten generations completes without throwing
+- [x] A cascade of exactly 32 generations completes; 33 throws
+- [x] The limit counts **depth**, not events: a generation fanning out to hundreds of events at the
       same depth does not approach the limit
-- [ ] The error is a named type a caller can recognise, not a bare `Error`
-- [ ] Nothing is allocated or recorded to support the message while the flush is healthy
-- [ ] The queue is left in a state that does not strand the bus: a subsequent `flush()` behaves
+- [x] The error is a named type a caller can recognise, not a bare `Error`
+- [x] Nothing is allocated or recorded to support the message while the flush is healthy
+- [x] The queue is left in a state that does not strand the bus: a subsequent `flush()` behaves
       predictably, and the ticket states which behaviour was chosen and why
-- [ ] The limit is a constant with its reason beside it, not a construction parameter and not a
+- [x] The limit is a constant with its reason beside it, not a construction parameter and not a
       `CFG` section (BUS-15)
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite
