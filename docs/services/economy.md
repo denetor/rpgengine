@@ -63,8 +63,10 @@ merchant: buying and reselling to the same merchant **MUST** be a loss, or the e
 they hold. The outcome **MUST** say so explicitly, with the possibility of a partial trade (GP-28,
 GP-46).
 
-**ECO-5** — Every merchant **MUST** have a **finite stock**, which regenerates after a timeout via
-`TIME` (TIME-7), with variability from `RND` (GP-28).
+**ECO-5** — Every merchant **MUST** have a **finite stock**, which regenerates after a timeout, with
+variability from `RND` (GP-28). The timeout is a duration of game time read from `TIME` (TIME-14),
+**not** a scheduled timer: ECO-6 requires the regeneration to be computed lazily, and a timer per
+merchant is exactly what it forbids.
 
 **ECO-6** — Restocking **MUST** happen even while the player is elsewhere, without simulating all
 merchants on every tick: the computation **MUST** be **lazy**, on first interaction, as a function

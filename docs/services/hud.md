@@ -38,8 +38,13 @@ slots and unmet requirements together with the reason (GP-51, INV-9).
 **HUD-4** — There **SHOULD** be a **minimap** and/or a world map, built from `MAP`'s data grid and
 from the exploration state (GP-52).
 
-**HUD-5** — There **MUST** be a **pause menu** with options, save and load; opening it **MUST**
-pause game time (TIME-2) and switch the input context (INP-3) (GP-53).
+**HUD-5** — There **MUST** be a **pause menu** with options, save and load; opening it **MUST** ask
+the orchestration to pause and switch the input context (INP-3) (GP-53).
+
+Pausing is not an operation on the clock, which has neither a pause state nor a scale (TIME-2): it is
+the orchestration deciding to stop advancing the world. The menu asks through the same named command
+API by which it equips an item, and everything else the menu does keeps working — the beat goes on
+while the world is still.
 
 **HUD-6** — **Contextual interaction MUST** present the actions available on the selected target —
 attack, talk, use, rob, pick a lock — built from the entity's affordances and capabilities, not from

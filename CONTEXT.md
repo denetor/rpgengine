@@ -70,7 +70,7 @@ One of the two stages in which a tick's domain events reach those who react to t
 off is followed to its end; in the **presentation phase** everything delivered is handed, once and
 in the same order, to the interface. The interface therefore only ever observes a world that has
 finished changing, and cannot add to it.
-_Avoid_: pass, stage, round, tick (that is the unit of time, not of delivery)
+_Avoid_: pass, stage, round, tick (that is the beat of the loop, not a unit of delivery)
 
 **Command**:
 A direct call to a service that returns the outcome **and** the domain events produced, without
@@ -385,19 +385,48 @@ first interaction, as a function of the elapsed time.
 ### Time
 
 **Game time**:
-The domain's only source of time: scalable, pausable at `scale = 0`, distinct from real time and from
-**interface time**, which keeps running while the game is paused. The domain receives time, it does
-not read it.
-_Avoid_: delta, real time, tick
+The domain's only source of time, in whole milliseconds. It is distinct from real time because it is
+**whoever advances it who decides the conversion**: the clock moves by exactly the amount it is
+given, and knows neither frames nor turns. It advances only when somebody advances it. The domain
+receives time, it does not read it.
+_Avoid_: delta, real time
+
+**Tick**:
+The beat of the loop: the fixed point at which the intents are drained, the world is advanced if it
+is not paused, and the bus delivers. It belongs to the orchestration, it is driven by the
+presentation, and it is not the same thing as the clock's **advance** — which moves game time and
+does nothing else.
+_Avoid_: frame, update, step
+
+**Driver**:
+What turns real time into ticks: here Excalibur, which owns the frame pacing, the fixed simulation
+step and the cap on an anomalous delta — a backgrounded window, a breakpoint. The domain never names
+it, and would work under another one.
+
+**Pause**:
+The orchestration's decision **not to advance the clock**. It is a policy, not a mechanism: there is
+no pause state in the clock and no scale factor. The world stops, the interface does not — the beat
+goes on, the intents drain, the bus delivers.
+
+**Interface time**:
+The driver's real delta, which keeps running while the game is paused: it is what animates the HUD
+and the menus. It lives **only in the presentation**; the domain neither provides it nor knows it.
 
 **World time**:
 The conversion of game time into day, hour, minute and **phase**, according to a configurable day
-length. It is what governs lighting, spawning and NPC routines.
+length. The phases are **data** — an ordered table of names and start times, not a fixed set — and it
+is world time that governs lighting, spawning and NPC routines.
 
 **Timer**:
-A deadline registered in the scheduler with an **opaque and serializable** `payload`: the service does
-not know what it means, and pending timers resume from the exact remainder after a load.
+A deadline registered in the scheduler carrying a **domain event**: opaque to the service, which does
+not know what it means, and typed for whoever schedules it. Pending timers resume from the exact
+remainder after a load.
 _Avoid_: cooldown, setTimeout, deferred callback
+
+**Deadline**:
+The instant of game time at which a timer comes due — always **absolute**, never "how long is left":
+the remainder is a subtraction, and a subtraction cannot drift.
+_Avoid_: timeout, expiry, delay
 
 ### Interface and input
 

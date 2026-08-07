@@ -79,9 +79,13 @@ particles, floating numbers), avoiding per-frame allocations (ARC-13.3).
 **REN-11** — The number of entities drawn **MUST** be limited to what is visible or nearby: culling
 **MUST NOT** depend on a scan of all the world's entities (ARC-13.1).
 
-**REN-12** — Interpolation between two simulation steps **MUST** be handled here: if the logic runs
-at a fixed step (TIME-5), the rendering interpolates. The logic **MUST NOT** be altered in order to
-look smooth.
+**REN-12** — Interpolation between two simulation steps **MUST** be handled here: the logic runs at
+the fixed step owned by the **driver**, and the rendering interpolates over the leftover lag it
+exposes. The logic **MUST NOT** be altered in order to look smooth.
+
+The fixed step is not the clock's (TIME-3): `TIME` advances by whatever it is given, and it is the
+driver — Excalibur's `fixedUpdateTimestep`, with `currentFrameLagMs` — that turns a variable frame
+into a constant one and says how far past the last step the frame is.
 
 **REN-13** — Visual feedback (damage numbers, flashing, shake, particles) **MUST** be triggered by
 **domain events**, not by direct calls scattered through the logic.

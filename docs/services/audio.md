@@ -57,7 +57,11 @@ of the simulation (RND-2).
 **AUD-10** — Audio **MUST** be able to be absent: a headless game runs without audio (ARC-1.4).
 
 **AUD-11** — Playback **MUST** respect pause: game sounds stop or are attenuated, interface ones do
-not (TIME-11).
+not.
+
+Pause is not a state of the clock and cannot be read from it (TIME-2): it is a decision of the
+orchestration, which announces it as a fact of *this* game. The service reacts to that event, and its
+interface sounds keep running on the driver's own time, which never stopped.
 
 **AUD-12** — The service **MUST** work with a made-up event mapping (ARC-3.4).
 

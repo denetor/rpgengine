@@ -86,7 +86,7 @@ load screen can be shown instantly.
 **SAVE-10** — Storage **MUST** sit behind an abstract port, with at least three implementations:
 `localStorage`, file system, and in-memory for tests.
 
-**SAVE-11** — The save **MUST** include the RNG state (RND-3) and the pending timers (TIME-7):
+**SAVE-11** — The save **MUST** include the RNG state (RND-3) and the pending timers (TIME-13):
 without them the reloaded game is not the same game.
 
 **SAVE-12** — The round trip **MUST** be verified: `serialize → deserialize → serialize` produces an

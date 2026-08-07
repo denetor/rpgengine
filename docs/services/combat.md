@@ -86,8 +86,10 @@ That is what makes it testable with made-up data.
 debuffs — with declared duration, periodicity, intensity and **stacking** rules (replaces, adds,
 refreshes the duration, has a maximum number of applications) (GP-15).
 
-**CBT-8** — Statuses **MUST** expire through `TIME` (TIME-7), not with private counters, so that they
-survive saving and pausing correctly.
+**CBT-8** — Statuses **MUST** expire through `TIME` (TIME-13), not with private counters, so that
+they survive saving and pausing correctly. What is scheduled is the **expiry event itself** (TIME-6):
+there is no callback to lose, and a periodic status comes due as many times as it should even when
+the world advances by a whole combat turn (TIME-5).
 
 **CBT-9** — A hit **MUST** be able to produce **knockback** and **hitstun** parameterized by the
 weapon (GP-16). The service computes their magnitude and direction; applying them to movement is the
