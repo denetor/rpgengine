@@ -8,8 +8,10 @@
  * the same sequence of advances the same game (ARC-9.1).
  */
 
+import { resolveCalendar, transitionsBetween, worldTimeAt } from './calendar';
+import { assertTimeConfig } from './config';
 import { push, pop, peek } from './queue';
-import type { Clock, DomainEvent, GameTimeMs, TimerId } from './types';
+import type { Clock, DomainEvent, GameTimeMs, TimeConfig, TimeEvent, TimerId } from './types';
 
 /**
  * One registered timer.
@@ -31,12 +33,34 @@ export interface Timer<E extends DomainEvent> {
 /**
  * A clock for the event union `E`, starting at zero with nothing pending.
  *
- * It takes no arguments, has no configuration and no modes: it does not know
- * what real time is, and *how much* a frame or a combat turn is worth is the
- * caller's business (TIME-2). Two clocks in one process share nothing, which is
- * the clock's half of ARC-8.3.
+ * Its **one** construction argument is its configuration slice, the calendar
+ * (TIME-11), and it is optional: with none, the clock runs on
+ * `DEFAULT_TIME_CONFIG` — a day of 24 real hours with a single phase — so a
+ * test or a reused engine can build one without inventing a calendar. There is
+ * no other argument, no scale and no modes: the clock does not know what real
+ * time is, and *how much* a frame or a combat turn is worth is the caller's
+ * business (TIME-2). Two clocks in one process share nothing, which is the
+ * clock's half of ARC-8.3.
+ *
+ * The configuration is expected to have been validated before it got here
+ * (CTX-10) — `assertTimeConfig` is the door for a caller that has a file name
+ * to blame.
  */
-export function createClock<E extends DomainEvent>(): Clock<E> {
+export function createClock<E extends DomainEvent>(config?: TimeConfig): Clock<E> {
+    // Before anything is built from it: a clock that came into existence on a
+    // calendar it cannot use would produce a game that is subtly wrong rather
+    // than a load that failed, and nobody would connect the two (CTX-10).
+    assertTimeConfig(config);
+
+    /**
+     * The calendar, with the arithmetic that never changes worked out once.
+     *
+     * Held rather than recomputed, and that is not a cache of world time: it is
+     * the *configuration*, which cannot change while the clock lives. Nothing
+     * derived from an instant is kept anywhere (TIME-10).
+     */
+    const calendar = resolveCalendar(config);
+
     /** Game milliseconds since this clock began. Only `advance()` moves it. */
     let elapsedMs: GameTimeMs = 0;
 
@@ -85,6 +109,10 @@ export function createClock<E extends DomainEvent>(): Clock<E> {
             return elapsedMs;
         },
 
+        worldTime() {
+            return worldTimeAt(calendar, elapsedMs);
+        },
+
         advance(gameDeltaMs) {
             assertWholeMilliseconds('advance()', 'gameDeltaMs', gameDeltaMs);
 
@@ -98,7 +126,22 @@ export function createClock<E extends DomainEvent>(): Clock<E> {
             }
 
             const until = elapsedMs + gameDeltaMs;
-            const due: E[] = [];
+            const due: (E | TimeEvent)[] = [];
+
+            // The world's own boundaries over the same interval, computed once
+            // and before anything is delivered: they are a pure function of the
+            // two endpoints (TIME-10), so they do not depend on — and cannot be
+            // disturbed by — what the timers below turn out to be.
+            const crossed = transitionsBetween(calendar, elapsedMs, until);
+            let nextTransition = 0;
+
+            /** Everything the world did up to and including `instant`. */
+            function worldUpTo(instant: GameTimeMs): void {
+                while (nextTransition < crossed.length && crossed[nextTransition].at <= instant) {
+                    due.push(crossed[nextTransition].event);
+                    nextTransition += 1;
+                }
+            }
 
             // Everything whose deadline the interval reached, taken in
             // `(deadline, id)` order because that is the order the queue is in.
@@ -113,6 +156,14 @@ export function createClock<E extends DomainEvent>(): Clock<E> {
                     // past, and cost nothing while it waited.
                     continue;
                 }
+
+                // At an equal instant the world changes first, and then what
+                // was waiting for that instant happens: a timer registered
+                // *for* 07:00 is a consequence of 07:00 having arrived, so it
+                // cannot precede it. Registration order breaks ties between
+                // timers (TIME-4) and says nothing about a boundary, which
+                // nobody registered.
+                worldUpTo(timer.at);
 
                 due.push(timer.event);
                 live.delete(timer.id);
@@ -130,6 +181,10 @@ export function createClock<E extends DomainEvent>(): Clock<E> {
                     arm({ ...timer, at: timer.at + timer.every });
                 }
             }
+
+            // Whatever the world did after the last timer — or all of it, when
+            // no timer came due at all.
+            worldUpTo(until);
 
             elapsedMs = until;
 

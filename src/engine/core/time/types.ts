@@ -55,6 +55,71 @@ export type DomainEvent = { readonly type: string; readonly [key: string]: JsonV
 export type GameTimeMs = number;
 
 /**
+ * The name of a phase of the day, as the configuration spells it.
+ *
+ * A `string` and **not** an enum, because a generic engine cannot know that
+ * this game has dawn, day, dusk and night (ARC-3.2, TIME-11). The phases are an
+ * ordered table of names and start times in the configuration; adding a fifth
+ * is a data edit, and a game with three or with one uses the same engine.
+ */
+export type DayPhase = string;
+
+/**
+ * Game time as a person reads it: the projection of `now()` onto the configured
+ * calendar (TIME-10).
+ *
+ * A day is 24 hours of 60 minutes, fixed. Nothing here is stored — it is
+ * computed from the instant and the calendar every time it is asked for — so
+ * nothing here can drift out of agreement with the calendar it came from, and
+ * none of it reaches a save.
+ */
+export interface WorldTime {
+    /** Days since the game began, counted from the configured `startsAt.day`. */
+    readonly day: number;
+
+    /** 0…23. */
+    readonly hour: number;
+
+    /** 0…59. */
+    readonly minute: number;
+
+    /** The last phase whose start is at or before this instant. */
+    readonly phase: DayPhase;
+}
+
+/**
+ * The calendar, which is **configuration and not content** (TIME-11): how long
+ * a day lasts in game milliseconds, when the game begins, and the phases of the
+ * day.
+ *
+ * It is the service's own section, written under the key `time`, and the whole
+ * of it is optional: a clock built with none runs on `DEFAULT_TIME_CONFIG`.
+ */
+export interface TimeConfig {
+    /** Game milliseconds in one day. A positive whole number. */
+    readonly dayLengthMs: number;
+
+    /** The world time at game time zero. */
+    readonly startsAt: {
+        readonly day: number;
+        readonly hour: number;
+        readonly minute: number;
+    };
+
+    /**
+     * The phases of the day, in order, the first beginning at 00:00.
+     *
+     * Data rather than an enum, and the reason is ARC-3.2: the engine may not
+     * know what this game's phases are called.
+     */
+    readonly phases: readonly {
+        readonly name: DayPhase;
+        readonly hour: number;
+        readonly minute: number;
+    }[];
+}
+
+/**
  * The handle on a registered timer: an opaque branded `number`, drawn from a
  * monotonic counter (TIME-8).
  *
@@ -68,10 +133,85 @@ export type GameTimeMs = number;
  */
 export type TimerId = number & { readonly __brand: 'TimerId' };
 
+/**
+ * The three facts the world clock produces, and the only events this service
+ * has (TIME-10).
+ *
+ * They are the first events the game's union receives **from a service**, and
+ * they are shaped by BUS-14: the producing service is in the discriminant, so a
+ * subscriber reading `'time/hour-changed'` knows where it came from without a
+ * registry. `time/day-phase-changed` is deliberately not called
+ * `phase-changed` — *phase* already means the delivery phase, in the bus and in
+ * the glossary, and a game with two meanings for a word ends up with a
+ * subscriber on the wrong one.
+ *
+ * Declared as `type` aliases and not `interface`s, like every event type in this
+ * project: only the former gets the implicit index signature `DomainEvent`
+ * requires.
+ *
+ * There is **no `time/minute-changed`** (TIME-11). The HUD clock calls
+ * `worldTime()` while drawing — a read, which is lawful for the presentation —
+ * and an event 1 440 times a day so that a label can update is a cost every
+ * subscriber in the game pays, in the tick, for ever.
+ *
+ * Every one of them carries the **day it happened on**, because the day is what
+ * tells two 08:00s apart: a routine that fires at the same hour every morning
+ * and a quest counting elapsed days read the same event and ask it different
+ * questions.
+ */
+
+/** An hour of the day began. One per hour crossed, however large the advance. */
+export type HourChanged = {
+    readonly type: 'time/hour-changed';
+    readonly day: number;
+    readonly hour: number;
+};
+
+/** Midnight passed. One per midnight crossed. */
+export type DayChanged = {
+    readonly type: 'time/day-changed';
+    readonly day: number;
+};
+
+/**
+ * A phase of the day began — dawn, dusk, whatever this game's calendar calls
+ * them.
+ *
+ * Never emitted by a clock whose configuration declares a single phase, which
+ * is what the fallback declares: there is no boundary between two phases to
+ * cross, not even at midnight (TIME-11).
+ */
+export type DayPhaseChanged = {
+    readonly type: 'time/day-phase-changed';
+    readonly day: number;
+    readonly phase: DayPhase;
+};
+
+/**
+ * What the world clock can produce, for `game/` to fold into its union.
+ *
+ * The union is exported as one type as well as three, because folding it in is
+ * one line at the point where the game's event union is assembled and a list of
+ * three would go stale the day a fourth appears.
+ */
+export type TimeEvent = HourChanged | DayChanged | DayPhaseChanged;
+
 /** The clock's whole surface (ARC-2.1). */
 export interface Clock<E extends DomainEvent> {
     /** The current instant of game time. Reading it moves nothing. */
     now(): GameTimeMs;
+
+    /**
+     * The same instant as a person reads it: day, hour, minute and phase
+     * (TIME-10).
+     *
+     * A pure function of `now()` and the calendar, which is why the
+     * presentation may call it while drawing: a HUD clock updates every frame
+     * off a read, and there is deliberately no `minute-changed` event to save
+     * it the trouble — emitting one 1 440 times a day so a label can update is
+     * a cost every subscriber in the game pays, in the tick, for ever.
+     */
+    worldTime(): WorldTime;
 
     /**
      * Advances game time by exactly this much and returns everything that came
@@ -87,8 +227,15 @@ export interface Clock<E extends DomainEvent> {
      * same events however it was subdivided — and what obliges a consumer to
      * tolerate a world that has already moved past the event it is holding
      * (TIME-5).
+     *
+     * The batch carries the caller's own events **and** the world-time
+     * transitions the same interval crossed, merged in time order (TIME-10) —
+     * which is why the element type is a union: a game whose union has folded
+     * the three `time/*` types in, as it is meant to, sees the two collapse
+     * back into its own union, and one that has not is told so at the point
+     * where it hands the batch to the bus.
      */
-    advance(gameDeltaMs: number): readonly E[];
+    advance(gameDeltaMs: number): readonly (E | TimeEvent)[];
 
     /**
      * Registers `event` to come due `afterMs` from now, once, and returns the

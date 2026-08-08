@@ -20,4 +20,51 @@ export { createClock } from './clock';
  * boundary check forbids one service to import another, types included
  * (TIME-14), and structural typing makes the two declarations interchangeable.
  */
-export type { Clock, DomainEvent, GameTimeMs, JsonValue, TimerId } from './types';
+export type {
+    Clock,
+    DayPhase,
+    DomainEvent,
+    GameTimeMs,
+    JsonValue,
+    TimeConfig,
+    TimerId,
+    WorldTime,
+} from './types';
+
+/**
+ * The calendar a clock nobody configured runs on: a day of 24 real hours and a
+ * single phase named `day`, so that an unconfigured clock has no day/night
+ * cycle rather than somebody else's (TIME-11).
+ */
+export { DEFAULT_TIME_CONFIG } from './calendar';
+
+/**
+ * The expected shape of the calendar (TIME-11, ARC-7.2), with two doors onto
+ * one check, as `RND` has.
+ *
+ * Whoever **composes** the parameters is handed `TIME_SECTION`, which carries
+ * the key and the fallback with it, and stamps the source on itself, being the
+ * only thing that saw the value arrive (CFG-3). The **constructor's** caller
+ * gets `validateTimeConfig` and `assertTimeConfig`, which take a file name
+ * because that caller may well know one, and which refuse rather than report.
+ */
+export {
+    assertTimeConfig,
+    describeIssue,
+    TIME_SECTION,
+    timeConfigProblems,
+    TimeConfigError,
+    validateTimeConfig,
+} from './config';
+export type { TimeConfigIssue, TimeConfigProblem } from './config';
+
+/**
+ * The three event types the world clock produces, for `game/` to fold into its
+ * union — the first events that union receives from a service (TIME-10).
+ *
+ * They are on the public surface because that is the only way a game can name
+ * them: a service declares its own event types and the game unions them
+ * (BUS-14). `TimeEvent` is the three together, so folding them in stays one
+ * line the day there is a fourth.
+ */
+export type { DayChanged, DayPhaseChanged, HourChanged, TimeEvent } from './types';

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClock } from './index';
-import type { Clock } from './index';
+import type { Clock, TimeEvent } from './index';
 
 /**
  * What an advance is: game time moving by exactly the amount it is given, and
@@ -157,7 +157,7 @@ describe('a batch', () => {
         schedule(stepped);
         schedule(inOneGo);
 
-        const fromSteps: DemoEvent[] = [];
+        const fromSteps: (DemoEvent | TimeEvent)[] = [];
         for (let step = 0; step < 10; step += 1) {
             fromSteps.push(...stepped.advance(16));
         }
@@ -180,7 +180,7 @@ describe('a batch', () => {
 });
 
 describe("the clock's surface", () => {
-    it('is the five doors of the sheet and nothing else', () => {
+    it('is the doors of the sheet and nothing else', () => {
         const clock = createClock<DemoEvent>();
 
         // Written as an assertion rather than left to the compiler because half
@@ -194,6 +194,7 @@ describe("the clock's surface", () => {
             'now',
             'schedule',
             'scheduleRepeating',
+            'worldTime',
         ]);
     });
 });

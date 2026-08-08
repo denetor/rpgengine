@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createClock } from './index';
+import type { TimeEvent } from './index';
 
 /**
  * The clock's half of ARC-8.3: two games in one process, each with its own
@@ -73,7 +74,7 @@ describe('two clocks in one process', () => {
         // not the schedule of advances that produced it (TIME-4).
         const fromOne = one.advance(300);
 
-        const fromOther: Woke[] = [];
+        const fromOther: (Woke | TimeEvent)[] = [];
         for (let step = 0; step < 30; step += 1) {
             fromOther.push(...other.advance(10));
         }
