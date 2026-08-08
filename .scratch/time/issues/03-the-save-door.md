@@ -51,25 +51,25 @@ read.
 **Blocked by:** 01 — the clock and the queue. It serializes what that ticket built. It does **not**
 depend on 02: world time is derived and never saved.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `serialize()` returns the declared shape, with absolute deadlines and the list ordered by
+- [x] `serialize()` returns the declared shape, with absolute deadlines and the list ordered by
       `(at, id)`
-- [ ] A save taken with a cancelled timer pending contains no trace of it
-- [ ] Round trip: `serialize → restore → serialize` produces an identical state
-- [ ] A timer halfway through resumes with the **exact** remainder
-- [ ] A repeating timer resumes with its period and its next deadline intact
-- [ ] **The determinism test**: a clock advanced past a save point produces the same sequence as one
+- [x] A save taken with a cancelled timer pending contains no trace of it
+- [x] Round trip: `serialize → restore → serialize` produces an identical state
+- [x] A timer halfway through resumes with the **exact** remainder
+- [x] A repeating timer resumes with its period and its next deadline intact
+- [x] **The determinism test**: a clock advanced past a save point produces the same sequence as one
       saved, restored and advanced the same way — including the tie-break between a timer scheduled
       before the save and one scheduled after the restore, which is what `nextId` exists for
-- [ ] Restore is a factory taking state and configuration; there is no way to reload a live clock
-- [ ] A wrong `version` is refused, with a message naming the one read and the one this build
+- [x] Restore is a factory taking state and configuration; there is no way to reload a live clock
+- [x] A wrong `version` is refused, with a message naming the one read and the one this build
       understands
-- [ ] Each invariant is refused before anything is built: negative or non-integer `elapsedMs` or
+- [x] Each invariant is refused before anything is built: negative or non-integer `elapsedMs` or
       `nextId`; an `at` in the past; a non-positive `every`; duplicate ids; an id `>= nextId`; a list
       out of order; an event that is not an object with a `string` `type`
-- [ ] The refusal names the broken invariant, and stops at the first one
-- [ ] `TIME_STATE_VERSION` is exported on the public surface
-- [ ] The state contains no world time, no configuration and no function
-- [ ] Every test enters through the service's public door
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] The refusal names the broken invariant, and stops at the first one
+- [x] `TIME_STATE_VERSION` is exported on the public surface
+- [x] The state contains no world time, no configuration and no function
+- [x] Every test enters through the service's public door
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite

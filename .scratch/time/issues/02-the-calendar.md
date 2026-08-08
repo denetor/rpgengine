@@ -54,23 +54,23 @@ subscriber pays, in the tick, for ever.
 **Blocked by:** 01 — the clock and the queue. The transitions are returned by the same `advance()`
 and merged into the same sequence, so there is nothing to merge into until it exists.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `worldTime()` is correct at the start of the game, and follows `startsAt`
-- [ ] Hour, day and minute advance according to `dayLengthMs`, and a short configured day makes them
+- [x] `worldTime()` is correct at the start of the game, and follows `startsAt`
+- [x] Hour, day and minute advance according to `dayLengthMs`, and a short configured day makes them
       move fast
-- [ ] An advance crossing five hours returns five `time/hour-changed`, in order
-- [ ] An advance crossing midnight returns `time/day-changed`, and the day number increases by one
-- [ ] A phase boundary is crossed **exactly once** per crossing, however large the advance
-- [ ] World-time events and timers due in the same interval come back **merged in time order**
-- [ ] At the same instant, the world-time event precedes the timer
-- [ ] With no configuration, the fallback applies: one phase named `day`, and
+- [x] An advance crossing five hours returns five `time/hour-changed`, in order
+- [x] An advance crossing midnight returns `time/day-changed`, and the day number increases by one
+- [x] A phase boundary is crossed **exactly once** per crossing, however large the advance
+- [x] World-time events and timers due in the same interval come back **merged in time order**
+- [x] At the same instant, the world-time event precedes the timer
+- [x] With no configuration, the fallback applies: one phase named `day`, and
       `time/day-phase-changed` never fires
-- [ ] A malformed section is refused with **every** problem listed: `dayLengthMs` not a positive
+- [x] A malformed section is refused with **every** problem listed: `dayLengthMs` not a positive
       integer, `phases` empty, out of order, not starting at 00:00, with duplicate names, `startsAt`
       outside the day
-- [ ] The three event types are exported on the public surface and carry the `time/` prefix
-- [ ] There is no `minute-changed` event
-- [ ] `worldTime()` computes the same answer for the same instant however that instant was reached
-- [ ] Every test enters through the service's public door
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] The three event types are exported on the public surface and carry the `time/` prefix
+- [x] There is no `minute-changed` event
+- [x] `worldTime()` computes the same answer for the same instant however that instant was reached
+- [x] Every test enters through the service's public door
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite

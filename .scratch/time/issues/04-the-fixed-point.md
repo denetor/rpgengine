@@ -42,25 +42,25 @@ only two services to check.
 **Blocked by:** 01 — the clock and the queue. It needs something to advance; the calendar (02) and
 the save door (03) are not involved.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] One beat publishes everything the advance returned, in order, and flushes it
-- [ ] A subscriber registered in the orchestration phase sees the tick's events; a presentation
+- [x] One beat publishes everything the advance returned, in order, and flushes it
+- [x] A subscriber registered in the orchestration phase sees the tick's events; a presentation
       subscriber sees them once, after the cascade
-- [ ] **Paused**: the clock does not move, no timer comes due, `now()` is unchanged
-- [ ] **Paused, and the bus still delivers**: an event published while paused reaches its handlers in
+- [x] **Paused**: the clock does not move, no timer comes due, `now()` is unchanged
+- [x] **Paused, and the bus still delivers**: an event published while paused reaches its handlers in
       the same beat
-- [ ] Pausing and resuming loses no time and creates none: what was due during the pause comes due
+- [x] Pausing and resuming loses no time and creates none: what was due during the pause comes due
       after it, at its own deadline
-- [ ] A beat with a paused world and nothing queued is a no-op
-- [ ] The context builds the bus and the clock in one place, with no automatic resolution and no
+- [x] A beat with a paused world and nothing queued is a no-op
+- [x] The context builds the bus and the clock in one place, with no automatic resolution and no
       module-level instance anywhere
-- [ ] Two contexts in one process do not observe each other: pumping one advances nothing in the
+- [x] Two contexts in one process do not observe each other: pumping one advances nothing in the
       other, and an event published in one reaches no handler of the other (ARC-8.3)
-- [ ] After `dispose()` nothing is registered on the bus and pumping is inert
-- [ ] The context is constructible headless: no canvas, no renderer, no assets (CTX-7)
-- [ ] No service receives the context, and nothing under `game/` imports `presentation/`
-- [ ] The three `time/*` event types are part of the game's union, assembled in `game/`
-- [ ] Every test drives the fixed point through its public function, with the **real** bus and the
+- [x] After `dispose()` nothing is registered on the bus and pumping is inert
+- [x] The context is constructible headless: no canvas, no renderer, no assets (CTX-7)
+- [x] No service receives the context, and nothing under `game/` imports `presentation/`
+- [x] The three `time/*` event types are part of the game's union, assembled in `game/`
+- [x] Every test drives the fixed point through its public function, with the **real** bus and the
       **real** clock
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite
