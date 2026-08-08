@@ -38,22 +38,22 @@ and a restore, and two clocks side by side that do not observe each other.
 **Blocked by:** 01 — the clock and the queue; 02 — the calendar; 03 — the save door. It exercises the
 whole surface, so it can only be honest once the surface is whole.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] The file names a domain that is plainly not this game, and contains no type, id or vocabulary
+- [x] The file names a domain that is plainly not this game, and contains no type, id or vocabulary
       from it
-- [ ] The calendar is invented too: its own day length and its own phase table, configured in the
+- [x] The calendar is invented too: its own day length and its own phase table, configured in the
       file
-- [ ] One-shot deadlines in the invented domain come due in order, and at the right instants
-- [ ] The repeating timer comes due the right number of times inside a single large advance, at
+- [x] One-shot deadlines in the invented domain come due in order, and at the right instants
+- [x] The repeating timer comes due the right number of times inside a single large advance, at
       deadlines anchored to the period
-- [ ] Cancelling stops a repetition, and cancelling something already due changes nothing else
-- [ ] The unequal, non-periodic phases of the shift are crossed exactly once each, in order, merged
+- [x] Cancelling stops a repetition, and cancelling something already due changes nothing else
+- [x] The unequal, non-periodic phases of the shift are crossed exactly once each, in order, merged
       with the deadlines that fall between them
-- [ ] A save and a restore in the invented domain resume with exact remainders and continue the
+- [x] A save and a restore in the invented domain resume with exact remainders and continue the
       identical sequence
-- [ ] Two clocks in one process do not observe each other (ARC-8.3)
-- [ ] The file imports nothing from this project's own test helpers or fixtures
-- [ ] The service was broken twice and this file noticed, each time failing **only** the assertions
+- [x] Two clocks in one process do not observe each other (ARC-8.3)
+- [x] The file imports nothing from this project's own test helpers or fixtures
+- [x] The service was broken twice and this file noticed, each time failing **only** the assertions
       about what was broken — recorded in the file's own comment
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite

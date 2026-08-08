@@ -45,17 +45,17 @@ point (the scene pumps it, and must not reimplement it).
 
 **Status:** ready-for-agent
 
-- [ ] `?scene=clock` opens the scene, and the scene appears in the explicit registry
-- [ ] The page shows game time and world time, and both advance while the page is open
-- [ ] A one-shot timer scheduled from the scene comes due visibly, once
-- [ ] A repeating timer comes due repeatedly, and cancelling it stops it
-- [ ] The pause control freezes game time and the world clock; the page stays responsive and the
+- [x] `?scene=clock` opens the scene, and the scene appears in the explicit registry
+- [x] The page shows game time and world time, and both advance while the page is open
+- [x] A one-shot timer scheduled from the scene comes due visibly, once
+- [x] A repeating timer comes due repeatedly, and cancelling it stops it
+- [x] The pause control freezes game time and the world clock; the page stays responsive and the
       interface keeps animating
-- [ ] Resuming continues from where it stopped: no time is lost and none is invented
-- [ ] The large-jump control produces a batch — many repetitions and the hour/phase transitions
+- [x] Resuming continues from where it stopped: no time is lost and none is invented
+- [x] The large-jump control produces a batch — many repetitions and the hour/phase transitions
       arriving together, in one ordered sequence
-- [ ] The scene pumps the orchestration's fixed point; it never calls `advance()` and never publishes
-- [ ] The driver is configured with an integer fixed step, and `timescale` is left at 1
-- [ ] The scene ships in the production build, like the others
-- [ ] A Playwright test drives the built page by URL and asserts what a person would see
-- [ ] The integration lane is green: build, boundaries and the Playwright suite, snapshots included
+- [x] The scene pumps the orchestration's fixed point; it never calls `advance()` and never publishes
+- [x] The driver is configured with an integer fixed step, and `timescale` is left at 1
+- [x] The scene ships in the production build, like the others
+- [x] A Playwright test drives the built page by URL and asserts what a person would see
+- [x] The integration lane is green: build, boundaries and the Playwright suite, snapshots included
