@@ -411,7 +411,8 @@ At the **service surface**:
 - **Step independence**: the same schedule advanced 10 × 16 ms and 1 × 160 ms returns identical
   sequences with identical deadlines.
 - **Repetition and catch-up**: a 100 ms repeater over 350 ms comes due at 100, 200, 300; over a
-  further 350 ms at 400, 500, 600 — the anchoring rule, which a `now`-based implementation fails.
+  further 350 ms at 400, 500, 600, 700 — the anchoring rule, which a `now`-based implementation
+  fails. The last of the four is the boundary, reached exactly by the second advance.
 - **Ordering**: equal deadlines come due in registration order; a world-time transition and a timer at
   the same instant come back world-time first.
 - **World time**: an advance spanning five hours returns five `time/hour-changed` merged in order with

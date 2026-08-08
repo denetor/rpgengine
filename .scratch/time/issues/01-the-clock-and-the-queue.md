@@ -44,29 +44,29 @@ is [`docs/specs/time-game-clock.md`](../../../docs/specs/time-game-clock.md).
 
 **Blocked by:** None — can start immediately.
 
-**Status:** ready-for-agent
+**Status:** done
 
-- [ ] `advance(0)` and an advance with nothing pending return nothing and move nothing
-- [ ] A timer scheduled `afterMs` comes due on the advance that crosses its deadline, not before
-- [ ] `advance()` returns the scheduled event **unchanged**, and never publishes it
-- [ ] Ten advances of 16 ms and one of 160 ms return the same events, in the same order, with the
+- [x] `advance(0)` and an advance with nothing pending return nothing and move nothing
+- [x] A timer scheduled `afterMs` comes due on the advance that crosses its deadline, not before
+- [x] `advance()` returns the scheduled event **unchanged**, and never publishes it
+- [x] Ten advances of 16 ms and one of 160 ms return the same events, in the same order, with the
       same deadlines
-- [ ] Several deadlines inside one advance come back ordered by deadline
-- [ ] Two timers due at the same instant come back in **registration order**
-- [ ] A 100 ms repeater over 350 ms comes due at 100, 200, 300; over a further 350 ms at 400, 500,
-      600 — the anchoring rule, which a `now`-based implementation fails
-- [ ] A repeater keeps its phase across advances of wildly different sizes
-- [ ] `cancel` returns `true` for a pending timer and `false` for one already fired or already
+- [x] Several deadlines inside one advance come back ordered by deadline
+- [x] Two timers due at the same instant come back in **registration order**
+- [x] A 100 ms repeater over 350 ms comes due at 100, 200, 300; over a further 350 ms at 400, 500,
+      600, 700 — the anchoring rule, which a `now`-based implementation fails
+- [x] A repeater keeps its phase across advances of wildly different sizes
+- [x] `cancel` returns `true` for a pending timer and `false` for one already fired or already
       cancelled; a cancelled timer never comes due; a cancelled repeater stops for good
-- [ ] Cancelling one timer changes nothing about the order or the deadlines of the others
-- [ ] A non-integer delta, a negative delta and `everyMs <= 0` are refused with a message that says
+- [x] Cancelling one timer changes nothing about the order or the deadlines of the others
+- [x] A non-integer delta, a negative delta and `everyMs <= 0` are refused with a message that says
       which
-- [ ] `TimerId` is opaque at the type level: a plain `number` is not assignable to it
-- [ ] Ids are never reused inside one clock's life
-- [ ] Two clocks in one process do not observe each other (the clock's half of ARC-8.3)
-- [ ] The service reads no clock of its own — no `Date.now`, no `performance.now`, no `setTimeout` —
+- [x] `TimerId` is opaque at the type level: a plain `number` is not assignable to it
+- [x] Ids are never reused inside one clock's life
+- [x] Two clocks in one process do not observe each other (the clock's half of ARC-8.3)
+- [x] The service reads no clock of its own — no `Date.now`, no `performance.now`, no `setTimeout` —
       and imports nothing from `game/` or `presentation/`
-- [ ] A type-level spec compiles: `@ts-expect-error` on scheduling a payload carrying a function, a
+- [x] A type-level spec compiles: `@ts-expect-error` on scheduling a payload carrying a function, a
       `Date`, a `Map` and a `Set`
-- [ ] Every test enters through the service's public door; none names an internal module
-- [ ] The unit lane is green: lint, typecheck, boundaries and the headless suite
+- [x] Every test enters through the service's public door; none names an internal module
+- [x] The unit lane is green: lint, typecheck, boundaries and the headless suite

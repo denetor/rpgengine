@@ -278,7 +278,8 @@ The seam is the public surface: no test reaches for the heap, the id counter or 
 
 - The same sequence of events with large and small advances, for the same total time.
 - A 100 ms repeating timer over a 350 ms advance comes due 3 times, with deadlines 100, 200, 300 —
-  and over a further 350 ms at 400, 500, 600, which is the anchoring rule of TIME-5.
+  and over a further 350 ms at 400, 500, 600, 700, which is the anchoring rule of TIME-5. The fourth
+  is the boundary: an advance reaching 700 exactly is an advance that crossed that deadline.
 - A timer and a world-time transition at the same instant come back in that order, world time first.
 - An advance spanning five hours returns five `time/hour-changed`, in order, merged with whatever
   timers fell between them.
