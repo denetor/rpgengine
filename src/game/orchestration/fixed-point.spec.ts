@@ -3,6 +3,7 @@ import { bootstrap } from "../bootstrap";
 import { createFixedPoint } from "./fixed-point";
 import type { GameContext } from "../bootstrap";
 import type { GameEvent } from "../events";
+import type { TimeConfig } from "../../engine/core/time/index";
 
 /**
  * The beat: the one place the clock and the bus meet.
@@ -18,19 +19,32 @@ import type { GameEvent } from "../events";
  * undrained and the bus unflushed — you equip an item from a paused inventory
  * and the panel updates when you resume.
  *
- * The events below are the clock's own, because at this step they are the only
- * events this game has: `GameEvent` is what `TIME` produces and nothing else
- * until a second service arrives with types to contribute. That makes the tests
- * better rather than worse — what reaches the bus is what the world really did,
- * not a payload a test invented and handed to itself.
+ * Most of the events below are the clock's **own**, produced by the world
+ * really moving rather than by a payload a test invented and handed to itself.
+ * That is deliberate: an assertion about ordering means more when the things
+ * being ordered arrived the way they will in a game.
  */
 
-/** The default calendar's hour, in game milliseconds: a day of 24 real hours. */
+/**
+ * The world these tests run in: a day of 24 real hours with a single phase,
+ * spelled out rather than left to whatever this game's designer has settled on.
+ *
+ * How the beat behaves has nothing to do with how long a day is, and a test
+ * that read the game's own calendar would fail the morning somebody rebalanced
+ * it — which is why `bootstrap` takes the slice at all.
+ */
+const A_PLAIN_DAY: TimeConfig = {
+  dayLengthMs: 24 * 60 * 60 * 1000,
+  startsAt: { day: 0, hour: 0, minute: 0 },
+  phases: [{ name: "day", hour: 0, minute: 0 }],
+};
+
+/** An hour of that day, in game milliseconds. */
 const HOUR = 60 * 60 * 1000;
 
 /** One game, ready to be pumped. */
 function aGame() {
-  const context = bootstrap();
+  const context = bootstrap({ time: A_PLAIN_DAY });
 
   return { context, fixedPoint: createFixedPoint(context) };
 }
@@ -80,11 +94,11 @@ describe("one beat", () => {
     // A timer whose deadline is the hour: the clock returns the boundary first
     // and the timer second (TIME-10), and the beat publishes them in that order
     // rather than in some order of its own.
-    context.clock.schedule(HOUR, { type: "time/day-phase-changed", day: 0, phase: "noon" });
+    context.clock.schedule(HOUR, { type: "testbed/bell-rung", bell: "on the hour" });
 
     fixedPoint.tick(HOUR);
 
-    expect(seen).toEqual(["time/hour-changed", "time/day-phase-changed"]);
+    expect(seen).toEqual(["time/hour-changed", "testbed/bell-rung"]);
   });
 
   it("is a no-op when the world is paused and nothing is queued", () => {

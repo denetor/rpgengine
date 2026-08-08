@@ -1,7 +1,8 @@
 import { createEventBus } from "../engine/core/event-bus/index";
 import { createClock } from "../engine/core/time/index";
+import { GAME_CALENDAR } from "./calendar";
 import type { EventBus } from "../engine/core/event-bus/index";
-import type { Clock } from "../engine/core/time/index";
+import type { Clock, TimeConfig } from "../engine/core/time/index";
 import type { GameEvent } from "./events";
 
 /**
@@ -55,6 +56,27 @@ export interface GameContext {
 }
 
 /**
+ * What a game is built from.
+ *
+ * One optional field today and one service to hand it to. It is an options
+ * object rather than a positional argument because that is the shape CTX-1
+ * settles on — the content, the composed configuration, the seed and the save
+ * arrive here as the services that need them do — and growing it later must not
+ * make every call site count arguments.
+ */
+export interface BootstrapOptions {
+  /**
+   * The calendar. Defaults to this game's own (`GAME_CALENDAR`).
+   *
+   * It is a parameter at all so that whoever builds a game can say what world
+   * it runs in: a test asserting how the beat behaves has no business
+   * depending on how long a designer made the day, and a test that did would
+   * fail the morning somebody rebalanced it.
+   */
+  readonly time?: TimeConfig;
+}
+
+/**
  * Builds a game and returns its context. Installs nothing, starts nothing, and
  * reads no global.
  *
@@ -68,14 +90,14 @@ export interface GameContext {
  * configuration (CTX-10), the content, the seed, the save — because a parameter
  * with nothing behind it is a promise this step cannot keep.
  */
-export function bootstrap(): GameContext {
+export function bootstrap(options: BootstrapOptions = {}): GameContext {
   const bus = createEventBus<GameEvent>(reportFailedPanel);
 
-  // The clock takes its calendar as its one construction argument and is given
-  // none here, so the game runs on the documented fallback: a day of 24 real
-  // hours with a single phase. A game with a day/night cycle passes a `time`
-  // section here, once there is a loader to read one from (CTX-10).
-  const clock = createClock<GameEvent>();
+  // The clock takes its calendar as its one construction argument, and it is
+  // checked before anything is built from it. `CFG` will compose this slice
+  // from a file and validate it before the context exists (CTX-10); until then
+  // the game's own calendar is a constant next door.
+  const clock = createClock<GameEvent>(options.time ?? GAME_CALENDAR);
 
   let disposed = false;
 

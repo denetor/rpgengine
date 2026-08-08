@@ -1,5 +1,6 @@
 import { Color, DisplayMode, Engine, FadeInOut } from "excalibur";
 import type { GameContext } from "../game/bootstrap";
+import { FIXED_UPDATE_TIMESTEP_MS } from "./driver";
 import { loader } from "./resources";
 import { resolveScene, SCENE_PARAMETER } from "./scenes/testbed/registry";
 import { renderUnknownScene } from "./scenes/testbed/scene-error";
@@ -24,6 +25,14 @@ export async function boot(context: GameContext): Promise<void> {
   const game = new Engine({
     width: 800, // Logical width and height in game pixels
     height: 600,
+    // Whole milliseconds, for the reason written beside the constant.
+    //
+    // `timescale` is deliberately not set and stays at 1: Excalibur scales
+    // `elapsed` before handing it to the update, so a second scaling in the
+    // domain would apply it twice. Excalibur's clamp on an anomalous delta — a
+    // backgrounded tab, a breakpoint — is this project's cap, and it works by
+    // being left alone: nothing in the domain caps anything.
+    fixedUpdateTimestep: FIXED_UPDATE_TIMESTEP_MS,
     displayMode: DisplayMode.FitScreenAndFill, // Display mode tells excalibur how to fill the window
     pixelArt: true, // pixelArt will turn on the correct settings to render pixel art without jaggies or shimmering artifacts
     // The scene is registered under its own name, so that the engine's idea of

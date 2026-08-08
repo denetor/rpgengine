@@ -1,3 +1,5 @@
+import { control, element } from "../panel";
+
 /**
  * The overlay the scene is read through: two controls, a trace, and a place for
  * a refusal.
@@ -56,14 +58,6 @@ const REFUSAL_NOTE =
   "interface is never handed a world the rules stopped halfway through " +
   "building. The bus said:";
 
-/** Builds one element, since every part of the panel wants the same three lines. */
-function element(tag: string, className: string, text = ""): HTMLElement {
-  const created = document.createElement(tag);
-  created.className = className;
-  created.textContent = text;
-  return created;
-}
-
 /** Puts the overlay on the page and returns the handle the scene writes through. */
 export function openTracePanel(): TracePanel {
   const panel = element("section", PANEL_CLASS);
@@ -85,7 +79,7 @@ export function openTracePanel(): TracePanel {
 
   return {
     control(label: string, act: () => void): void {
-      buttons.append(controlFor(label, act));
+      buttons.append(control(`${PANEL_CLASS}__control`, label, act));
     },
 
     beginTick(): void {
@@ -111,14 +105,4 @@ export function openTracePanel(): TracePanel {
       panel.remove();
     },
   };
-}
-
-/** One button, wired to what it does. */
-function controlFor(label: string, act: () => void): HTMLElement {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = `${PANEL_CLASS}__control`;
-  button.textContent = label;
-  button.addEventListener("click", act);
-  return button;
 }

@@ -93,3 +93,144 @@ test('an unregistered scene name is reported in the page', async ({ page }) => {
   // and the scene that was asked for would look broken.
   await expect(page.locator('#excalibur-play')).toHaveCount(0);
 });
+/**
+ * The `clock` scene: the presentation driving the domain.
+ *
+ * Everything the clock does is proved at its own surface, headless, in the specs
+ * beside it. What is checked from here is only what a person can see by looking
+ * at the page — that the world runs, that it stops without the page stopping,
+ * and that a jump delivers its whole batch at once. Anything deeper would be
+ * testing the overlay.
+ *
+ * The scene's calendar makes a day 24 real minutes long, so an hour of world
+ * time passes in a minute and a minute in a second. That is what makes these
+ * tests possible at all: a real 24-hour day would give them nothing to watch.
+ */
+
+/** What the page says the game time is, in milliseconds. */
+async function gameTime(page: Page): Promise<number> {
+  const reading = await page.getByLabel('game time').textContent();
+
+  return Number.parseInt(reading ?? '', 10);
+}
+
+test('the clock scene runs the world and reads it while drawing', async ({ page }) => {
+  await open(page, '?scene=clock');
+
+  await expect(page).toHaveTitle(/clock/);
+
+  const first = await gameTime(page);
+  await expect
+    .poll(async () => await gameTime(page), { message: 'game time advances' })
+    .toBeGreaterThan(first);
+
+  // The world clock is a projection of the same instant, so it moves too — a
+  // minute of world time per second of real time, on this game's calendar.
+  const world = page.getByLabel('world time');
+  const before = await world.textContent();
+  await expect.poll(async () => await world.textContent()).not.toBe(before);
+  await expect(world).toContainText(/day \d+, \d\d:\d\d — (night|dawn|day|dusk)/);
+});
+
+test('the clock scene rings a one-shot timer once', async ({ page }) => {
+  await open(page, '?scene=clock');
+
+  await page.getByRole('button', { name: 'Ring the bell once' }).click();
+
+  const bells = page.getByLabel('bells');
+  await expect(bells).toContainText('once ×1', { timeout: 30_000 });
+
+  // And once only: the timer came due, and a timer that has come due is gone.
+  await page.waitForTimeout(3_000);
+  await expect(bells).toContainText('once ×1');
+});
+
+test('the clock scene rings a repeater until it is cancelled', async ({ page }) => {
+  await open(page, '?scene=clock');
+
+  await page.getByRole('button', { name: 'Ring the bell every minute' }).click();
+
+  const bells = page.getByLabel('bells');
+  await expect(bells).toContainText('every minute ×3', { timeout: 30_000 });
+
+  await page.getByRole('button', { name: 'Stop the bell' }).click();
+  const whenCancelled = await bells.textContent();
+
+  // A repeater nobody cancels stays in the queue for the rest of the game, so
+  // this is the control that has to work: after it, the count stops.
+  await page.waitForTimeout(3_000);
+  await expect(bells).toHaveText(whenCancelled ?? '');
+});
+
+test('the clock scene stops the world without stopping the page', async ({ page }) => {
+  await open(page, '?scene=clock');
+
+  await page.getByRole('button', { name: 'Pause the world' }).click();
+  await expect(page.getByLabel('world state')).toHaveText('paused');
+
+  const stopped = await gameTime(page);
+  await page.waitForTimeout(2_000);
+
+  // Two seconds of real time, and not one millisecond of game time: pause is
+  // the orchestration not advancing the clock, and the page has been drawing
+  // over a stopped world the whole time.
+  expect(await gameTime(page)).toBe(stopped);
+
+  // Still responsive, which is the other half of the claim: the interface keeps
+  // running, so this button still answers.
+  const resumedAt = Date.now();
+  await page.getByRole('button', { name: 'Resume the world' }).click();
+  await expect(page.getByLabel('world state')).toHaveText('running');
+
+  // Resumed from where it stopped, with the two paused seconds nowhere in the
+  // world's history. Measured against the wall clock this test itself spent,
+  // rather than against a fixed budget: both sides scale together under load,
+  // so the assertion stays sensitive to a clock that caught up — which would
+  // show as two whole seconds more than the wall time — without being fragile
+  // about how long a click took.
+  const wallClockSpent = Date.now() - resumedAt;
+  const resumed = await gameTime(page);
+  expect(resumed).toBeGreaterThanOrEqual(stopped);
+  expect(resumed - stopped).toBeLessThanOrEqual(wallClockSpent + 500);
+
+  await expect.poll(async () => await gameTime(page)).toBeGreaterThan(resumed);
+});
+
+/** The hour the world clock is showing. */
+async function worldHour(page: Page): Promise<number> {
+  const reading = (await page.getByLabel('world time').textContent()) ?? '';
+  const shown = /(\d\d):\d\d/.exec(reading);
+
+  return Number.parseInt(shown?.[1] ?? '', 10);
+}
+
+test('the clock scene delivers a six-hour jump as one batch', async ({ page }) => {
+  await open(page, '?scene=clock');
+
+  await page.getByRole('button', { name: 'Ring the bell every minute' }).click();
+  const before = await worldHour(page);
+
+  await page.getByRole('button', { name: 'Jump six hours' }).click();
+
+  const trace = page.getByLabel('trace');
+
+  // One beat worth six hours, and a person sees a long list appear at once.
+  // Counted per kind rather than as one total, so that a failure says which
+  // part of the batch changed.
+  //
+  // The three counts are stable and not a photograph of one run. Six hours is a
+  // whole number of the bell's periods and of the calendar's hours, so any
+  // window of that length crosses exactly 360 and 6 of them wherever it starts.
+  // The phase boundary is the one that depends on where the jump began: the
+  // world starts at 06:30 and dawn gives way to day at 08:00, so a jump crossing
+  // it needs the page to have been open for less than 90 real seconds — which
+  // the test's own 30-second timeout already guarantees, since the world clock
+  // runs at a minute a second.
+  await expect(trace.getByText('testbed/bell-rung')).toHaveCount(360);
+  await expect(trace.getByText('time/hour-changed')).toHaveCount(6);
+  await expect(trace.getByText('time/day-phase-changed')).toHaveCount(1);
+  await expect(trace.getByRole('listitem')).toHaveCount(367);
+
+  // And the world clock followed the jump rather than crawling after it.
+  expect((await worldHour(page)) - before).toBe(6);
+});

@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { bootstrap } from "./bootstrap";
 import { createFixedPoint } from "./orchestration/fixed-point";
+import { GAME_CALENDAR } from "./calendar";
 import type { GameEvent } from "./events";
+import type { TimeConfig } from "../engine/core/time/index";
 
 /**
  * The single construction point (CTX-1), and the property it exists for: two
@@ -16,7 +18,21 @@ import type { GameEvent } from "./events";
  * in plain Node, which is the mode the system tests will use.
  */
 
-/** The default calendar's hour, in game milliseconds. */
+/**
+ * The world these tests run in: a day of 24 real hours with a single phase,
+ * spelled out rather than left to whatever this game's designer has settled on.
+ *
+ * How the beat behaves has nothing to do with how long a day is, and a test
+ * that read the game's own calendar would fail the morning somebody rebalanced
+ * it — which is why `bootstrap` takes the slice at all.
+ */
+const A_PLAIN_DAY: TimeConfig = {
+  dayLengthMs: 24 * 60 * 60 * 1000,
+  startsAt: { day: 0, hour: 0, minute: 0 },
+  phases: [{ name: "day", hour: 0, minute: 0 }],
+};
+
+/** An hour of that day, in game milliseconds. */
 const HOUR = 60 * 60 * 1000;
 
 /**
@@ -32,23 +48,38 @@ function aDayPassed(day: number): GameEvent {
 
 describe("the context", () => {
   it("holds the bus and the clock, built in one place", () => {
-    const context = bootstrap();
+    const context = bootstrap({ time: A_PLAIN_DAY });
 
     expect(Object.keys(context).sort()).toEqual(["bus", "clock", "dispose", "isDisposed"]);
   });
 
   it("builds a game that is already usable", () => {
-    const context = bootstrap();
+    const context = bootstrap({ time: A_PLAIN_DAY });
 
     expect(context.clock.now()).toBe(0);
     expect(context.clock.worldTime()).toEqual({ day: 0, hour: 0, minute: 0, phase: "day" });
+  });
+
+  it("runs on this game's own calendar when nobody says otherwise", () => {
+    const context = bootstrap();
+
+    // The default is content and not a fallback: the engine's own fallback is
+    // one phase named `day`, and this game begins on a morning in a world that
+    // has a dawn (TIME-11).
+    expect(context.clock.worldTime()).toEqual({ day: 1, hour: 6, minute: 30, phase: "dawn" });
+    expect(GAME_CALENDAR.phases.map((phase) => phase.name)).toEqual([
+      "night",
+      "dawn",
+      "day",
+      "dusk",
+    ]);
   });
 });
 
 describe("two games in one process", () => {
   it("are built from nothing they share", () => {
-    const one = bootstrap();
-    const other = bootstrap();
+    const one = bootstrap({ time: A_PLAIN_DAY });
+    const other = bootstrap({ time: A_PLAIN_DAY });
 
     // Different objects, because there is no module-level instance for the
     // second `bootstrap()` to find and hand back.
@@ -57,8 +88,8 @@ describe("two games in one process", () => {
   });
 
   it("do not observe each other's time", () => {
-    const one = bootstrap();
-    const other = bootstrap();
+    const one = bootstrap({ time: A_PLAIN_DAY });
+    const other = bootstrap({ time: A_PLAIN_DAY });
     const seen: string[] = [];
 
     other.bus.onAny("orchestration", (event) => seen.push(event.type));
@@ -73,8 +104,8 @@ describe("two games in one process", () => {
   });
 
   it("do not observe each other's events", () => {
-    const one = bootstrap();
-    const other = bootstrap();
+    const one = bootstrap({ time: A_PLAIN_DAY });
+    const other = bootstrap({ time: A_PLAIN_DAY });
     const seen: string[] = [];
 
     other.bus.onAny("orchestration", (event) => seen.push(event.type));
@@ -86,8 +117,8 @@ describe("two games in one process", () => {
   });
 
   it("are disposed one at a time", () => {
-    const one = bootstrap();
-    const other = bootstrap();
+    const one = bootstrap({ time: A_PLAIN_DAY });
+    const other = bootstrap({ time: A_PLAIN_DAY });
     const seen: string[] = [];
 
     other.bus.onAny("orchestration", (event) => seen.push(event.type));
@@ -102,7 +133,7 @@ describe("two games in one process", () => {
 
 describe("a disposed context", () => {
   it("has nothing registered on its bus", () => {
-    const context = bootstrap();
+    const context = bootstrap({ time: A_PLAIN_DAY });
     const seen: string[] = [];
     context.bus.onAny("orchestration", (event) => seen.push(event.type));
 
@@ -114,7 +145,7 @@ describe("a disposed context", () => {
   });
 
   it("is inert when it is pumped", () => {
-    const context = bootstrap();
+    const context = bootstrap({ time: A_PLAIN_DAY });
     const fixedPoint = createFixedPoint(context);
     const seen: string[] = [];
     context.bus.onAny("orchestration", (event) => seen.push(event.type));
