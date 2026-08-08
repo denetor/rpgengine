@@ -28,8 +28,23 @@ export type {
     JsonValue,
     TimeConfig,
     TimerId,
+    TimerState,
+    TimeState,
     WorldTime,
 } from './types';
+
+/**
+ * The version of the state format, and the door back in.
+ *
+ * `TIME_STATE_VERSION` is on the surface because `SAVE` reads it to decide
+ * whether it can migrate a state it has found (TIME-13). `restoreClock` is a
+ * **factory** and deliberately not a method that reloads a live clock: a clock
+ * that could be reloaded would briefly hold one game's elapsed time and
+ * another's queue, and every `TimerId` handed out before it would point at a
+ * stranger's timer (CTX-9).
+ */
+export { restoreClock } from './clock';
+export { TIME_STATE_VERSION } from './state';
 
 /**
  * The calendar a clock nobody configured runs on: a day of 24 real hours and a

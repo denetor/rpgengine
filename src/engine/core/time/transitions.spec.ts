@@ -234,6 +234,7 @@ describe('the world clock', () => {
             'now',
             'schedule',
             'scheduleRepeating',
+            'serialize',
             'worldTime',
         ]);
     });

@@ -196,6 +196,52 @@ export type DayPhaseChanged = {
  */
 export type TimeEvent = HourChanged | DayChanged | DayPhaseChanged;
 
+/**
+ * One saved timer: when it comes due, how often it repeats, and the fact it
+ * carries.
+ *
+ * `at` is **absolute**, never a remainder. With `elapsedMs` beside it the
+ * remainder is a subtraction — exact, and nothing is rounded on write — where a
+ * saved remainder would have to be recomputed against the clock at every save.
+ */
+export interface TimerState<E extends DomainEvent> {
+    readonly id: TimerId;
+    readonly at: GameTimeMs;
+
+    /** The period of a repeating timer; absent on a one-shot. */
+    readonly every?: number;
+
+    readonly event: E;
+}
+
+/**
+ * `TIME`'s portion of a save.
+ *
+ * `nextId` is in it for a reason worth writing down: the ids break ties at
+ * equal deadlines (TIME-4, TIME-8), so a counter restarting from zero would
+ * give a timer created *after* a load a lower id than one still pending from
+ * *before* it, and the same game saved and reloaded would come due in a
+ * different order — at exactly the point where ARC-9.1's test is *save, reload,
+ * compare*. It cannot be derived as `max(saved id) + 1` either: the ids
+ * consumed by timers that have already fired are not in the list, so they would
+ * be handed out a second time, and whoever kept one in order to cancel it would
+ * cancel a stranger's timer.
+ *
+ * **World time is not here.** It is derivable from `elapsedMs` and the
+ * calendar, and the calendar is configuration rather than state (CFG-15). The
+ * consequence is stated rather than discovered: changing `dayLengthMs`
+ * reinterprets existing saves, and the same game finds itself at a different
+ * hour of the day.
+ */
+export interface TimeState<E extends DomainEvent> {
+    readonly version: number;
+    readonly elapsedMs: GameTimeMs;
+    readonly nextId: number;
+
+    /** Pending timers only, ordered by `(at, id)`. Cancelled ones are not written. */
+    readonly timers: readonly TimerState<E>[];
+}
+
 /** The clock's whole surface (ARC-2.1). */
 export interface Clock<E extends DomainEvent> {
     /** The current instant of game time. Reading it moves nothing. */
@@ -277,4 +323,15 @@ export interface Clock<E extends DomainEvent> {
      * stay in the queue for ever.
      */
     cancel(id: TimerId): boolean;
+
+    /**
+     * This clock's portion of a save: the elapsed time, the id counter and the
+     * timers still pending, with absolute deadlines (TIME-13).
+     *
+     * A **snapshot** — advancing afterwards does not move it — and plain data
+     * throughout, so it goes through a save file and back unchanged. What it
+     * does not carry is world time, which is derivable, and the calendar, which
+     * is configuration rather than state (CFG-15).
+     */
+    serialize(): TimeState<E>;
 }

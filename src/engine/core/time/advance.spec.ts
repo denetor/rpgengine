@@ -194,6 +194,7 @@ describe("the clock's surface", () => {
             'now',
             'schedule',
             'scheduleRepeating',
+            'serialize',
             'worldTime',
         ]);
     });

@@ -11,24 +11,29 @@
 import { resolveCalendar, transitionsBetween, worldTimeAt } from './calendar';
 import { assertTimeConfig } from './config';
 import { push, pop, peek } from './queue';
-import type { Clock, DomainEvent, GameTimeMs, TimeConfig, TimeEvent, TimerId } from './types';
+import { assertTimeState, TIME_STATE_VERSION } from './state';
+import type {
+    Clock,
+    DomainEvent,
+    GameTimeMs,
+    TimeConfig,
+    TimeEvent,
+    TimerId,
+    TimerState,
+    TimeState,
+} from './types';
 
 /**
- * One registered timer.
+ * A pending timer is exactly what a saved one is — the same type and not two
+ * that happen to agree (TIME-13).
  *
- * `at` is **absolute**, never a remainder: the remainder is a subtraction, and
- * a subtraction cannot drift. The shape is deliberately the one ticket 03 will
- * write into a save.
+ * `serialize()` writes the live entries out as they stand, so a second shape
+ * would be a copy to keep in step with this one, held together by nothing but a
+ * comment. Sharing it makes the save format what it actually is: the pending
+ * timers, with their **absolute** deadlines, because a remainder would have to
+ * be recomputed against the clock on every save and a subtraction cannot drift.
  */
-export interface Timer<E extends DomainEvent> {
-    readonly id: TimerId;
-    readonly at: GameTimeMs;
-
-    /** The period of a repeating timer; absent on a one-shot. */
-    readonly every?: number;
-
-    readonly event: E;
-}
+type Timer<E extends DomainEvent> = TimerState<E>;
 
 /**
  * A clock for the event union `E`, starting at zero with nothing pending.
@@ -47,6 +52,60 @@ export interface Timer<E extends DomainEvent> {
  * to blame.
  */
 export function createClock<E extends DomainEvent>(config?: TimeConfig): Clock<E> {
+    return clockFrom(config, { startAt: 0, firstId: 1, timers: [] });
+}
+
+/**
+ * A clock resumed from a saved state and **that same calendar again**, because
+ * the calendar is configuration and is not in the save (TIME-13, CFG-15).
+ *
+ * A **factory**, deliberately, and not a method that reloads a live clock, as
+ * `Random.deserialize` is a static for the same reason: a clock that could be
+ * reloaded would briefly hold one game's elapsed time and another's queue,
+ * and every `TimerId` handed out before it would point at a stranger's timer
+ * (CTX-9). Spelled as a function rather than as a static because this service's
+ * door in is `createClock`, and a service with one factory and one static would
+ * be answering the same question twice.
+ *
+ * The state is refused at the **first** broken invariant, before anything is
+ * built from it. What comes back continues the game the save was taken from:
+ * the same pending timers with the exact remainder, the same ids, and — because
+ * `nextId` travels with them — the same tie-break between a timer scheduled
+ * before the save and one scheduled after the load.
+ */
+export function restoreClock<E extends DomainEvent>(
+    state: TimeState<E>,
+    config?: TimeConfig,
+): Clock<E> {
+    assertTimeState(state);
+
+    return clockFrom(config, {
+        startAt: state.elapsedMs,
+        firstId: state.nextId,
+        timers: state.timers.map((timer) => ({ ...timer })),
+    });
+}
+
+/** Where a clock begins: an instant, an id counter and a set of pending timers. */
+interface StartingPoint<E extends DomainEvent> {
+    readonly startAt: GameTimeMs;
+    readonly firstId: number;
+    readonly timers: readonly Timer<E>[];
+}
+
+/**
+ * The clock both doors open onto: a calendar, and where to begin.
+ *
+ * One body rather than two, because the alternative is a restored clock that
+ * behaves *almost* like a new one — and the whole of TIME-13 is the claim that
+ * it behaves identically. The starting point arrives as one named argument so
+ * that a new clock reads as `{ startAt: 0, firstId: 1, timers: [] }` rather
+ * than as three bare numbers whose order a reader has to remember.
+ */
+function clockFrom<E extends DomainEvent>(
+    config: TimeConfig | undefined,
+    from: StartingPoint<E>,
+): Clock<E> {
     // Before anything is built from it: a clock that came into existence on a
     // calendar it cannot use would produce a game that is subtly wrong rather
     // than a load that failed, and nobody would connect the two (CTX-10).
@@ -62,7 +121,7 @@ export function createClock<E extends DomainEvent>(config?: TimeConfig): Clock<E
     const calendar = resolveCalendar(config);
 
     /** Game milliseconds since this clock began. Only `advance()` moves it. */
-    let elapsedMs: GameTimeMs = 0;
+    let elapsedMs: GameTimeMs = from.startAt;
 
     /**
      * The pending timers, as a queue ordered by `(deadline, id)`.
@@ -90,7 +149,7 @@ export function createClock<E extends DomainEvent>(config?: TimeConfig): Clock<E
      * The next id to hand out. Monotonic, and never rewound: an id identifies a
      * timer for as long as the clock lives (TIME-8).
      */
-    let nextId = 1;
+    let nextId = from.firstId;
 
     function takeId(): TimerId {
         const id = nextId as TimerId;
@@ -102,6 +161,14 @@ export function createClock<E extends DomainEvent>(config?: TimeConfig): Clock<E
     function arm(timer: Timer<E>): void {
         live.set(timer.id, timer);
         push(pending, timer);
+    }
+
+    // Whatever the save was holding. The list arrives ordered by `(at, id)`,
+    // which is the key the queue comes due on, so the heap's own layout never
+    // has to be reproduced — and a resumed game comes due in exactly the
+    // sequence an uninterrupted one would (TIME-13).
+    for (const timer of from.timers) {
+        arm(timer);
     }
 
     return {
@@ -225,6 +292,32 @@ export function createClock<E extends DomainEvent>(config?: TimeConfig): Clock<E
             arm({ id, at: elapsedMs + everyMs, every: everyMs, event });
 
             return id;
+        },
+
+        serialize() {
+            // Straight off the live map, which holds exactly the timers that
+            // are still pending: a cancelled one was deleted from it, and a
+            // repeater's spent deadline was replaced in it. So a save carries
+            // no tombstone (TIME-9) without anything having to be swept, and
+            // the lazy cancellation of TIME-12 stays invisible.
+            const timers = [...live.values()];
+
+            // Ordered by the key the queue comes due on, which is what lets a
+            // restore rebuild from this list without reproducing the heap.
+            timers.sort((one, other) => {
+                if (one.at !== other.at) {
+                    return one.at - other.at;
+                }
+
+                return one.id - other.id;
+            });
+
+            return {
+                version: TIME_STATE_VERSION,
+                elapsedMs,
+                nextId,
+                timers: timers.map((timer) => ({ ...timer })),
+            };
         },
 
         cancel(id) {
