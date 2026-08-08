@@ -36,11 +36,16 @@ interface GameContext {
   readonly quests: QuestService;
   readonly settings: SettingsService;
   // …one field per service — but no `config`: see CTX-10 and CFG-15
+
+  /** The well-known entities: reached by reference, never by scanning (CTX-12). */
+  readonly playerId: EntityId;
+
   dispose(): void;
 }
 
 /** The single construction point for the whole graph. */
 function createGameContext(options: {
+  /** Archetypes arrive already resolved into flat component sets (ENT-8, CTX-13). */
   content: LoadedContent;
   /** The slices already composed and validated by `CFG`, consumed here and not kept. */
   config: Config;
@@ -91,6 +96,38 @@ the service locator CTX-2 exists to prevent.
 **CTX-11** — The context **MUST NOT** hold interface state (selection, active screen, focus): that
 belongs to the presentation (ARC-8.4).
 
+**CTX-12** — The entities the game must reach without looking for them — in this game, the player —
+**MUST** be held here as explicit `EntityId` fields, established when the context is built or when a
+save is loaded, and **MUST NOT** be found by scanning the registry for a marker component (ARC-5.2).
+
+This is the one place where such an id can live. `ENT` is generic (ARC-3): it stores ids and
+components and has no notion of a player, which is why the requirement that used to be ENT-12 was
+retired in its favour. The services below **MUST NOT** receive the id implicitly either — a service
+that needs to know whether an entity is the player receives it as an argument, like any other
+`EntityId` (CTX-2).
+
+A well-known id **MUST** refer to a live entity for the whole life of the context. A dead player is
+an entity that has gained the components of death (ARC-6.4), not an entity that has been despawned:
+despawning one is a bug to be caught in construction, not a state the readers have to guard against.
+
+**CTX-13** — The **kind vocabulary** — the ordered list of `ComponentKind` from which ENT-5 derives
+its bits and against which ENT-17 validates — is a **compile-time declaration in `game/`**, and
+`createGameContext` **MUST** import it rather than take it as an option. It is not loaded, not
+configurable and not per-context: a game has one vocabulary, and an option that can only ever hold
+one value is a hook for a need that does not exist. Importing it inside the single construction point
+is as explicit as CTX-1 asks for.
+
+It is nonetheless what CTX-10 validates against, and the order matters: the content loader resolves
+archetypes into **component sets** (ENT-8) and checks them against this vocabulary *before* the
+context is built, so `LoadedContent` arrives already flat and already legal. A content file naming a
+kind that does not exist fails there, not at the first spawn.
+
+A frozen list of kinds is not the module-level service instance CTX-3 forbids: that prohibition is
+about mutable state reached by importing it, and this is a constant the type system reads too. Nor
+does it cost `ENT` its *generic* nature — the registry receives the vocabulary as an argument and
+knows no kind by name (ENT-16), which is what lets the reusability proof call
+`createEntityRegistry` directly with a vocabulary invented for the test (ARC-3.4).
+
 ## Test criteria
 
 - Two contexts created with different seeds diverge; with the same seed and the same inputs they
@@ -99,6 +136,10 @@ belongs to the presentation (ARC-8.4).
 - A context built entirely from fakes allows the orchestration to be exercised without real
   services.
 - Creation with invalid content fails before any service is instantiated.
+- `playerId` refers to a live entity right after construction and right after loading a save, and no
+  code path reaches the player by iterating the registry (CTX-12).
+- Content naming a component kind absent from the vocabulary fails while loading, before
+  `createGameContext` is reached (CTX-13).
 
 ## Links
 

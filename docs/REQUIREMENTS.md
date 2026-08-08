@@ -57,6 +57,7 @@ Three consequences follow, and they count as project constraints:
 | [`0002`](./adr/0002-weight-readjustment.md) | Filtered randomness by weight readjustment, not by re-rolling |
 | [`0003`](./adr/0003-dialogues-in-ink.md) | Dialogues written in ink and run with inkjs, instead of a graph format of our own |
 | [`0004`](./adr/0004-presentation-may-reach-a-service.md) | The presentation reaches a service directly, through its public surface, without passing through `game/` |
+| [`0005`](./adr/0005-the-entity-id-is-the-storage-slot.md) | The entity id is the storage slot in `ENT`, and the base is never rebased: iteration by capability does not narrow to a kind |
 
 ---
 

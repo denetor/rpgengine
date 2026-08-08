@@ -190,20 +190,34 @@ What exists in the game world, identified by an opaque, stable and never reused 
 an `Actor` and has no class: it is an identity plus the components it owns.
 _Avoid_: actor, game object, instance
 
-**Component**:
-A piece of domain data that an entity owns (`Health`, `Combat`, `Inventory`, `Faction`). Entities are
-composed of components; there are no class hierarchies.
+**Component kind / component value**:
+The **kind** names a sort of thing an entity may own (`Health`, `Combat`, `Targetable`) and belongs to
+a fixed, ordered vocabulary the game declares; the **value** is what one entity holds for that kind.
+A **marker component** is a kind whose value carries nothing beyond its own presence — which is why
+a component is not simply "a piece of data". Entities are composed of components; there are no class
+hierarchies. Said plainly, *component* is fine; where the two could be confused, say which.
 
 **Capability**:
-An entity's participation in a given interaction, declared by **owning** a marker component
-(`Targetable`, `Lockable`, `Sittable`). An explosive barrel is targetable because it has the
-component, not because it belongs to a class. It is queried by bitmask.
+The fact that an entity **owns** a given kind of component, and therefore takes part in the
+interactions that kind stands for. An explosive barrel is targetable because it has `Targetable`, not
+because it belongs to a class. Every kind is a capability, `Health` as much as `Targetable`: the
+**marker component** is simply the case where the component carries no data beyond its own presence.
+It is queried by bitmask, one bit per kind.
 _Avoid_: type, class, role, flag
 
 **Archetype**:
-An entity definition as a set of components with initial values, composable and overridable
-(`guard` = `humanoid` + `fighter` + `faction: guards`). It is data, not a subclass.
+An entity definition **as the designer writes it**: a set of components with initial values,
+composable and overridable (`guard` = `humanoid` + `fighter` + `faction: guards`). It is content, and
+it is data rather than a subclass. It exists at authoring time only: at load it resolves into a
+**component set**, and no archetype relation survives into the running game.
 _Avoid_: prefab, template, blueprint
+
+**Component set**:
+The flat form an archetype resolves to: component kinds with their initial values and no relation to
+any other archetype. It is the only form the registry knows, and what a spawn instantiates. The
+distinction from the archetype is what keeps composition an authoring convenience instead of an
+inheritance hierarchy reappearing at runtime.
+_Avoid_: resolved archetype, flattened archetype, prefab
 
 **Actor**:
 The Excalibur representation of an entity. It lives only in the presentation, created and destroyed

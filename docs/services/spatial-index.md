@@ -29,18 +29,18 @@ defect in 2D games written in a straightforward way, and it is exactly what ARC-
 
 ```ts
 interface SpatialIndex {
-  insert(id: EntityId, pos: Vector2, tags: TagMask): void;
+  insert(id: EntityId, pos: Vector2, caps: CapabilityMask): void;
   move(id: EntityId, pos: Vector2): void;
   remove(id: EntityId): void;
-  updateTags(id: EntityId, tags: TagMask): void;
+  updateCapabilities(id: EntityId, caps: CapabilityMask): void;
 
   /** Writes into the buffer supplied by the caller: no allocation per query. */
-  queryRadius(center: Vector2, radius: number, filter: TagMask, out: EntityId[]): number;
-  queryRect(rect: Rect, filter: TagMask, out: EntityId[]): number;
-  nearest(center: Vector2, maxRadius: number, filter: TagMask): EntityId | undefined;
+  queryRadius(center: Vector2, radius: number, filter: CapabilityMask, out: EntityId[]): number;
+  queryRect(rect: Rect, filter: CapabilityMask, out: EntityId[]): number;
+  nearest(center: Vector2, maxRadius: number, filter: CapabilityMask): EntityId | undefined;
 
   /** Iteration ordered by increasing distance, without materializing the list. */
-  forEachInRadius(center: Vector2, radius: number, filter: TagMask,
+  forEachInRadius(center: Vector2, radius: number, filter: CapabilityMask,
                   visit: (id: EntityId, distSq: number) => boolean): void;
 }
 ```
@@ -50,9 +50,11 @@ interface SpatialIndex {
 **SPX-1** — Proximity queries **MUST** cost in proportion to the number of entities **in the queried
 area**, not to the total number of entities in the world (ARC-13.1).
 
-**SPX-2** — The filter by **capability/tag MUST** be applied *inside* the index, not downstream: an
-NPC looking for targets **MUST NOT** receive and then discard decorative elements. The filter
-**MUST** be a bitmask, not a string comparison (ARC-6.3).
+**SPX-2** — The filter by **capability MUST** be applied *inside* the index, not downstream: an NPC
+looking for targets **MUST NOT** receive and then discard decorative elements. The filter **MUST** be
+the `CapabilityMask` that `ENT` already computes (ENT-5), not a string comparison and not a tag
+vocabulary of the index's own (ARC-6.3). The index does not interpret the bits: it stores what it is
+handed and intersects it.
 
 **SPX-3** — Queries **MUST NOT** allocate: the caller supplies the buffer, or uses the callback-based
 iteration (ARC-13.3).
@@ -67,7 +69,7 @@ maximum radius.
 entities on load (ARC-10.4).
 
 **SPX-7** — The index **MUST NOT** own the entities nor know their properties: it knows id, position
-and tag mask. Asking *what* an entity is is up to `ENT`.
+and capability mask. Asking *what* an entity is is up to `ENT`.
 
 **SPX-8** — The result of a query **MUST** have a deterministic order (by increasing distance, and
 for equal distance by increasing id): an order that depends on the internal structure would make the
